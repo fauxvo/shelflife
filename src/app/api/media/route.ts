@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { mediaQuerySchema } from "@/lib/validators/schemas";
-import { db } from "@/lib/db";
+import { mediaQueryWithJoins, mediaCountWithJoins, mapMediaItemRow, buildPagination } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, sql, count } from "drizzle-orm";
+import { eq, and, isNull, type SQL } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
 
     const offset = (query.page - 1) * query.limit;
 
-    // Build conditions
-    const conditions = [eq(mediaItems.requestedByPlexId, session.plexId)];
+    // Build conditions - all filtering happens in SQL
+    const conditions: SQL[] = [eq(mediaItems.requestedByPlexId, session.plexId)];
 
     if (query.type !== "all") {
       conditions.push(eq(mediaItems.mediaType, query.type));
@@ -23,88 +23,31 @@ export async function GET(request: NextRequest) {
     if (query.status !== "all") {
       conditions.push(eq(mediaItems.status, query.status));
     }
+    if (query.vote !== "all") {
+      if (query.vote === "none") {
+        conditions.push(isNull(userVotes.vote));
+      } else {
+        conditions.push(eq(userVotes.vote, query.vote));
+      }
+    }
+    if (query.watched === "true") {
+      conditions.push(eq(watchStatus.watched, true));
+    }
 
-    // Get items with votes and watch status
-    const items = await db
-      .select({
-        id: mediaItems.id,
-        overseerrId: mediaItems.overseerrId,
-        tmdbId: mediaItems.tmdbId,
-        mediaType: mediaItems.mediaType,
-        title: mediaItems.title,
-        posterPath: mediaItems.posterPath,
-        status: mediaItems.status,
-        requestedAt: mediaItems.requestedAt,
-        ratingKey: mediaItems.ratingKey,
-        vote: userVotes.vote,
-        watched: watchStatus.watched,
-        playCount: watchStatus.playCount,
-        lastWatchedAt: watchStatus.lastWatchedAt,
-      })
-      .from(mediaItems)
-      .leftJoin(
-        userVotes,
-        and(
-          eq(userVotes.mediaItemId, mediaItems.id),
-          eq(userVotes.userPlexId, session.plexId)
-        )
-      )
-      .leftJoin(
-        watchStatus,
-        and(
-          eq(watchStatus.mediaItemId, mediaItems.id),
-          eq(watchStatus.userPlexId, session.plexId)
-        )
-      )
-      .where(and(...conditions))
+    const whereClause = and(...conditions)!;
+
+    const items = await mediaQueryWithJoins(session.plexId)
+      .where(whereClause)
       .orderBy(mediaItems.title)
       .limit(query.limit)
       .offset(offset);
 
-    // Get total count
-    const totalResult = await db
-      .select({ total: count() })
-      .from(mediaItems)
-      .where(and(...conditions));
-
+    const totalResult = await mediaCountWithJoins(session.plexId).where(whereClause);
     const total = totalResult[0]?.total || 0;
 
-    // Filter by vote if needed (post-query since it's a left join)
-    let filtered = items;
-    if (query.vote !== "all") {
-      if (query.vote === "none") {
-        filtered = items.filter((i) => !i.vote);
-      } else {
-        filtered = items.filter((i) => i.vote === query.vote);
-      }
-    }
-
     return NextResponse.json({
-      items: filtered.map((i) => ({
-        id: i.id,
-        overseerrId: i.overseerrId,
-        tmdbId: i.tmdbId,
-        mediaType: i.mediaType,
-        title: i.title,
-        posterPath: i.posterPath,
-        status: i.status,
-        requestedAt: i.requestedAt,
-        ratingKey: i.ratingKey,
-        vote: i.vote || null,
-        watchStatus: i.watched !== null
-          ? {
-              watched: i.watched,
-              playCount: i.playCount || 0,
-              lastWatchedAt: i.lastWatchedAt,
-            }
-          : null,
-      })),
-      pagination: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        pages: Math.ceil(total / query.limit),
-      },
+      items: items.map(mapMediaItemRow),
+      pagination: buildPagination(query.page, query.limit, total),
     });
   } catch (error) {
     return handleAuthError(error);

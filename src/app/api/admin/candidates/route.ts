@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { adminCandidatesQuerySchema } from "@/lib/validators/schemas";
+import { buildPagination } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count } from "drizzle-orm";
@@ -82,12 +83,7 @@ export async function GET(request: NextRequest) {
         watched: c.watched ?? false,
         playCount: c.playCount ?? 0,
       })),
-      pagination: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        pages: Math.ceil(total / query.limit),
-      },
+      pagination: buildPagination(query.page, query.limit, total),
     });
   } catch (error) {
     return handleAuthError(error);

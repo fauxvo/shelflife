@@ -5,10 +5,7 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAuth();
     const { id } = await params;
@@ -25,12 +22,7 @@ export async function POST(
     const item = await db
       .select()
       .from(mediaItems)
-      .where(
-        and(
-          eq(mediaItems.id, mediaItemId),
-          eq(mediaItems.requestedByPlexId, session.plexId)
-        )
-      )
+      .where(and(eq(mediaItems.id, mediaItemId), eq(mediaItems.requestedByPlexId, session.plexId)))
       .limit(1);
 
     if (item.length === 0) {

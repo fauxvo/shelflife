@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./src/lib/db/migrations",
   dialect: "sqlite",
   dbCredentials: {
-    url: process.env.DATABASE_PATH || "./data/plex-sync.db",
+    url: process.env.DATABASE_PATH || "./data/shelflife.db",
   },
 });

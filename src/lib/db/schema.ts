@@ -9,8 +9,12 @@ export const users = sqliteTable("users", {
   email: text("email"),
   avatarUrl: text("avatar_url"),
   isAdmin: integer("is_admin", { mode: "boolean" }).default(false).notNull(),
-  createdAt: text("created_at").default(sql`(datetime('now'))`).notNull(),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`).notNull(),
+  createdAt: text("created_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  updatedAt: text("updated_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
 });
 
 export const mediaItems = sqliteTable("media_items", {
@@ -31,8 +35,12 @@ export const mediaItems = sqliteTable("media_items", {
   requestedAt: text("requested_at"),
   ratingKey: text("rating_key"),
   lastSyncedAt: text("last_synced_at"),
-  createdAt: text("created_at").default(sql`(datetime('now'))`).notNull(),
-  updatedAt: text("updated_at").default(sql`(datetime('now'))`).notNull(),
+  createdAt: text("created_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  updatedAt: text("updated_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
 });
 
 export const watchStatus = sqliteTable("watch_status", {
@@ -46,7 +54,9 @@ export const watchStatus = sqliteTable("watch_status", {
   watched: integer("watched", { mode: "boolean" }).default(false).notNull(),
   playCount: integer("play_count").default(0).notNull(),
   lastWatchedAt: text("last_watched_at"),
-  syncedAt: text("synced_at").default(sql`(datetime('now'))`).notNull(),
+  syncedAt: text("synced_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
 });
 
 export const userVotes = sqliteTable(
@@ -60,12 +70,14 @@ export const userVotes = sqliteTable(
       .references(() => users.plexId)
       .notNull(),
     vote: text("vote", { enum: ["keep", "delete"] }).notNull(),
-    createdAt: text("created_at").default(sql`(datetime('now'))`).notNull(),
-    updatedAt: text("updated_at").default(sql`(datetime('now'))`).notNull(),
+    createdAt: text("created_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updatedAt: text("updated_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
   },
-  (table) => [
-    uniqueIndex("user_votes_media_user_idx").on(table.mediaItemId, table.userPlexId),
-  ]
+  (table) => [uniqueIndex("user_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
 );
 
 export const syncLog = sqliteTable("sync_log", {
@@ -78,6 +90,8 @@ export const syncLog = sqliteTable("sync_log", {
   }).notNull(),
   itemsSynced: integer("items_synced").default(0).notNull(),
   errors: text("errors"),
-  startedAt: text("started_at").default(sql`(datetime('now'))`).notNull(),
+  startedAt: text("started_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
   completedAt: text("completed_at"),
 });

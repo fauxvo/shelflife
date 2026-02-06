@@ -2,11 +2,37 @@ import { db } from "@/lib/db";
 import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
 import { getOverseerrClient, mapMediaStatus } from "./overseerr";
 import { getTautulliClient } from "./tautulli";
+import { upsertUser } from "./user-upsert";
 import { eq, sql } from "drizzle-orm";
 
-export async function syncOverseerr(): Promise<number> {
+export interface SyncProgress {
+  phase: "overseerr" | "tautulli";
+  step: string;
+  current: number;
+  total: number;
+  detail?: string;
+}
+
+type ProgressCallback = (progress: SyncProgress) => void;
+
+export async function syncOverseerr(onProgress?: ProgressCallback): Promise<number> {
   const client = getOverseerrClient();
+
+  onProgress?.({
+    phase: "overseerr",
+    step: "Fetching requests from Overseerr...",
+    current: 0,
+    total: 0,
+  });
   const requests = await client.getAllRequests();
+  const total = requests.length;
+  onProgress?.({
+    phase: "overseerr",
+    step: `Found ${total} requests. Syncing...`,
+    current: 0,
+    total,
+  });
+
   let synced = 0;
 
   for (const req of requests) {
@@ -20,44 +46,28 @@ export async function syncOverseerr(): Promise<number> {
     if (tmdbId) {
       try {
         const details = await client.getMediaDetails(tmdbId, mediaType);
-        title = details.title || details.name || details.originalTitle || details.originalName || title;
+        title =
+          details.title || details.name || details.originalTitle || details.originalName || title;
         posterPath = details.posterPath || null;
       } catch {
         // Keep default title if fetch fails
       }
     }
 
-    const requestedByPlexId = req.requestedBy?.plexId
-      ? String(req.requestedBy.plexId)
-      : null;
+    const requestedByPlexId = req.requestedBy?.plexId ? String(req.requestedBy.plexId) : null;
 
     // Upsert the requesting user if we have their info
     if (requestedByPlexId && req.requestedBy) {
-      await db
-        .insert(users)
-        .values({
-          plexId: requestedByPlexId,
-          username:
-            req.requestedBy.plexUsername ||
-            req.requestedBy.username ||
-            req.requestedBy.email ||
-            "Unknown",
-          email: req.requestedBy.email || null,
-          avatarUrl: req.requestedBy.avatar || null,
-        })
-        .onConflictDoUpdate({
-          target: users.plexId,
-          set: {
-            username:
-              req.requestedBy.plexUsername ||
-              req.requestedBy.username ||
-              req.requestedBy.email ||
-              "Unknown",
-            email: req.requestedBy.email || null,
-            avatarUrl: req.requestedBy.avatar || null,
-            updatedAt: sql`datetime('now')`,
-          },
-        });
+      await upsertUser({
+        plexId: requestedByPlexId,
+        username:
+          req.requestedBy.plexUsername ||
+          req.requestedBy.username ||
+          req.requestedBy.email ||
+          "Unknown",
+        email: req.requestedBy.email || null,
+        avatarUrl: req.requestedBy.avatar || null,
+      });
     }
 
     // Upsert media item
@@ -91,14 +101,30 @@ export async function syncOverseerr(): Promise<number> {
       });
 
     synced++;
+    if (synced % 5 === 0 || synced === total) {
+      onProgress?.({
+        phase: "overseerr",
+        step: "Syncing media items...",
+        current: synced,
+        total,
+        detail: title,
+      });
+    }
   }
 
   return synced;
 }
 
-export async function syncTautulli(): Promise<number> {
+export async function syncTautulli(onProgress?: ProgressCallback): Promise<number> {
   const client = getTautulliClient();
   let synced = 0;
+
+  onProgress?.({
+    phase: "tautulli",
+    step: "Fetching media items with rating keys...",
+    current: 0,
+    total: 0,
+  });
 
   // Get all media items that have a rating key
   const items = await db
@@ -106,17 +132,21 @@ export async function syncTautulli(): Promise<number> {
     .from(mediaItems)
     .where(sql`${mediaItems.ratingKey} IS NOT NULL`);
 
+  const total = items.length;
+  onProgress?.({
+    phase: "tautulli",
+    step: `Found ${total} items with rating keys. Fetching watch history...`,
+    current: 0,
+    total,
+  });
+
   // Get all Tautulli users to map user_id -> plex_id
   const tautulliUsers = await client.getUsers();
-  const userIdToPlexId = new Map<number, string>();
-  for (const u of tautulliUsers) {
-    // Tautulli user_id is not the same as plexId - we need to match them
-    // The best we can do is match by username or store the mapping
-    userIdToPlexId.set(u.user_id, String(u.user_id));
-  }
 
+  let processed = 0;
   for (const item of items) {
     if (!item.ratingKey) continue;
+    processed++;
 
     try {
       const history = await client.getHistory(item.ratingKey);
@@ -124,8 +154,6 @@ export async function syncTautulli(): Promise<number> {
       for (const record of history) {
         if (!record.user_id) continue;
 
-        // Try to find the user by their Tautulli user_id
-        // We'll match against existing users by username if possible
         const tautulliUser = tautulliUsers.find((u) => u.user_id === record.user_id);
         if (!tautulliUser) continue;
 
@@ -150,9 +178,7 @@ export async function syncTautulli(): Promise<number> {
           .limit(1);
 
         const watched = record.watched_status === 1;
-        const lastWatchedAt = record.stopped
-          ? new Date(record.stopped * 1000).toISOString()
-          : null;
+        const lastWatchedAt = record.stopped ? new Date(record.stopped * 1000).toISOString() : null;
 
         if (existing.length > 0) {
           await db
@@ -179,12 +205,24 @@ export async function syncTautulli(): Promise<number> {
     } catch (err) {
       console.error(`Failed to sync watch status for ${item.title}:`, err);
     }
+
+    if (processed % 3 === 0 || processed === total) {
+      onProgress?.({
+        phase: "tautulli",
+        step: "Syncing watch history...",
+        current: processed,
+        total,
+        detail: item.title,
+      });
+    }
   }
 
   return synced;
 }
 
-export async function runFullSync(): Promise<{ overseerr: number; tautulli: number }> {
+export async function runFullSync(
+  onProgress?: ProgressCallback
+): Promise<{ overseerr: number; tautulli: number }> {
   const logEntry = await db
     .insert(syncLog)
     .values({
@@ -196,8 +234,8 @@ export async function runFullSync(): Promise<{ overseerr: number; tautulli: numb
   const logId = logEntry[0].id;
 
   try {
-    const overseerrCount = await syncOverseerr();
-    const tautulliCount = await syncTautulli();
+    const overseerrCount = await syncOverseerr(onProgress);
+    const tautulliCount = await syncTautulli(onProgress);
 
     await db
       .update(syncLog)

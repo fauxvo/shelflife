@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>shelflife</Name>
+  <Repository>shelflife</Repository>
+  <Registry>local</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Overview>Manage your Plex library storage. Users log in via Plex to vote on keeping or deleting content they requested through Overseerr. Admin gets a dashboard showing what can be pruned.</Overview>
+  <Category>MediaServer:Other</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/plex-icon.png</Icon>
+  <ExtraParams/>
+  <DateInstalled/>
+  <Description>Shelflife - Library storage management. Connect to Overseerr and Tautulli to let users vote on which requested content to keep or delete.</Description>
+  <Config Name="Web UI Port" Target="3000" Default="3000" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+  <Config Name="Data" Target="/app/data" Default="/mnt/user/appdata/shelflife" Mode="rw" Description="SQLite database and app data" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/shelflife</Config>
+  <Config Name="Overseerr URL" Target="OVERSEERR_URL" Default="http://192.168.1.x:5055" Mode="" Description="URL of your Overseerr instance" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.x:5055</Config>
+  <Config Name="Overseerr API Key" Target="OVERSEERR_API_KEY" Default="" Mode="" Description="Overseerr API key (Settings > General in Overseerr)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Tautulli URL" Target="TAUTULLI_URL" Default="http://192.168.1.x:8181" Mode="" Description="URL of your Tautulli instance" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.x:8181</Config>
+  <Config Name="Tautulli API Key" Target="TAUTULLI_API_KEY" Default="" Mode="" Description="Tautulli API key (Settings > Web Interface in Tautulli)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Session Secret" Target="SESSION_SECRET" Default="" Mode="" Description="Random string for JWT signing (minimum 32 characters)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Plex Client ID" Target="PLEX_CLIENT_ID" Default="shelflife" Mode="" Description="Unique client identifier for Plex auth (keep default unless running multiple instances)" Type="Variable" Display="advanced" Required="false" Mask="false">shelflife</Config>
+  <Config Name="Admin Plex ID" Target="ADMIN_PLEX_ID" Default="" Mode="" Description="Force a specific Plex user ID as admin (optional - first user to sign in becomes admin if unset)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Database Path" Target="DATABASE_PATH" Default="/app/data/shelflife.db" Mode="" Description="Path to SQLite database inside container" Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/shelflife.db</Config>
+</Container>

@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import type { SessionPayload } from "@/types";
 
-const SESSION_COOKIE = "plex-sync-session";
+const SESSION_COOKIE = "shelflife-session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 function getSecret() {

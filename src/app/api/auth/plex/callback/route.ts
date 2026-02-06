@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkPlexPin, getPlexUser } from "@/lib/services/plex-auth";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { upsertUser } from "@/lib/services/user-upsert";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
 
 export async function GET(request: NextRequest) {
@@ -29,27 +29,14 @@ export async function GET(request: NextRequest) {
     const isAdmin = isFirstUser || isConfiguredAdmin;
 
     // Upsert user
-    const result = await db
-      .insert(users)
-      .values({
-        plexId,
-        plexToken: pin.authToken,
-        username: plexUser.username || plexUser.title || "Unknown",
-        email: plexUser.email || null,
-        avatarUrl: plexUser.thumb || null,
-        isAdmin,
-      })
-      .onConflictDoUpdate({
-        target: users.plexId,
-        set: {
-          plexToken: pin.authToken,
-          username: plexUser.username || plexUser.title || "Unknown",
-          email: plexUser.email || null,
-          avatarUrl: plexUser.thumb || null,
-          updatedAt: sql`datetime('now')`,
-        },
-      })
-      .returning();
+    const result = await upsertUser({
+      plexId,
+      plexToken: pin.authToken,
+      username: plexUser.username || plexUser.title || "Unknown",
+      email: plexUser.email || null,
+      avatarUrl: plexUser.thumb || null,
+      isAdmin,
+    });
 
     const user = result[0];
 
@@ -74,9 +61,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Auth callback error:", error);
-    return NextResponse.json(
-      { error: "Authentication failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
   }
 }

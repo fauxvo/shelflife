@@ -1,33 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Pagination } from "../ui/Pagination";
+import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import type { DeletionCandidate } from "@/types";
 
 export function DeletionCandidates() {
   const [candidates, setCandidates] = useState<DeletionCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  useEffect(() => {
-    fetchCandidates();
-  }, [page]);
-
-  const fetchCandidates = async () => {
+  const fetchCandidates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/candidates?page=${page}`);
+      const res = await fetch(`/api/admin/candidates?page=${page}&limit=${pageSize}`);
       if (res.ok) {
         const data = await res.json();
         setCandidates(data.candidates);
         setTotalPages(data.pagination.pages);
+        setTotalItems(data.pagination.total);
       }
     } catch {
       // Keep existing
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
 
   if (loading) {
     return (
@@ -45,7 +50,9 @@ export function DeletionCandidates() {
     return (
       <div className="text-center py-8 text-gray-500">
         <p>No deletion candidates yet</p>
-        <p className="text-sm mt-1">Items appear here when users vote to delete their own requests</p>
+        <p className="text-sm mt-1">
+          Items appear here when users vote to delete their own requests
+        </p>
       </div>
     );
   }
@@ -69,9 +76,7 @@ export function DeletionCandidates() {
               <tr key={c.id} className="text-gray-200">
                 <td className="py-3 pr-4 font-medium">{c.title}</td>
                 <td className="py-3 pr-4">
-                  <span className="text-xs px-2 py-0.5 rounded bg-gray-800">
-                    {c.mediaType === "tv" ? "TV" : "Movie"}
-                  </span>
+                  <MediaTypeBadge mediaType={c.mediaType} />
                 </td>
                 <td className="py-3 pr-4 text-gray-400">{c.requestedByUsername}</td>
                 <td className="py-3 pr-4">
@@ -93,27 +98,17 @@ export function DeletionCandidates() {
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 bg-gray-800 rounded-md text-sm disabled:opacity-50 hover:bg-gray-700"
-          >
-            Previous
-          </button>
-          <span className="px-4 py-2 text-sm text-gray-400">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="px-4 py-2 bg-gray-800 rounded-md text-sm disabled:opacity-50 hover:bg-gray-700"
-          >
-            Next
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }

@@ -8,6 +8,9 @@ export async function GET() {
     await db.run(sql`SELECT 1`);
     return NextResponse.json({ status: "ok", timestamp: new Date().toISOString() });
   } catch {
-    return NextResponse.json({ status: "error", timestamp: new Date().toISOString() }, { status: 503 });
+    return NextResponse.json(
+      { status: "error", timestamp: new Date().toISOString() },
+      { status: 503 }
+    );
   }
 }

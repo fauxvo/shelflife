@@ -36,11 +36,14 @@ export function PlexLoginButton() {
       }, 2000);
 
       // Stop polling after 5 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setLoading(false);
-        setError("Authentication timed out. Please try again.");
-      }, 5 * 60 * 1000);
+      setTimeout(
+        () => {
+          clearInterval(pollInterval);
+          setLoading(false);
+          setError("Authentication timed out. Please try again.");
+        },
+        5 * 60 * 1000
+      );
 
       // Stop polling if popup closed
       const checkClosed = setInterval(() => {

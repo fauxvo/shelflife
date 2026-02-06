@@ -1,0 +1,19 @@
+export const STATUS_COLORS: Record<string, string> = {
+  available: "bg-green-900/50 text-green-300",
+  partial: "bg-yellow-900/50 text-yellow-300",
+  processing: "bg-blue-900/50 text-blue-300",
+  pending: "bg-orange-900/50 text-orange-300",
+  unknown: "bg-gray-800 text-gray-400",
+};
+
+export const VOTE_COLORS: Record<string, string> = {
+  keep: "bg-green-900/50 text-green-300",
+  delete: "bg-red-900/50 text-red-300",
+};
+
+export const VOTE_LABELS: Record<string, string> = {
+  keep: "Keeping",
+  delete: "Can Delete",
+  none: "Not Voted",
+  watched: "Watched",
+};

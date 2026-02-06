@@ -9,35 +9,35 @@ const tautulliResponseSchema = z.object({
 });
 
 const tautulliHistoryRecordSchema = z.object({
-  reference_id: z.number().optional(),
-  user_id: z.number().optional(),
-  user: z.string().optional(),
-  rating_key: z.union([z.string(), z.number()]).optional(),
-  parent_rating_key: z.union([z.string(), z.number()]).optional(),
-  grandparent_rating_key: z.union([z.string(), z.number()]).optional(),
-  title: z.string().optional(),
-  full_title: z.string().optional(),
-  watched_status: z.number().optional(),
-  play_count: z.number().optional(),
-  stopped: z.number().optional(),
+  reference_id: z.number().nullish(),
+  user_id: z.number().nullish(),
+  user: z.string().nullish(),
+  rating_key: z.union([z.string(), z.number()]).nullish(),
+  parent_rating_key: z.union([z.string(), z.number()]).nullish(),
+  grandparent_rating_key: z.union([z.string(), z.number()]).nullish(),
+  title: z.string().nullish(),
+  full_title: z.string().nullish(),
+  watched_status: z.number().nullish(),
+  play_count: z.number().nullish(),
+  stopped: z.number().nullish(),
 });
 
 const tautulliUserSchema = z.object({
   user_id: z.number(),
   username: z.string(),
-  friendly_name: z.string().optional(),
-  email: z.string().optional(),
-  thumb: z.string().optional(),
+  friendly_name: z.string().nullish(),
+  email: z.string().nullish(),
+  thumb: z.string().nullish(),
 });
 
 const tautulliLibraryMediaSchema = z.object({
-  rating_key: z.string().optional(),
-  title: z.string().optional(),
-  year: z.union([z.string(), z.number()]).optional(),
-  media_type: z.string().optional(),
-  last_played: z.union([z.string(), z.number()]).optional(),
-  play_count: z.union([z.string(), z.number()]).optional(),
-  file_size: z.union([z.string(), z.number()]).optional(),
+  rating_key: z.string().nullish(),
+  title: z.string().nullish(),
+  year: z.union([z.string(), z.number()]).nullish(),
+  media_type: z.string().nullish(),
+  last_played: z.union([z.string(), z.number()]).nullish(),
+  play_count: z.union([z.string(), z.number()]).nullish(),
+  file_size: z.union([z.string(), z.number()]).nullish(),
 });
 
 export type TautulliHistoryRecord = z.infer<typeof tautulliHistoryRecordSchema>;

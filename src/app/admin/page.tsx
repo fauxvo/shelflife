@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
-import { eq, count, desc, sql } from "drizzle-orm";
+import { eq, count, desc } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { DeletionCandidates } from "@/components/admin/DeletionCandidates";
 
@@ -23,11 +23,7 @@ export default async function AdminPage() {
     .where(eq(userVotes.vote, "keep"));
 
   // Get last sync
-  const lastSyncResult = await db
-    .select()
-    .from(syncLog)
-    .orderBy(desc(syncLog.startedAt))
-    .limit(1);
+  const lastSyncResult = await db.select().from(syncLog).orderBy(desc(syncLog.startedAt)).limit(1);
 
   const lastSync = lastSyncResult[0] || null;
 
@@ -48,7 +44,7 @@ export default async function AdminPage() {
       <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Plex Sync - Admin</h1>
+            <h1 className="text-xl font-bold">Shelflife - Admin</h1>
             <p className="text-sm text-gray-400">Library management overview</p>
           </div>
           <div className="flex items-center gap-4">
@@ -56,9 +52,7 @@ export default async function AdminPage() {
               Dashboard
             </a>
             <form action="/api/auth/logout" method="POST">
-              <button className="text-sm text-gray-400 hover:text-gray-200">
-                Sign Out
-              </button>
+              <button className="text-sm text-gray-400 hover:text-gray-200">Sign Out</button>
             </form>
           </div>
         </div>
@@ -101,7 +95,14 @@ export default async function AdminPage() {
               <tbody className="divide-y divide-gray-800">
                 {userStats.map((u) => (
                   <tr key={u.plexId} className="text-gray-200">
-                    <td className="py-3 pr-4">{u.username}</td>
+                    <td className="py-3 pr-4">
+                      <a
+                        href={`/admin/users/${u.plexId}`}
+                        className="text-[#e5a00d] hover:underline"
+                      >
+                        {u.username}
+                      </a>
+                    </td>
                     <td className="py-3">{u.requestCount}</td>
                   </tr>
                 ))}

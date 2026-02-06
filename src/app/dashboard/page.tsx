@@ -2,9 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count, sql } from "drizzle-orm";
-import { UserStats } from "@/components/dashboard/UserStats";
-import { MediaGrid } from "@/components/media/MediaGrid";
+import { eq, and, count } from "drizzle-orm";
+import { DashboardContent } from "@/components/dashboard/DashboardContent";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -42,7 +41,7 @@ export default async function DashboardPage() {
       <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Plex Sync</h1>
+            <h1 className="text-xl font-bold">Shelflife</h1>
             <p className="text-sm text-gray-400">Welcome, {session.username}</p>
           </div>
           <div className="flex items-center gap-4">
@@ -52,25 +51,19 @@ export default async function DashboardPage() {
               </a>
             )}
             <form action="/api/auth/logout" method="POST">
-              <button className="text-sm text-gray-400 hover:text-gray-200">
-                Sign Out
-              </button>
+              <button className="text-sm text-gray-400 hover:text-gray-200">Sign Out</button>
             </form>
           </div>
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-        <UserStats
+        <DashboardContent
           totalRequests={totalRequests}
           keepCount={keepCount}
           deleteCount={deleteCount}
           unvotedCount={unvotedCount}
           watchedCount={watchedCount}
         />
-        <div>
-          <h2 className="text-lg font-semibold mb-4">Your Requests</h2>
-          <MediaGrid />
-        </div>
       </main>
     </div>
   );

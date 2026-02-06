@@ -5,8 +5,8 @@ const PLEX_API_BASE = "https://plex.tv/api/v2";
 const plexHeaders = () => ({
   Accept: "application/json",
   "Content-Type": "application/json",
-  "X-Plex-Client-Identifier": process.env.PLEX_CLIENT_ID || "plex-sync",
-  "X-Plex-Product": "Plex Sync",
+  "X-Plex-Client-Identifier": process.env.PLEX_CLIENT_ID || "shelflife",
+  "X-Plex-Product": "Shelflife",
   "X-Plex-Version": "1.0.0",
 });
 
@@ -46,8 +46,8 @@ export async function createPlexPin(): Promise<PlexPin> {
 }
 
 export function getPlexAuthUrl(pin: PlexPin): string {
-  const clientId = process.env.PLEX_CLIENT_ID || "plex-sync";
-  return `https://app.plex.tv/auth#?clientID=${clientId}&code=${pin.code}&context%5Bdevice%5D%5Bproduct%5D=Plex%20Sync`;
+  const clientId = process.env.PLEX_CLIENT_ID || "shelflife";
+  return `https://app.plex.tv/auth#?clientID=${clientId}&code=${pin.code}&context%5Bdevice%5D%5Bproduct%5D=Shelflife`;
 }
 
 export async function checkPlexPin(pinId: number): Promise<PlexPin> {

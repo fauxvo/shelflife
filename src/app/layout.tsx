@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Plex Sync",
+  title: "Shelflife",
   description: "Manage your Plex library storage - vote to keep or prune requested content",
 };
 
@@ -13,9 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-gray-950 text-gray-100 min-h-screen antialiased">
-        {children}
-      </body>
+      <body className="bg-gray-950 text-gray-100 min-h-screen antialiased">{children}</body>
     </html>
   );
 }

@@ -2,21 +2,21 @@ import { z } from "zod";
 
 const overseerrUserSchema = z.object({
   id: z.number(),
-  email: z.string().optional(),
-  plexUsername: z.string().optional(),
-  username: z.string().optional(),
-  plexId: z.number().optional(),
-  avatar: z.string().optional(),
-  requestCount: z.number().optional(),
+  email: z.string().nullish(),
+  plexUsername: z.string().nullish(),
+  username: z.string().nullish(),
+  plexId: z.number().nullish(),
+  avatar: z.string().nullish(),
+  requestCount: z.number().nullish(),
 });
 
 const overseerrMediaInfoSchema = z.object({
-  id: z.number().optional(),
-  tmdbId: z.number().optional(),
-  tvdbId: z.number().optional(),
-  status: z.number().optional(),
-  ratingKey: z.string().optional(),
-  externalServiceId: z.number().optional(),
+  id: z.number().nullish(),
+  tmdbId: z.number().nullish(),
+  tvdbId: z.number().nullish(),
+  status: z.number().nullish(),
+  ratingKey: z.string().nullish(),
+  externalServiceId: z.number().nullish(),
 });
 
 const overseerrRequestSchema = z.object({
@@ -25,17 +25,19 @@ const overseerrRequestSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   type: z.enum(["movie", "tv"]),
-  media: z.object({
-    id: z.number().optional(),
-    tmdbId: z.number().optional(),
-    tvdbId: z.number().optional(),
-    status: z.number().optional(),
-    mediaType: z.string().optional(),
-    ratingKey: z.string().optional(),
-    externalServiceSlug: z.string().optional(),
-  }).optional(),
-  requestedBy: overseerrUserSchema.optional(),
-  mediaInfo: overseerrMediaInfoSchema.optional(),
+  media: z
+    .object({
+      id: z.number().nullish(),
+      tmdbId: z.number().nullish(),
+      tvdbId: z.number().nullish(),
+      status: z.number().nullish(),
+      mediaType: z.string().nullish(),
+      ratingKey: z.string().nullish(),
+      externalServiceSlug: z.string().nullish(),
+    })
+    .nullish(),
+  requestedBy: overseerrUserSchema.nullish(),
+  mediaInfo: overseerrMediaInfoSchema.nullish(),
 });
 
 const overseerrPageSchema = z.object({
@@ -61,13 +63,13 @@ const overseerrUserPageSchema = z.object({
 // Media info response with title
 const overseerrMediaDetailSchema = z.object({
   id: z.number(),
-  mediaType: z.string().optional(),
-  title: z.string().optional(),
-  name: z.string().optional(),
-  originalTitle: z.string().optional(),
-  originalName: z.string().optional(),
-  posterPath: z.string().optional(),
-  overview: z.string().optional(),
+  mediaType: z.string().nullish(),
+  title: z.string().nullish(),
+  name: z.string().nullish(),
+  originalTitle: z.string().nullish(),
+  originalName: z.string().nullish(),
+  posterPath: z.string().nullish(),
+  overview: z.string().nullish(),
 });
 
 export type OverseerrRequest = z.infer<typeof overseerrRequestSchema>;
@@ -83,7 +85,7 @@ const MEDIA_STATUS_MAP: Record<number, MediaStatusValue> = {
   5: "available",
 };
 
-export function mapMediaStatus(status: number | undefined): MediaStatusValue {
+export function mapMediaStatus(status: number | null | undefined): MediaStatusValue {
   return MEDIA_STATUS_MAP[status ?? 1] || "unknown";
 }
 

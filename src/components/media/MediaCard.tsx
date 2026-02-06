@@ -1,31 +1,26 @@
+import Image from "next/image";
 import { VoteButton } from "./VoteButton";
+import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { STATUS_COLORS } from "@/lib/constants";
 import type { MediaItemWithVote } from "@/types";
 
 interface MediaCardProps {
   item: MediaItemWithVote;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  available: "bg-green-900/50 text-green-300",
-  partial: "bg-yellow-900/50 text-yellow-300",
-  processing: "bg-blue-900/50 text-blue-300",
-  pending: "bg-orange-900/50 text-orange-300",
-  unknown: "bg-gray-800 text-gray-400",
-};
-
 export function MediaCard({ item }: MediaCardProps) {
-  const posterUrl = item.posterPath
-    ? `https://image.tmdb.org/t/p/w300${item.posterPath}`
-    : null;
+  const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null;
 
   return (
     <div className="bg-gray-900 rounded-lg overflow-hidden border border-gray-800">
       <div className="aspect-[2/3] relative bg-gray-800">
         {posterUrl ? (
-          <img
+          <Image
             src={posterUrl}
             alt={item.title}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600">
@@ -40,10 +35,10 @@ export function MediaCard({ item }: MediaCardProps) {
           </div>
         )}
         <div className="absolute top-2 left-2 flex gap-1">
-          <span className="text-xs px-2 py-0.5 rounded bg-gray-900/80 text-gray-300">
-            {item.mediaType === "tv" ? "TV" : "Movie"}
-          </span>
-          <span className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}>
+          <MediaTypeBadge mediaType={item.mediaType} />
+          <span
+            className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
+          >
             {item.status}
           </span>
         </div>
