@@ -1,5 +1,6 @@
 services:
   shelflife:
+    image: ghcr.io/fauxvo/shelflife:latest
     build: .
     container_name: shelflife
     restart: unless-stopped
