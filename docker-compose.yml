@@ -1,0 +1,27 @@
+services:
+  plex-sync:
+    build: .
+    container_name: plex-sync
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=/app/data/plex-sync.db
+      - OVERSEERR_URL=${OVERSEERR_URL}
+      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
+      - TAUTULLI_URL=${TAUTULLI_URL}
+      - TAUTULLI_API_KEY=${TAUTULLI_API_KEY}
+      - PLEX_CLIENT_ID=${PLEX_CLIENT_ID:-plex-sync}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PLEX_ID=${ADMIN_PLEX_ID:-}
+    volumes:
+      - plex-sync-data:/app/data
+    labels:
+      - "net.unraid.docker.managed=dockerman"
+      - "net.unraid.docker.webui=http://[IP]:[PORT:3000]/"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/plex-icon.png"
+
+volumes:
+  plex-sync-data:
+    driver: local
