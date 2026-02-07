@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/fauxvo/shelflife/compare/v1.0.1...v1.1.0) (2026-02-07)
+
+
+### Features
+
+* add DEBUG logging and app version display ([865a470](https://github.com/fauxvo/shelflife/commit/865a4703ea847f1c18dff960bba6293d3898f2bc))
+* debug logging, version display, and logout fix ([9c4d52c](https://github.com/fauxvo/shelflife/commit/9c4d52cd0c80fd1caac9d0a1cdce7605004951d2))
+
+
+### Bug Fixes
+
+* address code review feedback ([624936a](https://github.com/fauxvo/shelflife/commit/624936a039e3317b3ee9f9694f9f75fa05d17b3e))
+* logout redirect and add DEBUG to docs ([904318e](https://github.com/fauxvo/shelflife/commit/904318edf6e31ebbdd688a33f1c16fc44f86dc20))
+
 ## [1.0.1](https://github.com/fauxvo/shelflife/compare/v1.0.0...v1.0.1) (2026-02-07)
 
 
