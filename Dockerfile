@@ -47,7 +47,8 @@ COPY --from=builder /app/src/lib/db/migrations ./src/lib/db/migrations
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
-# Copy entrypoint script
+# Copy migration script and entrypoint
+COPY migrate.js /app/migrate.js
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
