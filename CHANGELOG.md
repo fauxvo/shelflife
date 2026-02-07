@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/fauxvo/shelflife/compare/v1.1.1...v1.2.0) (2026-02-07)
+
+
+### Features
+
+* toast notifications for sync and auto-refresh stats ([d8ea297](https://github.com/fauxvo/shelflife/commit/d8ea297f7e5f246210c68e1c4dc9d4f960188ab5))
+* toast notifications for sync results ([1743248](https://github.com/fauxvo/shelflife/commit/17432488222cdb0b127077bc206f45d8cb212411))
+
+
+### Bug Fixes
+
+* address code review - tests, accessibility, export ([b5e93f6](https://github.com/fauxvo/shelflife/commit/b5e93f682c4e9fbb44feefbaeeca1085218e0e3b))
+
 ## [1.1.1](https://github.com/fauxvo/shelflife/compare/v1.1.0...v1.1.1) (2026-02-07)
 
 
