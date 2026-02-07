@@ -2,13 +2,14 @@ import Image from "next/image";
 import { VoteButton } from "./VoteButton";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { STATUS_COLORS } from "@/lib/constants";
-import type { MediaItemWithVote } from "@/types";
+import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface MediaCardProps {
   item: MediaItemWithVote;
+  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue) => void;
 }
 
-export function MediaCard({ item }: MediaCardProps) {
+export function MediaCard({ item, onVoteChange }: MediaCardProps) {
   const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null;
 
   return (
@@ -73,6 +74,7 @@ export function MediaCard({ item }: MediaCardProps) {
           seasonCount={item.seasonCount}
           mediaType={item.mediaType}
           currentKeepSeasons={item.keepSeasons}
+          onVoteChange={(newVote, oldVote) => onVoteChange?.(item.id, oldVote, newVote)}
         />
       </div>
     </div>

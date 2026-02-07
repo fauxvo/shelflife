@@ -9,7 +9,7 @@ interface VoteButtonProps {
   seasonCount?: number | null;
   mediaType?: "movie" | "tv";
   currentKeepSeasons?: number | null;
-  onVoteChange?: (vote: VoteValue) => void;
+  onVoteChange?: (newVote: VoteValue, oldVote: VoteValue | null) => void;
 }
 
 export function VoteButton({
@@ -44,12 +44,13 @@ export function VoteButton({
       });
 
       if (res.ok) {
+        const oldVote = vote;
         setVote(newVote);
         if (newVote === "trim" && seasons !== undefined) {
           setKeepSeasons(seasons);
         }
         setShowTrimSelector(false);
-        onVoteChange?.(newVote);
+        onVoteChange?.(newVote, oldVote);
       }
     } catch (err) {
       console.error("Failed to cast vote:", err);

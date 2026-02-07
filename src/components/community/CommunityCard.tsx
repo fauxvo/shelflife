@@ -108,7 +108,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
               seasonCount={item.seasonCount}
               mediaType={item.mediaType}
               currentKeepSeasons={item.keepSeasons}
-              onVoteChange={(vote) => onSelfVoteChange?.(item.id, vote)}
+              onVoteChange={(newVote) => onSelfVoteChange?.(item.id, newVote)}
             />
           </div>
         ) : (

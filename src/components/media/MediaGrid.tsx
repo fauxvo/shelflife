@@ -5,14 +5,15 @@ import { MediaCard } from "./MediaCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
 import { VOTE_LABELS } from "@/lib/constants";
-import type { MediaItemWithVote } from "@/types";
+import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface MediaGridProps {
   initialItems?: MediaItemWithVote[];
   statsFilter?: string | null;
+  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue) => void;
 }
 
-export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
+export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGridProps) {
   const [items, setItems] = useState<MediaItemWithVote[]>(initialItems || []);
   const [loading, setLoading] = useState(!initialItems);
   const [page, setPage] = useState(1);
@@ -171,7 +172,7 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => (
-            <MediaCard key={item.id} item={item} />
+            <MediaCard key={item.id} item={item} onVoteChange={onVoteChange} />
           ))}
         </div>
       )}
