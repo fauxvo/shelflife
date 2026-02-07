@@ -4,7 +4,7 @@ import { communityQuerySchema } from "@/lib/validators/schemas";
 import { buildPagination } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, sql, notInArray, isNull, desc, inArray } from "drizzle-orm";
+import { eq, and, count, sql, isNull, desc, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 async function getCandidateCount(
@@ -19,19 +19,25 @@ async function getCandidateCount(
     whereConditions.push(eq(mediaItems.mediaType, query.type as "movie" | "tv"));
   }
 
-  if (query.unvoted === "true") {
-    const votedItemIds = dbInstance
-      .select({ mediaItemId: communityVotes.mediaItemId })
-      .from(communityVotes)
-      .where(eq(communityVotes.userPlexId, plexId));
+  // Use LEFT JOIN + IS NULL to match the main query's unvoted filtering
+  const userCvCount = dbInstance
+    .select({
+      mediaItemId: communityVotes.mediaItemId,
+      vote: communityVotes.vote,
+    })
+    .from(communityVotes)
+    .where(eq(communityVotes.userPlexId, plexId))
+    .as("user_cv_count");
 
-    whereConditions.push(notInArray(mediaItems.id, votedItemIds));
+  if (query.unvoted === "true") {
+    whereConditions.push(isNull(userCvCount.vote));
   }
 
   const result = await dbInstance
     .select({ total: count() })
     .from(mediaItems)
     .innerJoin(userVotes, baseCondition)
+    .leftJoin(userCvCount, eq(userCvCount.mediaItemId, mediaItems.id))
     .where(and(...whereConditions));
 
   return result[0]?.total || 0;
@@ -45,13 +51,6 @@ export async function GET(request: NextRequest) {
     const query = communityQuerySchema.parse(params);
 
     const offset = (query.page - 1) * query.limit;
-
-    // Build WHERE conditions
-    const conditions: ReturnType<typeof eq>[] = [];
-
-    if (query.type !== "all") {
-      conditions.push(eq(mediaItems.mediaType, query.type));
-    }
 
     // Base query: items where the requestor voted "delete" or "trim" on their own item
     const baseCondition = and(

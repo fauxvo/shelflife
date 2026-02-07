@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { VoteValue } from "@/types";
 
 interface VoteButtonProps {
@@ -25,6 +25,16 @@ export function VoteButton({
   const [error, setError] = useState<string | null>(null);
   const [keepSeasons, setKeepSeasons] = useState<number>(currentKeepSeasons || 1);
   const [showTrimSelector, setShowTrimSelector] = useState(false);
+
+  useEffect(() => {
+    setVote(currentVote);
+  }, [currentVote]);
+
+  useEffect(() => {
+    if (currentKeepSeasons != null) {
+      setKeepSeasons(currentKeepSeasons);
+    }
+  }, [currentKeepSeasons]);
 
   const canTrim = mediaType === "tv" && seasonCount && seasonCount > 1;
 
