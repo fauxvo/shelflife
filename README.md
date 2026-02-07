@@ -29,6 +29,7 @@ Shelflife is read-only against your external services -- it never deletes anythi
 | `PLEX_CLIENT_ID`    | No       | Identifier for Plex auth (defaults to `shelflife`)                                     |
 | `ADMIN_PLEX_ID`     | No       | Force a specific Plex user as admin. If unset, the first user to sign in becomes admin |
 | `DATABASE_PATH`     | No       | Path to SQLite database (defaults to `/app/data/shelflife.db` in Docker)               |
+| `DEBUG`             | No       | Set to `true` for verbose debug logging (useful for troubleshooting)                   |
 
 ## Running with Docker Compose
 
@@ -102,6 +103,7 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
          - TAUTULLI_URL=http://YOUR_UNRAID_IP:8181
          - TAUTULLI_API_KEY=your-tautulli-api-key
          - SESSION_SECRET=your-generated-secret-from-above
+         # - DEBUG=true  # Uncomment for verbose logging
        volumes:
          - /mnt/user/appdata/shelflife:/app/data
    ```
@@ -148,6 +150,7 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
    | Variable    | Tautulli URL      | `TAUTULLI_URL`      | `http://YOUR_UNRAID_IP:8181` |
    | Variable    | Tautulli API Key  | `TAUTULLI_API_KEY`  | Your Tautulli API key        |
    | Variable    | Session Secret    | `SESSION_SECRET`    | Your generated secret        |
+   | Variable    | Debug Logging     | `DEBUG`             | `true` (optional)            |
 
 6. Click **Apply**
 
@@ -178,6 +181,8 @@ The template has all ports, paths, and optional settings pre-configured. You jus
 **Container starts but can't reach the web UI:** Make sure port 3000 isn't already in use by another container. You can change the host port (the left side) to something else, e.g. `3001:3000`.
 
 **Database errors after update:** The SQLite database is stored in `/mnt/user/appdata/shelflife/`. As long as that volume mapping is correct, your data persists across container updates.
+
+**Something not working? Enable debug logging:** Add the environment variable `DEBUG=true` to your container. This outputs detailed logs for auth, sync, and API calls. Check the container logs in the Unraid Docker tab (click the container icon > **Log**) to see what's happening.
 
 ## First login
 
