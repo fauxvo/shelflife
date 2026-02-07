@@ -34,6 +34,9 @@ vi.mock("@/lib/db", () => ({
   get db() {
     return testDb.db;
   },
+  get sqlite() {
+    return (testDb.db as any).session.client;
+  },
 }));
 
 const routeModule = await import("../route");

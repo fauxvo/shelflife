@@ -19,6 +19,7 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
   const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
     type: "all",
     status: "all",
@@ -43,6 +44,7 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -76,8 +78,9 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
         setTotalPages(data.pagination.pages);
         setTotalItems(data.pagination.total);
       }
-    } catch (error) {
-      console.error("Failed to fetch media items:", error);
+    } catch (err) {
+      console.error("Failed to fetch media items:", err);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -148,7 +151,17 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
       </div>
 
       {/* Grid */}
-      {loading ? (
+      {fetchError ? (
+        <div className="py-12 text-center text-red-400">
+          <p className="text-lg">Failed to load media items</p>
+          <button
+            onClick={fetchItems}
+            className="mt-2 text-sm text-gray-400 underline hover:text-gray-200"
+          >
+            Try again
+          </button>
+        </div>
+      ) : loading ? (
         <MediaCardSkeleton />
       ) : items.length === 0 ? (
         <div className="py-12 text-center text-gray-500">

@@ -22,6 +22,7 @@ export function VoteButton({
 }: VoteButtonProps) {
   const [vote, setVote] = useState<VoteValue | null>(currentVote);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [keepSeasons, setKeepSeasons] = useState<number>(currentKeepSeasons || 1);
   const [showTrimSelector, setShowTrimSelector] = useState(false);
 
@@ -29,6 +30,7 @@ export function VoteButton({
 
   const handleVote = async (newVote: VoteValue, seasons?: number) => {
     setLoading(true);
+    setError(null);
     try {
       const body: Record<string, unknown> = { vote: newVote };
       if (newVote === "trim" && seasons !== undefined) {
@@ -49,8 +51,9 @@ export function VoteButton({
         setShowTrimSelector(false);
         onVoteChange?.(newVote);
       }
-    } catch (error) {
-      console.error("Failed to cast vote:", error);
+    } catch (err) {
+      console.error("Failed to cast vote:", err);
+      setError("Vote failed. Try again.");
     } finally {
       setLoading(false);
     }
@@ -58,6 +61,7 @@ export function VoteButton({
 
   return (
     <div className="space-y-2">
+      {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={() => handleVote("keep")}

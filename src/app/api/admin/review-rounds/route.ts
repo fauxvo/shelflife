@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { reviewRoundCreateSchema } from "@/lib/validators/schemas";
-import { db } from "@/lib/db";
+import { db, sqlite } from "@/lib/db";
 import { reviewRounds, reviewActions } from "@/lib/db/schema";
 import { eq, desc, count } from "drizzle-orm";
 
@@ -50,30 +50,41 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name } = reviewRoundCreateSchema.parse(body);
 
-    // Check for existing active round
-    // SQLite's single-writer lock serializes concurrent writes
-    const active = await db
-      .select()
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    // Atomic check + insert via synchronous better-sqlite3 transaction
+    // prevents race condition where two concurrent requests both pass the check
+    const createRound = sqlite.transaction(() => {
+      const active = sqlite
+        .prepare("SELECT id FROM review_rounds WHERE status = 'active' LIMIT 1")
+        .get();
+      if (active) return null;
 
-    if (active.length > 0) {
+      return sqlite
+        .prepare("INSERT INTO review_rounds (name, created_by_plex_id) VALUES (?, ?) RETURNING *")
+        .get(name, session.plexId) as Record<string, unknown>;
+    });
+
+    const row = createRound();
+
+    if (!row) {
       return NextResponse.json(
         { error: "An active review round already exists. Close it before starting a new one." },
         { status: 409 }
       );
     }
 
-    const result = await db
-      .insert(reviewRounds)
-      .values({
-        name,
-        createdByPlexId: session.plexId,
-      })
-      .returning();
-
-    return NextResponse.json({ round: result[0] }, { status: 201 });
+    return NextResponse.json(
+      {
+        round: {
+          id: row.id,
+          name: row.name,
+          status: row.status,
+          startedAt: row.started_at,
+          closedAt: row.closed_at,
+          createdByPlexId: row.created_by_plex_id,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json({ error: "Invalid round name" }, { status: 400 });
