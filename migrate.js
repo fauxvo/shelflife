@@ -43,7 +43,11 @@ for (const file of files) {
       db.exec(trimmed);
       applied++;
     } catch (e) {
-      if (e.message && e.message.includes("already exists")) {
+      if (
+        e.message &&
+        (e.message.includes("already exists") ||
+          e.message.includes("duplicate column name"))
+      ) {
         skipped++;
       } else {
         console.error(`Migration failed (${file}):`, e.message);
