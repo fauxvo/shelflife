@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { eq, and, count } from "drizzle-orm";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { AppVersion } from "@/components/ui/AppVersion";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -38,10 +39,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
-            <h1 className="text-xl font-bold">Shelflife</h1>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-xl font-bold">Shelflife</h1>
+              <AppVersion />
+            </div>
             <p className="text-sm text-gray-400">Welcome, {session.username}</p>
           </div>
           <div className="flex items-center gap-4">
@@ -56,7 +60,7 @@ export default async function DashboardPage() {
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <DashboardContent
           totalRequests={totalRequests}
           keepCount={keepCount}

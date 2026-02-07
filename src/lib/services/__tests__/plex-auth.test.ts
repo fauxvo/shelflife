@@ -24,7 +24,11 @@ describe("createPlexPin", () => {
   });
 
   it("throws on HTTP error", async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve("Internal Server Error"),
+    });
     await expect(createPlexPin()).rejects.toThrow("Failed to create Plex PIN: 500");
   });
 

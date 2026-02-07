@@ -4,9 +4,13 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { upsertUser } from "@/lib/services/user-upsert";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { handleAuthError } from "@/lib/auth/middleware";
+import { debug } from "@/lib/debug";
 
 export async function GET(request: NextRequest) {
   const pinId = request.nextUrl.searchParams.get("pinId");
+  debug.auth("GET /api/auth/plex/callback", { pinId });
+
   if (!pinId) {
     return NextResponse.json({ error: "pinId required" }, { status: 400 });
   }
@@ -15,10 +19,12 @@ export async function GET(request: NextRequest) {
     const pin = await checkPlexPin(Number(pinId));
 
     if (!pin.authToken) {
+      debug.auth("PIN not yet authenticated, still waiting");
       return NextResponse.json({ authenticated: false });
     }
 
     // Get user info from Plex
+    debug.auth("PIN authenticated, fetching Plex user info");
     const plexUser = await getPlexUser(pin.authToken);
     const plexId = String(plexUser.id);
 
@@ -27,6 +33,14 @@ export async function GET(request: NextRequest) {
     const isFirstUser = existingUsers.length === 0;
     const isConfiguredAdmin = process.env.ADMIN_PLEX_ID === plexId;
     const isAdmin = isFirstUser || isConfiguredAdmin;
+
+    debug.auth("User auth details", {
+      plexId,
+      username: plexUser.username,
+      isFirstUser,
+      isConfiguredAdmin,
+      isAdmin,
+    });
 
     // Upsert user
     const result = await upsertUser({
@@ -39,6 +53,7 @@ export async function GET(request: NextRequest) {
     });
 
     const user = result[0];
+    debug.auth("User upserted", { id: user.id, plexId: user.plexId });
 
     // Create JWT session
     const token = await createSession({
@@ -49,6 +64,7 @@ export async function GET(request: NextRequest) {
     });
 
     await setSessionCookie(token);
+    debug.auth("Session created, login complete");
 
     return NextResponse.json({
       authenticated: true,
@@ -60,7 +76,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Auth callback error:", error);
-    return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
+    debug.auth("Auth callback FAILED", { error: String(error) });
+    return handleAuthError(error);
   }
 }
