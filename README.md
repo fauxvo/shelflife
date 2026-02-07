@@ -29,6 +29,7 @@ Shelflife is read-only against your external services -- it never deletes anythi
 | `PLEX_CLIENT_ID`    | No       | Identifier for Plex auth (defaults to `shelflife`)                                     |
 | `ADMIN_PLEX_ID`     | No       | Force a specific Plex user as admin. If unset, the first user to sign in becomes admin |
 | `DATABASE_PATH`     | No       | Path to SQLite database (defaults to `/app/data/shelflife.db` in Docker)               |
+| `COOKIE_SECURE`     | No       | Set to `true` if behind HTTPS reverse proxy. Defaults to `false` for plain HTTP        |
 | `DEBUG`             | No       | Set to `true` for verbose debug logging (useful for troubleshooting)                   |
 
 ## Running with Docker Compose
