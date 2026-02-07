@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/fauxvo/shelflife/compare/v1.2.0...v1.3.0) (2026-02-07)
+
+
+### Features
+
+* community voting, review rounds, trim votes, and dashboard search ([8df44f7](https://github.com/fauxvo/shelflife/commit/8df44f799043fe5d393a129b475cfcfcd7bb7421))
+* community voting, review rounds, trim votes, and search ([e4c66d6](https://github.com/fauxvo/shelflife/commit/e4c66d6a78b804e5a8e80b6a1ba841753ab78978))
+
+
+### Bug Fixes
+
+* address PR review feedback - error states, race condition ([54022c1](https://github.com/fauxvo/shelflife/commit/54022c11f9dc03fd16cd17f929d961a982e8a3a0))
+
 ## [1.2.0](https://github.com/fauxvo/shelflife/compare/v1.1.1...v1.2.0) (2026-02-07)
 
 
