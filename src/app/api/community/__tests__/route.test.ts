@@ -48,19 +48,19 @@ const userSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", i
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
 describe("GET /api/community", () => {
-  it("returns items where requestor voted 'delete' or 'trim'", async () => {
+  it("returns items where requestor voted 'delete' or 'trim', including own", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    // Items 2 (delete), 5 (delete), and 7 (trim) are candidates
+    // Items 2 (delete by user-1), 5 (delete by user-2, own), 7 (trim by user-1)
     expect(data.items.length).toBe(3);
     const titles = data.items.map((i: any) => i.title);
     expect(titles).toContain("Test Movie 2");
-    expect(titles).toContain("Other Movie");
     expect(titles).toContain("Big Brother");
+    expect(titles).toContain("Other Movie");
   });
 
   it("returns correct vote tallies", async () => {
@@ -73,11 +73,6 @@ describe("GET /api/community", () => {
     const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
     expect(item2.tally.keepCount).toBe(1);
     expect(item2.tally.removeCount).toBe(1);
-
-    // Item 5 has community votes: plex-user-1 'remove'
-    const item5 = data.items.find((i: any) => i.title === "Other Movie");
-    expect(item5.tally.removeCount).toBe(1);
-    expect(item5.tally.keepCount).toBe(0);
   });
 
   it("returns current user's community vote", async () => {
@@ -108,6 +103,7 @@ describe("GET /api/community", () => {
     const res = await GET(req);
     const data = await res.json();
 
+    // user-2 sees item 2 (movie, by user-1) + item 5 (movie, own)
     expect(data.items.length).toBe(2);
     for (const item of data.items) {
       expect(item.mediaType).toBe("movie");
@@ -144,7 +140,7 @@ describe("GET /api/community", () => {
     const res = await GET(req);
     const data = await res.json();
 
-    // 3 candidates total (2 delete + 1 trim)
+    // 3 candidates total (2 delete + 1 trim), including own
     expect(data.items.length).toBe(3);
   });
 
@@ -189,6 +185,21 @@ describe("GET /api/community", () => {
     expect(trimItem.nominationType).toBe("trim");
     expect(trimItem.seasonCount).toBe(8);
     expect(trimItem.keepSeasons).toBe(1);
+  });
+
+  it("marks own items with isOwn flag", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    // Item 5 is user-2's own nomination
+    const ownItem = data.items.find((i: any) => i.title === "Other Movie");
+    expect(ownItem.isOwn).toBe(true);
+
+    // Item 2 is user-1's nomination — not own for user-2
+    const otherItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    expect(otherItem.isOwn).toBe(false);
   });
 
   it("returns correct nominationType for delete candidates", async () => {

@@ -4,8 +4,9 @@ import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "./VoteTallyBar";
 import { CommunityVoteButton } from "./CommunityVoteButton";
+import { VoteButton } from "../media/VoteButton";
 import { STATUS_COLORS } from "@/lib/constants";
-import type { CommunityCandidate, CommunityVoteValue } from "@/types";
+import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
 interface CommunityCardProps {
   item: CommunityCandidate;
@@ -14,9 +15,10 @@ interface CommunityCardProps {
     vote: CommunityVoteValue | null,
     delta: { keep: number; remove: number }
   ) => void;
+  onSelfVoteChange?: (itemId: number, vote: VoteValue) => void;
 }
 
-export function CommunityCard({ item, onVoteChange }: CommunityCardProps) {
+export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: CommunityCardProps) {
   const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null;
 
   return (
@@ -97,11 +99,25 @@ export function CommunityCard({ item, onVoteChange }: CommunityCardProps) {
           </a>
         )}
         <VoteTallyBar keepCount={item.tally.keepCount} removeCount={item.tally.removeCount} />
-        <CommunityVoteButton
-          mediaItemId={item.id}
-          currentVote={item.currentUserVote}
-          onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
-        />
+        {item.isOwn ? (
+          <div className="space-y-1">
+            <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
+            <VoteButton
+              mediaItemId={item.id}
+              currentVote={item.nominationType}
+              seasonCount={item.seasonCount}
+              mediaType={item.mediaType}
+              currentKeepSeasons={item.keepSeasons}
+              onVoteChange={(newVote) => onSelfVoteChange?.(item.id, newVote)}
+            />
+          </div>
+        ) : (
+          <CommunityVoteButton
+            mediaItemId={item.id}
+            currentVote={item.currentUserVote}
+            onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
+          />
+        )}
       </div>
     </div>
   );

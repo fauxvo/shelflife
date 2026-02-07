@@ -5,7 +5,7 @@ import { CommunityCard } from "./CommunityCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
 import { COMMUNITY_SORT_LABELS } from "@/lib/constants";
-import type { CommunityCandidate, CommunityVoteValue } from "@/types";
+import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
 export function CommunityGrid() {
   const [items, setItems] = useState<CommunityCandidate[]>([]);
@@ -75,6 +75,21 @@ export function CommunityGrid() {
     );
   };
 
+  const handleSelfVoteChange = (itemId: number, vote: VoteValue) => {
+    if (vote === "keep") {
+      // User changed their nomination to "keep" — remove from community list
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
+      setTotalItems((prev) => prev - 1);
+    } else {
+      // Updated to delete/trim — update the nomination type in place
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, nominationType: vote as "delete" | "trim" } : item
+        )
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Filters */}
@@ -140,7 +155,12 @@ export function CommunityGrid() {
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => (
-            <CommunityCard key={item.id} item={item} onVoteChange={handleVoteChange} />
+            <CommunityCard
+              key={item.id}
+              item={item}
+              onVoteChange={handleVoteChange}
+              onSelfVoteChange={handleSelfVoteChange}
+            />
           ))}
         </div>
       )}

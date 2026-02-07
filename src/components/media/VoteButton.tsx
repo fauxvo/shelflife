@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { VoteValue } from "@/types";
 
 interface VoteButtonProps {
@@ -9,7 +9,7 @@ interface VoteButtonProps {
   seasonCount?: number | null;
   mediaType?: "movie" | "tv";
   currentKeepSeasons?: number | null;
-  onVoteChange?: (vote: VoteValue) => void;
+  onVoteChange?: (newVote: VoteValue, oldVote: VoteValue | null) => void;
 }
 
 export function VoteButton({
@@ -25,6 +25,16 @@ export function VoteButton({
   const [error, setError] = useState<string | null>(null);
   const [keepSeasons, setKeepSeasons] = useState<number>(currentKeepSeasons || 1);
   const [showTrimSelector, setShowTrimSelector] = useState(false);
+
+  useEffect(() => {
+    setVote(currentVote);
+  }, [currentVote]);
+
+  useEffect(() => {
+    if (currentKeepSeasons != null) {
+      setKeepSeasons(currentKeepSeasons);
+    }
+  }, [currentKeepSeasons]);
 
   const canTrim = mediaType === "tv" && seasonCount && seasonCount > 1;
 
@@ -44,12 +54,13 @@ export function VoteButton({
       });
 
       if (res.ok) {
+        const oldVote = vote;
         setVote(newVote);
         if (newVote === "trim" && seasons !== undefined) {
           setKeepSeasons(seasons);
         }
         setShowTrimSelector(false);
-        onVoteChange?.(newVote);
+        onVoteChange?.(newVote, oldVote);
       }
     } catch (err) {
       console.error("Failed to cast vote:", err);
