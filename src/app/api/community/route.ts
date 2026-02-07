@@ -4,7 +4,7 @@ import { communityQuerySchema } from "@/lib/validators/schemas";
 import { buildPagination } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, sql, notInArray, isNull, desc, inArray, ne } from "drizzle-orm";
+import { eq, and, count, sql, notInArray, isNull, desc, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 async function getCandidateCount(
@@ -13,7 +13,7 @@ async function getCandidateCount(
   query: { type: string; unvoted?: string },
   plexId: string
 ): Promise<number> {
-  const whereConditions: SQL[] = [ne(mediaItems.requestedByPlexId, plexId)];
+  const whereConditions: SQL[] = [];
 
   if (query.type !== "all") {
     whereConditions.push(eq(mediaItems.mediaType, query.type as "movie" | "tv"));
@@ -111,6 +111,7 @@ export async function GET(request: NextRequest) {
         removeCount: removeCountSub.cnt,
         currentUserVote: userCommunityVote.vote,
         selfVoteUpdatedAt: userVotes.updatedAt,
+        requestedByPlexId: mediaItems.requestedByPlexId,
       })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition!)
@@ -126,8 +127,8 @@ export async function GET(request: NextRequest) {
       .leftJoin(removeCountSub, eq(removeCountSub.mediaItemId, mediaItems.id))
       .leftJoin(userCommunityVote, eq(userCommunityVote.mediaItemId, mediaItems.id));
 
-    // Build WHERE conditions — exclude own items + optional filters
-    const whereConditions: SQL[] = [ne(mediaItems.requestedByPlexId, session.plexId)];
+    // Build WHERE conditions — optional filters
+    const whereConditions: SQL[] = [];
 
     if (query.type !== "all") {
       whereConditions.push(eq(mediaItems.mediaType, query.type));
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
           removeCount: Number(i.removeCount) || 0,
         },
         currentUserVote: i.currentUserVote || null,
+        isOwn: i.requestedByPlexId === session.plexId,
       })),
       pagination: buildPagination(query.page, query.limit, total),
     });

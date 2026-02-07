@@ -76,4 +76,5 @@ export interface CommunityCandidate {
   } | null;
   tally: { keepCount: number; removeCount: number };
   currentUserVote: CommunityVoteValue | null;
+  isOwn: boolean;
 }
