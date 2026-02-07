@@ -21,7 +21,7 @@ services:
     labels:
       - "net.unraid.docker.managed=dockerman"
       - "net.unraid.docker.webui=http://[IP]:[PORT:3000]/"
-      - "net.unraid.docker.icon=https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/plex-icon.png"
+      - "net.unraid.docker.icon=https://raw.githubusercontent.com/fauxvo/shelflife/main/public/icon.png"
 
 volumes:
   shelflife-data:
