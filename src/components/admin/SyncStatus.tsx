@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { Toast, type ToastData } from "@/components/ui/Toast";
 
 interface SyncStatusProps {
   lastSync?: {
@@ -19,15 +21,33 @@ interface ProgressState {
   detail?: string;
 }
 
+interface SyncResult {
+  overseerr?: number;
+  tautulli?: number;
+}
+
+export function formatSyncResult(synced: SyncResult): string {
+  const parts: string[] = [];
+  if (synced.overseerr != null) {
+    parts.push(`${synced.overseerr} media item${synced.overseerr !== 1 ? "s" : ""}`);
+  }
+  if (synced.tautulli != null) {
+    parts.push(`${synced.tautulli} watch record${synced.tautulli !== 1 ? "s" : ""}`);
+  }
+  if (parts.length === 0) return "Sync complete";
+  return `Synced ${parts.join(" and ")}`;
+}
+
 export function SyncStatus({ lastSync }: SyncStatusProps) {
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const router = useRouter();
 
   const triggerSync = async (type: string) => {
     setSyncing(true);
-    setResult(null);
+    setToast(null);
     setProgress(null);
 
     abortRef.current = new AbortController();
@@ -39,14 +59,14 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
 
       if (!res.ok) {
         const err = await res.json();
-        setResult(`Sync failed: ${err.error}`);
+        setToast({ message: `Sync failed: ${err.error}`, type: "error" });
         setSyncing(false);
         return;
       }
 
       const reader = res.body?.getReader();
       if (!reader) {
-        setResult("Sync failed: no response stream");
+        setToast({ message: "Sync failed: no response stream", type: "error" });
         setSyncing(false);
         return;
       }
@@ -72,10 +92,14 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
             if (currentEvent === "progress") {
               setProgress(data);
             } else if (currentEvent === "complete") {
-              setResult(`Sync complete: ${JSON.stringify(data.synced)}`);
+              setToast({
+                message: formatSyncResult(data.synced),
+                type: "success",
+              });
               setProgress(null);
+              router.refresh();
             } else if (currentEvent === "error") {
-              setResult(`Sync failed: ${data.message}`);
+              setToast({ message: `Sync failed: ${data.message}`, type: "error" });
               setProgress(null);
             }
           }
@@ -83,9 +107,12 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
       }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") {
-        setResult("Sync cancelled");
+        setToast({ message: "Sync cancelled", type: "error" });
       } else {
-        setResult(`Sync error: ${err instanceof Error ? err.message : "Unknown"}`);
+        setToast({
+          message: `Sync error: ${err instanceof Error ? err.message : "Unknown"}`,
+          type: "error",
+        });
       }
       setProgress(null);
     } finally {
@@ -102,11 +129,11 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
     progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
-    <div className="bg-gray-900 rounded-lg p-6 border border-gray-800 space-y-4">
+    <div className="space-y-4 rounded-lg border border-gray-800 bg-gray-900 p-6">
       <h3 className="text-lg font-semibold">Sync Status</h3>
 
       {lastSync && !syncing && (
-        <div className="text-sm text-gray-400 space-y-1">
+        <div className="space-y-1 text-sm text-gray-400">
           <p>
             Last sync: <span className="text-gray-200">{lastSync.syncType}</span> -{" "}
             <span className={lastSync.status === "completed" ? "text-green-400" : "text-red-400"}>
@@ -125,7 +152,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span
-              className={`text-xs px-2 py-0.5 rounded font-medium ${
+              className={`rounded px-2 py-0.5 text-xs font-medium ${
                 progress.phase === "overseerr"
                   ? "bg-blue-900/50 text-blue-300"
                   : "bg-purple-900/50 text-purple-300"
@@ -138,9 +165,9 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
 
           {progress.total > 0 && (
             <div className="space-y-1">
-              <div className="w-full bg-gray-800 rounded-full h-2.5">
+              <div className="h-2.5 w-full rounded-full bg-gray-800">
                 <div
-                  className="bg-[#e5a00d] h-2.5 rounded-full transition-all duration-300"
+                  className="h-2.5 rounded-full bg-[#e5a00d] transition-all duration-300"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -154,14 +181,14 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           )}
 
           {progress.detail && (
-            <p className="text-xs text-gray-500 truncate">Last: {progress.detail}</p>
+            <p className="truncate text-xs text-gray-500">Last: {progress.detail}</p>
           )}
         </div>
       )}
 
       {syncing && !progress && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
-          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
             <circle
               className="opacity-25"
               cx="12"
@@ -181,11 +208,11 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2">
         {syncing ? (
           <button
             onClick={cancelSync}
-            className="px-4 py-2 bg-red-700 hover:bg-red-600 rounded-md text-sm font-medium transition-colors"
+            className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-600"
           >
             Cancel
           </button>
@@ -193,19 +220,19 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           <>
             <button
               onClick={() => triggerSync("full")}
-              className="px-4 py-2 bg-[#e5a00d] hover:bg-[#cc8e0b] text-black font-medium rounded-md text-sm transition-colors"
+              className="rounded-md bg-[#e5a00d] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#cc8e0b]"
             >
               Full Sync
             </button>
             <button
               onClick={() => triggerSync("overseerr")}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors"
+              className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
             >
               Overseerr Only
             </button>
             <button
               onClick={() => triggerSync("tautulli")}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors"
+              className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
             >
               Tautulli Only
             </button>
@@ -213,13 +240,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
         )}
       </div>
 
-      {result && (
-        <p
-          className={`text-sm ${result.includes("failed") || result.includes("error") ? "text-red-400" : "text-green-400"}`}
-        >
-          {result}
-        </p>
-      )}
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }
