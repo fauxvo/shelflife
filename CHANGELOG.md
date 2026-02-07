@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/fauxvo/shelflife/compare/v1.4.0...v1.4.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* handle duplicate column errors in migration script ([886452f](https://github.com/fauxvo/shelflife/commit/886452ff8c93e0afbb593f743d86a82e97456fdf))
+
 ## [1.4.0](https://github.com/fauxvo/shelflife/compare/v1.3.0...v1.4.0) (2026-02-07)
 
 
