@@ -5,6 +5,7 @@ import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
 import { eq, count, desc } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { DeletionCandidates } from "@/components/admin/DeletionCandidates";
+import { AppVersion } from "@/components/ui/AppVersion";
 
 export default async function AdminPage() {
   const session = await getSession();
@@ -46,9 +47,7 @@ export default async function AdminPage() {
           <div>
             <div className="flex items-baseline gap-2">
               <h1 className="text-xl font-bold">Shelflife - Admin</h1>
-              <span className="text-xs text-gray-500">
-                v{process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
-              </span>
+              <AppVersion />
             </div>
             <p className="text-sm text-gray-400">Library management overview</p>
           </div>

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { upsertUser } from "@/lib/services/user-upsert";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { handleAuthError } from "@/lib/auth/middleware";
 import { debug } from "@/lib/debug";
 
 export async function GET(request: NextRequest) {
@@ -75,8 +76,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Auth callback error:", error);
     debug.auth("Auth callback FAILED", { error: String(error) });
-    return NextResponse.json({ error: "Authentication failed" }, { status: 500 });
+    return handleAuthError(error);
   }
 }

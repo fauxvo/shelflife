@@ -14,6 +14,8 @@ RUN bun install --frozen-lockfile 2>/dev/null || bun install
 FROM base AS builder
 WORKDIR /app
 
+RUN apk add --no-cache git
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 

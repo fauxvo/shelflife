@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createPlexPin, getPlexAuthUrl } from "@/lib/services/plex-auth";
+import { handleAuthError } from "@/lib/auth/middleware";
 import { debug } from "@/lib/debug";
 
 export async function POST() {
@@ -15,8 +16,7 @@ export async function POST() {
       authUrl,
     });
   } catch (error) {
-    console.error("Failed to create Plex PIN:", error);
     debug.auth("PIN creation failed", { error: String(error) });
-    return NextResponse.json({ error: "Failed to create Plex PIN" }, { status: 500 });
+    return handleAuthError(error);
   }
 }

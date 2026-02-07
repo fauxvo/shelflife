@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { eq, and, count } from "drizzle-orm";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
+import { AppVersion } from "@/components/ui/AppVersion";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -43,9 +44,7 @@ export default async function DashboardPage() {
           <div>
             <div className="flex items-baseline gap-2">
               <h1 className="text-xl font-bold">Shelflife</h1>
-              <span className="text-xs text-gray-500">
-                v{process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
-              </span>
+              <AppVersion />
             </div>
             <p className="text-sm text-gray-400">Welcome, {session.username}</p>
           </div>
