@@ -50,6 +50,11 @@ USER nextjs
 
 EXPOSE 3000
 
+# Unraid Docker manager reads these labels from the image metadata
+LABEL net.unraid.docker.webui="http://[IP]:[PORT:3000]/"
+LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/fauxvo/shelflife/main/public/icon.png"
+LABEL net.unraid.docker.managed="dockerman"
+
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV DATABASE_PATH=/app/data/shelflife.db

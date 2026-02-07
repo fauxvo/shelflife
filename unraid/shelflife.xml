@@ -11,7 +11,7 @@
   <Category>MediaServer:Other</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <TemplateURL/>
-  <Icon>https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/plex-icon.png</Icon>
+  <Icon>https://raw.githubusercontent.com/fauxvo/shelflife/main/public/icon.png</Icon>
   <ExtraParams/>
   <DateInstalled/>
   <Description>Shelflife - Library storage management. Connect to Overseerr and Tautulli to let users vote on which requested content to keep or delete.</Description>
