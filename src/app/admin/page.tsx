@@ -41,10 +41,15 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
-            <h1 className="text-xl font-bold">Shelflife - Admin</h1>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-xl font-bold">Shelflife - Admin</h1>
+              <span className="text-xs text-gray-500">
+                v{process.env.NEXT_PUBLIC_APP_VERSION || "dev"}
+              </span>
+            </div>
             <p className="text-sm text-gray-400">Library management overview</p>
           </div>
           <div className="flex items-center gap-4">
@@ -57,24 +62,24 @@ export default async function AdminPage() {
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         {/* Overview Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Total Media</p>
-            <p className="text-2xl font-bold mt-1">{totalMedia?.total || 0}</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs tracking-wide text-gray-500 uppercase">Total Media</p>
+            <p className="mt-1 text-2xl font-bold">{totalMedia?.total || 0}</p>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Users</p>
-            <p className="text-2xl font-bold mt-1">{totalUsers?.total || 0}</p>
+          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs tracking-wide text-gray-500 uppercase">Users</p>
+            <p className="mt-1 text-2xl font-bold">{totalUsers?.total || 0}</p>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Keep Votes</p>
-            <p className="text-2xl font-bold mt-1 text-green-400">{totalKeepVotes?.total || 0}</p>
+          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs tracking-wide text-gray-500 uppercase">Keep Votes</p>
+            <p className="mt-1 text-2xl font-bold text-green-400">{totalKeepVotes?.total || 0}</p>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">Delete Votes</p>
-            <p className="text-2xl font-bold mt-1 text-red-400">{totalDeleteVotes?.total || 0}</p>
+          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+            <p className="text-xs tracking-wide text-gray-500 uppercase">Delete Votes</p>
+            <p className="mt-1 text-2xl font-bold text-red-400">{totalDeleteVotes?.total || 0}</p>
           </div>
         </div>
 
@@ -82,13 +87,13 @@ export default async function AdminPage() {
         <SyncStatus lastSync={lastSync} />
 
         {/* Users breakdown */}
-        <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-          <h3 className="text-lg font-semibold mb-4">Users</h3>
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
+          <h3 className="mb-4 text-lg font-semibold">Users</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-400 border-b border-gray-800">
-                  <th className="pb-3 pr-4">Username</th>
+                <tr className="border-b border-gray-800 text-left text-gray-400">
+                  <th className="pr-4 pb-3">Username</th>
                   <th className="pb-3">Requests</th>
                 </tr>
               </thead>
@@ -113,7 +118,7 @@ export default async function AdminPage() {
 
         {/* Deletion Candidates */}
         <div>
-          <h2 className="text-lg font-semibold mb-4">Deletion Candidates</h2>
+          <h2 className="mb-4 text-lg font-semibold">Deletion Candidates</h2>
           <DeletionCandidates />
         </div>
       </main>

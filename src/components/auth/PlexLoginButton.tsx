@@ -19,19 +19,37 @@ export function PlexLoginButton() {
       // Open Plex auth in popup
       const popup = window.open(authUrl, "plex-auth", "width=800,height=600");
 
+      console.log("[shelflife] PIN created, polling for auth...", { pinId });
+
       // Poll for completion
       const pollInterval = setInterval(async () => {
         try {
           const callbackRes = await fetch(`/api/auth/plex/callback?pinId=${pinId}`);
           const data = await callbackRes.json();
 
+          console.log("[shelflife] Poll response:", {
+            status: callbackRes.status,
+            ok: callbackRes.ok,
+            authenticated: data.authenticated,
+            error: data.error,
+          });
+
+          if (!callbackRes.ok) {
+            console.error("[shelflife] Callback error:", data.error);
+            clearInterval(pollInterval);
+            setError(data.error || `Server error: ${callbackRes.status}`);
+            setLoading(false);
+            popup?.close();
+            return;
+          }
+
           if (data.authenticated) {
             clearInterval(pollInterval);
             popup?.close();
             window.location.href = data.user.isAdmin ? "/admin" : "/dashboard";
           }
-        } catch {
-          // Keep polling
+        } catch (err) {
+          console.error("[shelflife] Poll network error:", err);
         }
       }, 2000);
 
@@ -64,11 +82,11 @@ export function PlexLoginButton() {
       <button
         onClick={handleLogin}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 bg-[#e5a00d] hover:bg-[#cc8e0b] disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold py-3 px-6 rounded-lg transition-colors"
+        className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#e5a00d] px-6 py-3 font-semibold text-black transition-colors hover:bg-[#cc8e0b] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <>
-            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -95,7 +113,7 @@ export function PlexLoginButton() {
           </>
         )}
       </button>
-      {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+      {error && <p className="text-center text-sm text-red-400">{error}</p>}
     </div>
   );
 }

@@ -6,7 +6,11 @@ export async function GET() {
   try {
     // Test DB connection
     await db.run(sql`SELECT 1`);
-    return NextResponse.json({ status: "ok", timestamp: new Date().toISOString() });
+    return NextResponse.json({
+      status: "ok",
+      version: process.env.NEXT_PUBLIC_APP_VERSION || "dev",
+      timestamp: new Date().toISOString(),
+    });
   } catch {
     return NextResponse.json(
       { status: "error", timestamp: new Date().toISOString() },
