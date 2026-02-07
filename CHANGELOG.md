@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.0](https://github.com/fauxvo/shelflife/compare/v1.3.0...v1.4.0) (2026-02-07)
+
+
+### Features
+
+* update dashboard stats optimistically after voting ([c92bb6a](https://github.com/fauxvo/shelflife/commit/c92bb6ac9508eee78c3b137a786d69e67891d464))
+
+
+### Bug Fixes
+
+* address code review issues ([9110fab](https://github.com/fauxvo/shelflife/commit/9110faba7e5f259269617fb2b28f362b9706efaf))
+* exclude own nominations from community listing ([918542c](https://github.com/fauxvo/shelflife/commit/918542cdfc4dcf837aed2bccff96cc2a59eeb5b1))
+* exclude own nominations from community listing ([a0d8717](https://github.com/fauxvo/shelflife/commit/a0d8717bdf2151bbc264442dbd6f532d76f9eac0))
+* show own nominations in community with self-vote controls ([fd5b3bf](https://github.com/fauxvo/shelflife/commit/fd5b3bfb6f18e3699c7530cb2157ca92a5dd2d1f))
+
 ## [1.3.0](https://github.com/fauxvo/shelflife/compare/v1.2.0...v1.3.0) (2026-02-07)
 
 
