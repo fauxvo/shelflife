@@ -67,7 +67,9 @@ describe("OverseerrClient", () => {
 
     vi.resetModules();
     const mod = await import("../overseerr");
-    expect(() => mod.getOverseerrClient()).toThrow("OVERSEERR_URL and OVERSEERR_API_KEY must be set");
+    expect(() => mod.getOverseerrClient()).toThrow(
+      "OVERSEERR_URL and OVERSEERR_API_KEY must be set"
+    );
 
     process.env.OVERSEERR_URL = origUrl;
     process.env.OVERSEERR_API_KEY = origKey;
@@ -192,6 +194,22 @@ describe("OverseerrClient", () => {
       expect.stringContaining("/api/v1/tv/200"),
       expect.any(Object)
     );
+  });
+
+  it("getMediaDetails parses numberOfSeasons for TV shows", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          id: 300,
+          name: "Big Brother",
+          numberOfSeasons: 25,
+        }),
+    });
+
+    const client = getOverseerrClient();
+    const details = await client.getMediaDetails(300, "tv");
+    expect(details.numberOfSeasons).toBe(25);
   });
 
   it("getUsers paginates through multiple pages", async () => {

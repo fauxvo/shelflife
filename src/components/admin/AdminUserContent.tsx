@@ -9,6 +9,7 @@ interface AdminUserContentProps {
   totalRequests: number;
   keepCount: number;
   deleteCount: number;
+  trimCount: number;
   unvotedCount: number;
   watchedCount: number;
 }
@@ -18,6 +19,7 @@ export function AdminUserContent({
   totalRequests,
   keepCount,
   deleteCount,
+  trimCount,
   unvotedCount,
   watchedCount,
 }: AdminUserContentProps) {
@@ -29,13 +31,14 @@ export function AdminUserContent({
         totalRequests={totalRequests}
         keepCount={keepCount}
         deleteCount={deleteCount}
+        trimCount={trimCount}
         unvotedCount={unvotedCount}
         watchedCount={watchedCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />
       <div>
-        <h2 className="text-lg font-semibold mb-4">Requests</h2>
+        <h2 className="mb-4 text-lg font-semibold">Requests</h2>
         <AdminUserMedia plexId={plexId} statsFilter={statsFilter} />
       </div>
     </>

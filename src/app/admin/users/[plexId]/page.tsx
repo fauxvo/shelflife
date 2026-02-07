@@ -32,6 +32,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .from(userVotes)
     .where(and(eq(userVotes.userPlexId, plexId), eq(userVotes.vote, "delete")));
 
+  const [trimResult] = await db
+    .select({ total: count() })
+    .from(userVotes)
+    .where(and(eq(userVotes.userPlexId, plexId), eq(userVotes.vote, "trim")));
+
   const [watchedResult] = await db
     .select({ total: count() })
     .from(watchStatus)
@@ -40,16 +45,17 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
   const totalRequests = totalResult?.total || 0;
   const keepCount = keepResult?.total || 0;
   const deleteCount = deleteResult?.total || 0;
+  const trimCount = trimResult?.total || 0;
   const watchedCount = watchedResult?.total || 0;
-  const unvotedCount = totalRequests - keepCount - deleteCount;
+  const unvotedCount = totalRequests - keepCount - deleteCount - trimCount;
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-4">
             <a href="/admin" className="text-gray-400 hover:text-gray-200">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -61,7 +67,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
             <div className="flex items-center gap-3">
               {user.avatarUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full" />
+                <img src={user.avatarUrl} alt={user.username} className="h-8 w-8 rounded-full" />
               )}
               <div>
                 <h1 className="text-xl font-bold">{user.username}</h1>
@@ -78,12 +84,13 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <AdminUserContent
           plexId={plexId}
           totalRequests={totalRequests}
           keepCount={keepCount}
           deleteCount={deleteCount}
+          trimCount={trimCount}
           unvotedCount={unvotedCount}
           watchedCount={watchedCount}
         />

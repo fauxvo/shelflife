@@ -12,8 +12,8 @@ export function MediaCard({ item }: MediaCardProps) {
   const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null;
 
   return (
-    <div className="bg-gray-900 rounded-lg overflow-hidden border border-gray-800">
-      <div className="aspect-[2/3] relative bg-gray-800">
+    <div className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900">
+      <div className="relative aspect-[2/3] bg-gray-800">
         {posterUrl ? (
           <Image
             src={posterUrl}
@@ -23,8 +23,8 @@ export function MediaCard({ item }: MediaCardProps) {
             sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-600">
-            <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="flex h-full w-full items-center justify-center text-gray-600">
+            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -37,29 +37,43 @@ export function MediaCard({ item }: MediaCardProps) {
         <div className="absolute top-2 left-2 flex gap-1">
           <MediaTypeBadge mediaType={item.mediaType} />
           <span
-            className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
+            className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
           >
             {item.status}
           </span>
         </div>
         {item.watchStatus?.watched && (
           <div className="absolute top-2 right-2">
-            <span className="text-xs px-2 py-0.5 rounded bg-purple-900/80 text-purple-300">
+            <span className="rounded bg-purple-900/80 px-2 py-0.5 text-xs text-purple-300">
               Watched
             </span>
           </div>
         )}
       </div>
-      <div className="p-3 space-y-3">
-        <h3 className="font-medium text-sm truncate" title={item.title}>
+      <div className="space-y-3 p-3">
+        <h3 className="truncate text-sm font-medium" title={item.title}>
           {item.title}
         </h3>
+        {item.mediaType === "tv" && item.seasonCount && item.seasonCount > 1 && (
+          <p className="text-xs text-gray-500">{item.seasonCount} seasons</p>
+        )}
+        {item.vote === "trim" && item.keepSeasons && item.seasonCount && (
+          <p className="text-xs text-amber-400">
+            Keeping latest {item.keepSeasons} of {item.seasonCount} seasons
+          </p>
+        )}
         {item.watchStatus && item.watchStatus.playCount > 0 && (
           <p className="text-xs text-gray-500">
             Played {item.watchStatus.playCount} time{item.watchStatus.playCount !== 1 ? "s" : ""}
           </p>
         )}
-        <VoteButton mediaItemId={item.id} currentVote={item.vote} />
+        <VoteButton
+          mediaItemId={item.id}
+          currentVote={item.vote}
+          seasonCount={item.seasonCount}
+          mediaType={item.mediaType}
+          currentKeepSeasons={item.keepSeasons}
+        />
       </div>
     </div>
   );

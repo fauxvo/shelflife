@@ -26,6 +26,11 @@ export default async function DashboardPage() {
     .from(userVotes)
     .where(and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.vote, "delete")));
 
+  const [trimResult] = await db
+    .select({ total: count() })
+    .from(userVotes)
+    .where(and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.vote, "trim")));
+
   const [watchedResult] = await db
     .select({ total: count() })
     .from(watchStatus)
@@ -34,8 +39,9 @@ export default async function DashboardPage() {
   const totalRequests = totalResult?.total || 0;
   const keepCount = keepResult?.total || 0;
   const deleteCount = deleteResult?.total || 0;
+  const trimCount = trimResult?.total || 0;
   const watchedCount = watchedResult?.total || 0;
-  const unvotedCount = totalRequests - keepCount - deleteCount;
+  const unvotedCount = totalRequests - keepCount - deleteCount - trimCount;
 
   return (
     <div className="min-h-screen">
@@ -49,6 +55,9 @@ export default async function DashboardPage() {
             <p className="text-sm text-gray-400">Welcome, {session.username}</p>
           </div>
           <div className="flex items-center gap-4">
+            <a href="/community" className="text-sm text-gray-400 hover:text-gray-200">
+              Community
+            </a>
             {session.isAdmin && (
               <a href="/admin" className="text-sm text-[#e5a00d] hover:underline">
                 Admin
@@ -65,6 +74,7 @@ export default async function DashboardPage() {
           totalRequests={totalRequests}
           keepCount={keepCount}
           deleteCount={deleteCount}
+          trimCount={trimCount}
           unvotedCount={unvotedCount}
           watchedCount={watchedCount}
         />

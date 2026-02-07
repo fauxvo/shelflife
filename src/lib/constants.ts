@@ -9,11 +9,24 @@ export const STATUS_COLORS: Record<string, string> = {
 export const VOTE_COLORS: Record<string, string> = {
   keep: "bg-green-900/50 text-green-300",
   delete: "bg-red-900/50 text-red-300",
+  trim: "bg-amber-900/50 text-amber-300",
 };
 
 export const VOTE_LABELS: Record<string, string> = {
   keep: "Keeping",
   delete: "Can Delete",
+  trim: "Trim Seasons",
   none: "Not Voted",
   watched: "Watched",
+};
+
+export const COMMUNITY_VOTE_COLORS: Record<string, string> = {
+  keep: "bg-green-600",
+  remove: "bg-red-600",
+};
+
+export const COMMUNITY_SORT_LABELS: Record<string, string> = {
+  most_remove: "Most Votes to Remove",
+  oldest_unwatched: "Oldest Unwatched",
+  newest: "Recently Nominated",
 };

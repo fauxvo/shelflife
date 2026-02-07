@@ -12,7 +12,9 @@ const mediaItemColumns = {
   status: mediaItems.status,
   requestedAt: mediaItems.requestedAt,
   ratingKey: mediaItems.ratingKey,
+  seasonCount: mediaItems.seasonCount,
   vote: userVotes.vote,
+  keepSeasons: userVotes.keepSeasons,
   watched: watchStatus.watched,
   playCount: watchStatus.playCount,
   lastWatchedAt: watchStatus.lastWatchedAt,
@@ -46,7 +48,9 @@ export function mediaCountWithJoins(plexId: string) {
     );
 }
 
-export function mapMediaItemRow(i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never) {
+export function mapMediaItemRow(
+  i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never
+) {
   return {
     id: i.id,
     overseerrId: i.overseerrId,
@@ -57,7 +61,9 @@ export function mapMediaItemRow(i: typeof mediaItemColumns extends infer T ? { [
     status: i.status,
     requestedAt: i.requestedAt,
     ratingKey: i.ratingKey,
+    seasonCount: i.seasonCount || null,
     vote: i.vote || null,
+    keepSeasons: i.keepSeasons || null,
     watchStatus:
       i.watched !== null
         ? {

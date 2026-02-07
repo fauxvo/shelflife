@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `review_actions_round_item_idx` ON `review_actions` (`review_round_id`,`media_item_id`);

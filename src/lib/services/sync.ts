@@ -3,7 +3,7 @@ import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
 import { getOverseerrClient, mapMediaStatus } from "./overseerr";
 import { getTautulliClient } from "./tautulli";
 import { upsertUser } from "./user-upsert";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 
 export interface SyncProgress {
   phase: "overseerr" | "tautulli";
@@ -41,6 +41,8 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
 
     let title = `Unknown (TMDB: ${tmdbId})`;
     let posterPath: string | null = null;
+    let imdbId: string | null = null;
+    let seasonCount: number | null = null;
 
     // Try to fetch title from Overseerr
     if (tmdbId) {
@@ -49,6 +51,10 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         title =
           details.title || details.name || details.originalTitle || details.originalName || title;
         posterPath = details.posterPath || null;
+        imdbId = details.imdbId || details.externalIds?.imdbId || null;
+        if (mediaType === "tv") {
+          seasonCount = details.numberOfSeasons || null;
+        }
       } catch {
         // Keep default title if fetch fails
       }
@@ -79,6 +85,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         overseerrRequestId: req.id,
         tmdbId: tmdbId || null,
         tvdbId: req.media?.tvdbId || null,
+        imdbId,
         mediaType,
         title,
         posterPath,
@@ -86,6 +93,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         requestedByPlexId,
         requestedAt: req.createdAt,
         ratingKey: req.media?.ratingKey || null,
+        seasonCount,
         lastSyncedAt: new Date().toISOString(),
       })
       .onConflictDoUpdate({
@@ -93,10 +101,12 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         set: {
           title,
           posterPath,
+          imdbId,
           status: mapMediaStatus(req.media?.status),
           ratingKey: req.media?.ratingKey || null,
+          seasonCount,
           lastSyncedAt: new Date().toISOString(),
-          updatedAt: sql`datetime('now')`,
+          updatedAt: new Date().toISOString(),
         },
       });
 
@@ -127,10 +137,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
   });
 
   // Get all media items that have a rating key
-  const items = await db
-    .select()
-    .from(mediaItems)
-    .where(sql`${mediaItems.ratingKey} IS NOT NULL`);
+  const items = await db.select().from(mediaItems).where(isNotNull(mediaItems.ratingKey));
 
   const total = items.length;
   onProgress?.({
@@ -172,9 +179,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
         const existing = await db
           .select()
           .from(watchStatus)
-          .where(
-            sql`${watchStatus.mediaItemId} = ${item.id} AND ${watchStatus.userPlexId} = ${userPlexId}`
-          )
+          .where(and(eq(watchStatus.mediaItemId, item.id), eq(watchStatus.userPlexId, userPlexId)))
           .limit(1);
 
         const watched = record.watched_status === 1;

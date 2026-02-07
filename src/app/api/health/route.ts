@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import { syncLog } from "@/lib/db/schema";
 
 export async function GET() {
   try {
     // Test DB connection
-    await db.run(sql`SELECT 1`);
+    await db.select().from(syncLog).limit(1);
     return NextResponse.json({
       status: "ok",
       version: process.env.NEXT_PUBLIC_APP_VERSION || "dev",

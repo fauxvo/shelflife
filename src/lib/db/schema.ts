@@ -23,6 +23,7 @@ export const mediaItems = sqliteTable("media_items", {
   overseerrRequestId: integer("overseerr_request_id"),
   tmdbId: integer("tmdb_id"),
   tvdbId: integer("tvdb_id"),
+  imdbId: text("imdb_id"),
   mediaType: text("media_type", { enum: ["movie", "tv"] }).notNull(),
   title: text("title").notNull(),
   posterPath: text("poster_path"),
@@ -34,6 +35,7 @@ export const mediaItems = sqliteTable("media_items", {
   requestedByPlexId: text("requested_by_plex_id").references(() => users.plexId),
   requestedAt: text("requested_at"),
   ratingKey: text("rating_key"),
+  seasonCount: integer("season_count"),
   lastSyncedAt: text("last_synced_at"),
   createdAt: text("created_at")
     .default(sql`(datetime('now'))`)
@@ -69,7 +71,8 @@ export const userVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
-    vote: text("vote", { enum: ["keep", "delete"] }).notNull(),
+    vote: text("vote", { enum: ["keep", "delete", "trim"] }).notNull(),
+    keepSeasons: integer("keep_seasons"),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
       .notNull(),
@@ -78,6 +81,65 @@ export const userVotes = sqliteTable(
       .notNull(),
   },
   (table) => [uniqueIndex("user_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+);
+
+export const communityVotes = sqliteTable(
+  "community_votes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mediaItemId: integer("media_item_id")
+      .references(() => mediaItems.id)
+      .notNull(),
+    userPlexId: text("user_plex_id")
+      .references(() => users.plexId)
+      .notNull(),
+    vote: text("vote", { enum: ["keep", "remove"] }).notNull(),
+    createdAt: text("created_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    updatedAt: text("updated_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+  },
+  (table) => [uniqueIndex("community_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+);
+
+export const reviewRounds = sqliteTable("review_rounds", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  status: text("status", { enum: ["active", "closed"] })
+    .default("active")
+    .notNull(),
+  startedAt: text("started_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+  closedAt: text("closed_at"),
+  createdByPlexId: text("created_by_plex_id")
+    .references(() => users.plexId)
+    .notNull(),
+});
+
+export const reviewActions = sqliteTable(
+  "review_actions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id)
+      .notNull(),
+    mediaItemId: integer("media_item_id")
+      .references(() => mediaItems.id)
+      .notNull(),
+    action: text("action", { enum: ["remove", "keep", "skip"] }).notNull(),
+    actedAt: text("acted_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+    actedByPlexId: text("acted_by_plex_id")
+      .references(() => users.plexId)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("review_actions_round_item_idx").on(table.reviewRoundId, table.mediaItemId),
+  ]
 );
 
 export const syncLog = sqliteTable("sync_log", {

@@ -19,19 +19,32 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
   const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
     type: "all",
     status: "all",
     vote: "all",
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // Reset page when statsFilter changes
   useEffect(() => {
     setPage(1);
   }, [statsFilter]);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const fetchItems = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -41,8 +54,17 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
         vote: filters.vote,
       });
 
+      if (debouncedSearch) {
+        params.set("search", debouncedSearch);
+      }
+
       // Apply stats filter override
-      if (statsFilter === "keep" || statsFilter === "delete" || statsFilter === "none") {
+      if (
+        statsFilter === "keep" ||
+        statsFilter === "delete" ||
+        statsFilter === "trim" ||
+        statsFilter === "none"
+      ) {
         params.set("vote", statsFilter);
       }
       if (statsFilter === "watched") {
@@ -56,12 +78,13 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
         setTotalPages(data.pagination.pages);
         setTotalItems(data.pagination.total);
       }
-    } catch {
-      // Keep existing items
+    } catch (err) {
+      console.error("Failed to fetch media items:", err);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, statsFilter]);
+  }, [page, pageSize, filters, statsFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchItems();
@@ -71,13 +94,20 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
+        <input
+          type="text"
+          placeholder="Search titles..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-48 rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500"
+        />
         <select
           value={filters.type}
           onChange={(e) => {
             setFilters((f) => ({ ...f, type: e.target.value }));
             setPage(1);
           }}
-          className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200"
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
         >
           <option value="all">All Types</option>
           <option value="movie">Movies</option>
@@ -89,7 +119,7 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
             setFilters((f) => ({ ...f, status: e.target.value }));
             setPage(1);
           }}
-          className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200"
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
         >
           <option value="all">All Statuses</option>
           <option value="available">Available</option>
@@ -104,11 +134,12 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
               setFilters((f) => ({ ...f, vote: e.target.value }));
               setPage(1);
             }}
-            className="bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-gray-200"
+            className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
           >
             <option value="all">All Votes</option>
             <option value="keep">Keeping</option>
             <option value="delete">Can Delete</option>
+            <option value="trim">Trim Seasons</option>
             <option value="none">Not Voted</option>
           </select>
         )}
@@ -120,15 +151,25 @@ export function MediaGrid({ initialItems, statsFilter }: MediaGridProps) {
       </div>
 
       {/* Grid */}
-      {loading ? (
+      {fetchError ? (
+        <div className="py-12 text-center text-red-400">
+          <p className="text-lg">Failed to load media items</p>
+          <button
+            onClick={fetchItems}
+            className="mt-2 text-sm text-gray-400 underline hover:text-gray-200"
+          >
+            Try again
+          </button>
+        </div>
+      ) : loading ? (
         <MediaCardSkeleton />
       ) : items.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="py-12 text-center text-gray-500">
           <p className="text-lg">No media items found</p>
-          <p className="text-sm mt-1">Your requests will appear here after a sync</p>
+          <p className="mt-1 text-sm">Your requests will appear here after a sync</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => (
             <MediaCard key={item.id} item={item} />
           ))}

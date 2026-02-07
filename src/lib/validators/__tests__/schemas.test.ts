@@ -3,16 +3,56 @@ import {
   voteSchema,
   syncRequestSchema,
   mediaQuerySchema,
-  adminCandidatesQuerySchema,
+  communityVoteSchema,
+  communityQuerySchema,
+  reviewRoundCreateSchema,
+  reviewActionSchema,
 } from "../schemas";
 
 describe("voteSchema", () => {
   it("accepts 'keep'", () => {
-    expect(voteSchema.parse({ vote: "keep" })).toEqual({ vote: "keep" });
+    const result = voteSchema.parse({ vote: "keep" });
+    expect(result.vote).toBe("keep");
   });
 
   it("accepts 'delete'", () => {
-    expect(voteSchema.parse({ vote: "delete" })).toEqual({ vote: "delete" });
+    const result = voteSchema.parse({ vote: "delete" });
+    expect(result.vote).toBe("delete");
+  });
+
+  it("accepts 'trim' with keepSeasons", () => {
+    const result = voteSchema.parse({ vote: "trim", keepSeasons: 2 });
+    expect(result.vote).toBe("trim");
+    expect(result.keepSeasons).toBe(2);
+  });
+
+  it("rejects 'trim' without keepSeasons", () => {
+    expect(() => voteSchema.parse({ vote: "trim" })).toThrow();
+  });
+
+  it("accepts 'keep' without keepSeasons", () => {
+    const result = voteSchema.parse({ vote: "keep" });
+    expect(result.vote).toBe("keep");
+    expect(result.keepSeasons).toBeUndefined();
+  });
+
+  it("accepts 'delete' without keepSeasons", () => {
+    const result = voteSchema.parse({ vote: "delete" });
+    expect(result.vote).toBe("delete");
+    expect(result.keepSeasons).toBeUndefined();
+  });
+
+  it("rejects keepSeasons=0", () => {
+    expect(() => voteSchema.parse({ vote: "trim", keepSeasons: 0 })).toThrow();
+  });
+
+  it("rejects negative keepSeasons", () => {
+    expect(() => voteSchema.parse({ vote: "trim", keepSeasons: -1 })).toThrow();
+  });
+
+  it("coerces string keepSeasons to number", () => {
+    const result = voteSchema.parse({ vote: "trim", keepSeasons: "3" });
+    expect(result.keepSeasons).toBe(3);
   });
 
   it("rejects invalid values", () => {
@@ -128,49 +168,123 @@ describe("mediaQuerySchema", () => {
   });
 
   it("accepts all valid vote values", () => {
-    for (const vote of ["keep", "delete", "none", "all"]) {
+    for (const vote of ["keep", "delete", "trim", "none", "all"]) {
       expect(mediaQuerySchema.parse({ vote }).vote).toBe(vote);
     }
   });
+
+  it("accepts search string", () => {
+    const result = mediaQuerySchema.parse({ search: "test movie" });
+    expect(result.search).toBe("test movie");
+  });
+
+  it("rejects search > 200 chars", () => {
+    expect(() => mediaQuerySchema.parse({ search: "a".repeat(201) })).toThrow();
+  });
 });
 
-describe("adminCandidatesQuerySchema", () => {
+describe("communityVoteSchema", () => {
+  it("accepts 'keep'", () => {
+    expect(communityVoteSchema.parse({ vote: "keep" })).toEqual({ vote: "keep" });
+  });
+
+  it("accepts 'remove'", () => {
+    expect(communityVoteSchema.parse({ vote: "remove" })).toEqual({ vote: "remove" });
+  });
+
+  it("rejects 'delete' (uses different enum)", () => {
+    expect(() => communityVoteSchema.parse({ vote: "delete" })).toThrow();
+  });
+
+  it("rejects invalid values", () => {
+    expect(() => communityVoteSchema.parse({ vote: "maybe" })).toThrow();
+  });
+
+  it("rejects missing vote field", () => {
+    expect(() => communityVoteSchema.parse({})).toThrow();
+  });
+});
+
+describe("communityQuerySchema", () => {
   it("applies all defaults for empty input", () => {
-    const result = adminCandidatesQuerySchema.parse({});
+    const result = communityQuerySchema.parse({});
     expect(result).toEqual({
+      type: "all",
+      sort: "most_remove",
       page: 1,
-      limit: 50,
-      sort: "vote",
+      limit: 20,
     });
   });
 
-  it("coerces string page to number", () => {
-    const result = adminCandidatesQuerySchema.parse({ page: "2" });
-    expect(result.page).toBe(2);
+  it("accepts sort='oldest_unwatched'", () => {
+    expect(communityQuerySchema.parse({ sort: "oldest_unwatched" }).sort).toBe("oldest_unwatched");
   });
 
-  it("coerces string limit to number", () => {
-    const result = adminCandidatesQuerySchema.parse({ limit: "25" });
-    expect(result.limit).toBe(25);
+  it("accepts sort='newest'", () => {
+    expect(communityQuerySchema.parse({ sort: "newest" }).sort).toBe("newest");
   });
 
-  it("accepts sort='watched'", () => {
-    expect(adminCandidatesQuerySchema.parse({ sort: "watched" }).sort).toBe("watched");
-  });
-
-  it("accepts sort='title'", () => {
-    expect(adminCandidatesQuerySchema.parse({ sort: "title" }).sort).toBe("title");
+  it("accepts unvoted='true'", () => {
+    expect(communityQuerySchema.parse({ unvoted: "true" }).unvoted).toBe("true");
   });
 
   it("rejects invalid sort value", () => {
-    expect(() => adminCandidatesQuerySchema.parse({ sort: "date" })).toThrow();
+    expect(() => communityQuerySchema.parse({ sort: "alphabetical" })).toThrow();
   });
 
-  it("rejects page=0", () => {
-    expect(() => adminCandidatesQuerySchema.parse({ page: "0" })).toThrow();
+  it("coerces string page to number", () => {
+    expect(communityQuerySchema.parse({ page: "2" }).page).toBe(2);
   });
 
   it("rejects limit > 100", () => {
-    expect(() => adminCandidatesQuerySchema.parse({ limit: "101" })).toThrow();
+    expect(() => communityQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+});
+
+describe("reviewRoundCreateSchema", () => {
+  it("accepts valid name", () => {
+    expect(reviewRoundCreateSchema.parse({ name: "February Review" })).toEqual({
+      name: "February Review",
+    });
+  });
+
+  it("rejects empty name", () => {
+    expect(() => reviewRoundCreateSchema.parse({ name: "" })).toThrow();
+  });
+
+  it("rejects name over 100 chars", () => {
+    expect(() => reviewRoundCreateSchema.parse({ name: "a".repeat(101) })).toThrow();
+  });
+
+  it("rejects missing name", () => {
+    expect(() => reviewRoundCreateSchema.parse({})).toThrow();
+  });
+});
+
+describe("reviewActionSchema", () => {
+  it("accepts 'remove' action", () => {
+    const result = reviewActionSchema.parse({ mediaItemId: "1", action: "remove" });
+    expect(result.action).toBe("remove");
+    expect(result.mediaItemId).toBe(1);
+  });
+
+  it("accepts 'keep' action", () => {
+    expect(reviewActionSchema.parse({ mediaItemId: 2, action: "keep" }).action).toBe("keep");
+  });
+
+  it("accepts 'skip' action", () => {
+    expect(reviewActionSchema.parse({ mediaItemId: 3, action: "skip" }).action).toBe("skip");
+  });
+
+  it("coerces string mediaItemId to number", () => {
+    expect(reviewActionSchema.parse({ mediaItemId: "5", action: "keep" }).mediaItemId).toBe(5);
+  });
+
+  it("rejects invalid action", () => {
+    expect(() => reviewActionSchema.parse({ mediaItemId: 1, action: "delete" })).toThrow();
+  });
+
+  it("rejects negative mediaItemId", () => {
+    expect(() => reviewActionSchema.parse({ mediaItemId: -1, action: "keep" })).toThrow();
   });
 });

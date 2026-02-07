@@ -54,7 +54,7 @@ describe("GET /api/admin/users/:plexId/requests", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.items.length).toBe(5);
+    expect(data.items.length).toBe(6);
   });
 
   it("includes vote data in response", async () => {
@@ -72,7 +72,9 @@ describe("GET /api/admin/users/:plexId/requests", () => {
 
   it("filters by vote=keep", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep");
+    const req = createRequest(
+      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep"
+    );
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 
@@ -94,7 +96,9 @@ describe("GET /api/admin/users/:plexId/requests", () => {
 
   it("filters by vote=none (no vote)", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/users/plex-user-1/requests?vote=none");
+    const req = createRequest(
+      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=none"
+    );
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 
@@ -124,7 +128,7 @@ describe("GET /api/admin/users/:plexId/requests", () => {
 
     expect(data.pagination.page).toBe(1);
     expect(data.pagination.limit).toBe(2);
-    expect(data.pagination.total).toBe(5);
+    expect(data.pagination.total).toBe(6);
     expect(data.pagination.pages).toBe(3);
   });
 
@@ -142,7 +146,9 @@ describe("GET /api/admin/users/:plexId/requests", () => {
 
   it("pagination total reflects vote filter", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep");
+    const req = createRequest(
+      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep"
+    );
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 

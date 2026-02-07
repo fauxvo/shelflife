@@ -1,19 +1,22 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createTestDb } from "@/test/helpers/db";
+
+let testDb: ReturnType<typeof createTestDb>;
 
 vi.mock("@/lib/db", () => ({
-  db: {
-    run: vi.fn(),
+  get db() {
+    return testDb.db;
   },
 }));
-
-import { db } from "@/lib/db";
-const mockRun = vi.mocked(db.run);
 
 const { GET } = await import("../route");
 
 describe("GET /api/health", () => {
+  beforeEach(() => {
+    testDb = createTestDb();
+  });
+
   it("returns 200 with status 'ok' when DB is accessible", async () => {
-    mockRun.mockResolvedValueOnce(undefined as any);
     const res = await GET();
     const data = await res.json();
 
@@ -23,7 +26,8 @@ describe("GET /api/health", () => {
   });
 
   it("returns 503 with status 'error' when DB fails", async () => {
-    mockRun.mockRejectedValueOnce(new Error("DB connection failed"));
+    // Close the underlying SQLite connection to simulate DB failure
+    testDb.sqlite.close();
     const res = await GET();
     const data = await res.json();
 

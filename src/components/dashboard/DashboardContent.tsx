@@ -8,6 +8,7 @@ interface DashboardContentProps {
   totalRequests: number;
   keepCount: number;
   deleteCount: number;
+  trimCount: number;
   unvotedCount: number;
   watchedCount: number;
 }
@@ -16,6 +17,7 @@ export function DashboardContent({
   totalRequests,
   keepCount,
   deleteCount,
+  trimCount,
   unvotedCount,
   watchedCount,
 }: DashboardContentProps) {
@@ -27,13 +29,14 @@ export function DashboardContent({
         totalRequests={totalRequests}
         keepCount={keepCount}
         deleteCount={deleteCount}
+        trimCount={trimCount}
         unvotedCount={unvotedCount}
         watchedCount={watchedCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
       />
       <div>
-        <h2 className="text-lg font-semibold mb-4">Your Requests</h2>
+        <h2 className="mb-4 text-lg font-semibold">Your Requests</h2>
         <MediaGrid statsFilter={statsFilter} />
       </div>
     </>
