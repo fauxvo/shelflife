@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/fauxvo/shelflife/compare/v1.0.0...v1.0.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* auto-run database migrations on container startup ([155f881](https://github.com/fauxvo/shelflife/commit/155f88185553a8430c8cfd84d123d60dc9335e38))
+
 ## 1.0.0 (2026-02-07)
 
 
