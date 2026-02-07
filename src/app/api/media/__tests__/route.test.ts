@@ -55,7 +55,7 @@ describe("GET /api/media", () => {
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.items.length).toBe(5);
+    expect(data.items.length).toBe(6);
     expect(data.items.every((i: any) => i.id !== 5)).toBe(true);
   });
 
@@ -86,7 +86,7 @@ describe("GET /api/media", () => {
     const data = await res.json();
 
     expect(data.items.every((i: any) => i.mediaType === "tv")).toBe(true);
-    expect(data.items.length).toBe(2);
+    expect(data.items.length).toBe(3);
   });
 
   it("filters by status=available", async () => {
@@ -167,7 +167,7 @@ describe("GET /api/media", () => {
 
     expect(data.pagination.page).toBe(1);
     expect(data.pagination.limit).toBe(2);
-    expect(data.pagination.total).toBe(5);
+    expect(data.pagination.total).toBe(6);
     expect(data.pagination.pages).toBe(3);
   });
 
@@ -232,6 +232,26 @@ describe("GET /api/media", () => {
     // Movies with no vote for plex-user-1: item 6 (Another Movie)
     expect(data.pagination.total).toBe(1);
     expect(data.pagination.pages).toBe(1);
+  });
+
+  it("filters by search term", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?search=Big");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(data.items.length).toBe(1);
+    expect(data.items[0].title).toBe("Big Brother");
+  });
+
+  it("returns empty when search has no matches", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?search=nonexistent");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(data.items.length).toBe(0);
+    expect(data.pagination.total).toBe(0);
   });
 
   it("returns 401 when not authenticated", async () => {

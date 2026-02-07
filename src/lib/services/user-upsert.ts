@@ -1,6 +1,5 @@
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { sql } from "drizzle-orm";
 
 interface UpsertUserData {
   plexId: string;
@@ -29,7 +28,7 @@ export async function upsertUser(data: UpsertUserData) {
         email: data.email || null,
         avatarUrl: data.avatarUrl || null,
         ...(data.plexToken !== undefined && { plexToken: data.plexToken }),
-        updatedAt: sql`datetime('now')`,
+        updatedAt: new Date().toISOString(),
       },
     })
     .returning();

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { mediaQuerySchema } from "@/lib/validators/schemas";
-import { mediaQueryWithJoins, mediaCountWithJoins, mapMediaItemRow, buildPagination } from "@/lib/db/queries";
+import {
+  mediaQueryWithJoins,
+  mediaCountWithJoins,
+  mapMediaItemRow,
+  buildPagination,
+} from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, isNull, type SQL } from "drizzle-orm";
+import { eq, and, isNull, like, type SQL } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,6 +34,10 @@ export async function GET(request: NextRequest) {
       } else {
         conditions.push(eq(userVotes.vote, query.vote));
       }
+    }
+    if (query.search) {
+      const escaped = query.search.replace(/[%_\\]/g, "\\$&");
+      conditions.push(like(mediaItems.title, `%${escaped}%`));
     }
     if (query.watched === "true") {
       conditions.push(eq(watchStatus.watched, true));

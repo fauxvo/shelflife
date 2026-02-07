@@ -46,73 +46,73 @@ beforeEach(() => {
 
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
-describe("GET /api/admin/candidates", () => {
-  it("returns items where requestor voted 'delete'", async () => {
+describe("GET /api/admin/community", () => {
+  it("returns community candidates with tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+    const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.candidates.length).toBe(2);
-    expect(data.candidates.every((c: any) => c.vote === "delete")).toBe(true);
+    expect(data.items.length).toBe(3);
   });
 
-  it("does NOT return items voted 'keep'", async () => {
+  it("includes voter breakdown per item", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+    const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
     const data = await res.json();
 
-    const keepItem = data.candidates.find((c: any) => c.id === 1);
-    expect(keepItem).toBeUndefined();
+    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
+    expect(item2.voters).toBeDefined();
+    expect(item2.voters.length).toBe(2);
+
+    const voterNames = item2.voters.map((v: any) => v.username);
+    expect(voterNames).toContain("otheruser");
+    expect(voterNames).toContain("adminuser");
   });
 
-  it("includes requester username", async () => {
+  it("includes vote value in voter breakdown", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+    const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
     const data = await res.json();
 
-    const item2 = data.candidates.find((c: any) => c.id === 2);
-    expect(item2.requestedByUsername).toBe("testuser");
+    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
+    const otherVoter = item2.voters.find((v: any) => v.username === "otheruser");
+    expect(otherVoter.vote).toBe("remove");
+
+    const adminVoter = item2.voters.find((v: any) => v.username === "adminuser");
+    expect(adminVoter.vote).toBe("keep");
   });
 
-  it("includes watch status info", async () => {
+  it("returns correct tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+    const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
     const data = await res.json();
 
-    const item5 = data.candidates.find((c: any) => c.id === 5);
-    expect(item5.watched).toBe(true);
-    expect(item5.playCount).toBe(2);
-  });
-
-  it("returns pagination metadata", async () => {
-    mockRequireAdmin.mockResolvedValue(adminSession);
-    const req = createRequest("http://localhost:3000/api/admin/candidates?limit=1&page=1");
-    const res = await GET(req);
-    const data = await res.json();
-
-    expect(data.pagination.total).toBe(2);
-    expect(data.pagination.pages).toBe(2);
-    expect(data.candidates.length).toBe(1);
+    const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
+    expect(item2.tally.keepCount).toBe(1);
+    expect(item2.tally.removeCount).toBe(1);
   });
 
   it("returns 403 for non-admin", async () => {
     mockRequireAdmin.mockRejectedValue(new AuthError("Admin access required", 403));
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+    const req = createRequest("http://localhost:3000/api/admin/community");
     const res = await GET(req);
 
     expect(res.status).toBe(403);
   });
 
-  it("returns 401 for unauthenticated", async () => {
-    mockRequireAdmin.mockRejectedValue(new AuthError("Not authenticated", 401));
-    const req = createRequest("http://localhost:3000/api/admin/candidates");
+  it("handles pagination", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community?page=1&limit=1");
     const res = await GET(req);
+    const data = await res.json();
 
-    expect(res.status).toBe(401);
+    expect(data.items.length).toBe(1);
+    expect(data.pagination.total).toBe(3);
+    expect(data.pagination.pages).toBe(3);
   });
 });

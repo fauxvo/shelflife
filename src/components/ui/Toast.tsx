@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface ToastData {
   message: string;
@@ -14,6 +14,10 @@ interface ToastProps extends ToastData {
 
 export function Toast({ message, type, onDismiss, duration = 5000 }: ToastProps) {
   const [visible, setVisible] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     // Trigger enter animation
@@ -21,11 +25,11 @@ export function Toast({ message, type, onDismiss, duration = 5000 }: ToastProps)
 
     const timer = setTimeout(() => {
       setVisible(false);
-      setTimeout(onDismiss, 300); // Wait for exit animation
+      setTimeout(() => onDismissRef.current(), 300); // Wait for exit animation
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [duration, onDismiss]);
+  }, [duration]);
 
   const isSuccess = type === "success";
 

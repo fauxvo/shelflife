@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
 import { eq, count, desc } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
-import { DeletionCandidates } from "@/components/admin/DeletionCandidates";
+import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
 import { AppVersion } from "@/components/ui/AppVersion";
 
 export default async function AdminPage() {
@@ -54,6 +54,9 @@ export default async function AdminPage() {
           <div className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-gray-400 hover:text-gray-200">
               Dashboard
+            </a>
+            <a href="/community" className="text-sm text-gray-400 hover:text-gray-200">
+              Community
             </a>
             <form action="/api/auth/logout" method="POST">
               <button className="text-sm text-gray-400 hover:text-gray-200">Sign Out</button>
@@ -115,10 +118,10 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Deletion Candidates */}
+        {/* Review Rounds */}
         <div>
-          <h2 className="mb-4 text-lg font-semibold">Deletion Candidates</h2>
-          <DeletionCandidates />
+          <h2 className="mb-4 text-lg font-semibold">Review Rounds</h2>
+          <ReviewRoundList />
         </div>
       </main>
     </div>

@@ -70,6 +70,13 @@ const overseerrMediaDetailSchema = z.object({
   originalName: z.string().nullish(),
   posterPath: z.string().nullish(),
   overview: z.string().nullish(),
+  imdbId: z.string().nullish(),
+  numberOfSeasons: z.number().nullish(),
+  externalIds: z
+    .object({
+      imdbId: z.string().nullish(),
+    })
+    .nullish(),
 });
 
 export type OverseerrRequest = z.infer<typeof overseerrRequestSchema>;
