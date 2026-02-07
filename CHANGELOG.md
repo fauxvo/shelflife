@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/fauxvo/shelflife/compare/v1.1.0...v1.1.1) (2026-02-07)
+
+
+### Bug Fixes
+
+* session cookie not persisting over plain HTTP ([d8a24b6](https://github.com/fauxvo/shelflife/commit/d8a24b6a2d141bdfea7056ce493a7054bb0ca214))
+* session cookie not persisting over plain HTTP ([4198b4e](https://github.com/fauxvo/shelflife/commit/4198b4edd19ce0226315ef7d87e33312169e72fa))
+
 ## [1.1.0](https://github.com/fauxvo/shelflife/compare/v1.0.1...v1.1.0) (2026-02-07)
 
 
