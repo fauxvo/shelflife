@@ -49,6 +49,7 @@ export function Toast({ message, type, onDismiss, duration = 5000 }: ToastProps)
             setVisible(false);
             setTimeout(onDismiss, 300);
           }}
+          aria-label="Close notification"
           className="ml-auto shrink-0 text-gray-500 hover:text-gray-300"
         >
           <svg

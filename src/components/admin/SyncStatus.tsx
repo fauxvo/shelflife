@@ -26,7 +26,7 @@ interface SyncResult {
   tautulli?: number;
 }
 
-function formatSyncResult(synced: SyncResult): string {
+export function formatSyncResult(synced: SyncResult): string {
   const parts: string[] = [];
   if (synced.overseerr != null) {
     parts.push(`${synced.overseerr} media item${synced.overseerr !== 1 ? "s" : ""}`);
