@@ -6,36 +6,39 @@
  * Run: bun scripts/cleanup-stale-votes.ts
  */
 
-import Database from "better-sqlite3";
-import path from "path";
+import { db } from "@/lib/db";
+import { userVotes, communityVotes } from "@/lib/db/schema";
+import { eq, count } from "drizzle-orm";
 
-const dbPath =
-  process.env.DATABASE_URL?.replace("file:", "") ||
-  path.join(process.cwd(), "data", "shelflife.db");
+async function main() {
+  const [keepResult] = await db
+    .select({ total: count() })
+    .from(userVotes)
+    .where(eq(userVotes.vote, "keep" as "delete"));
+  const [removeResult] = await db
+    .select({ total: count() })
+    .from(communityVotes)
+    .where(eq(communityVotes.vote, "remove" as "keep"));
 
-console.log(`Opening database: ${dbPath}`);
-const sqlite = new Database(dbPath);
+  const keepCount = keepResult?.total || 0;
+  const removeCount = removeResult?.total || 0;
 
-const keepVotes = sqlite
-  .prepare("SELECT COUNT(*) as count FROM user_votes WHERE vote = 'keep'")
-  .get() as { count: number };
-const removeVotes = sqlite
-  .prepare("SELECT COUNT(*) as count FROM community_votes WHERE vote = 'remove'")
-  .get() as { count: number };
+  console.warn(`Found ${keepCount} stale user_votes with vote='keep'`);
+  console.warn(`Found ${removeCount} stale community_votes with vote='remove'`);
 
-console.log(`Found ${keepVotes.count} stale user_votes with vote='keep'`);
-console.log(`Found ${removeVotes.count} stale community_votes with vote='remove'`);
+  if (keepCount === 0 && removeCount === 0) {
+    console.warn("Nothing to clean up.");
+    process.exit(0);
+  }
 
-if (keepVotes.count === 0 && removeVotes.count === 0) {
-  console.log("Nothing to clean up.");
-  process.exit(0);
+  const deleted1 = await db.delete(userVotes).where(eq(userVotes.vote, "keep" as "delete"));
+  const deleted2 = await db
+    .delete(communityVotes)
+    .where(eq(communityVotes.vote, "remove" as "keep"));
+
+  console.warn(`Deleted user_votes rows: ${JSON.stringify(deleted1.changes)}`);
+  console.warn(`Deleted community_votes rows: ${JSON.stringify(deleted2.changes)}`);
+  console.warn("Cleanup complete.");
 }
 
-const result1 = sqlite.prepare("DELETE FROM user_votes WHERE vote = 'keep'").run();
-const result2 = sqlite.prepare("DELETE FROM community_votes WHERE vote = 'remove'").run();
-
-console.log(`Deleted ${result1.changes} user_votes rows`);
-console.log(`Deleted ${result2.changes} community_votes rows`);
-console.log("Cleanup complete.");
-
-sqlite.close();
+main();

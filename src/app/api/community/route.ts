@@ -77,8 +77,10 @@ export async function GET(request: NextRequest) {
       .where(eq(communityVotes.userPlexId, session.plexId))
       .as("user_cv");
 
-    // Use aggregates to resolve GROUP BY non-determinism:
-    // Prefer self-nomination over admin nomination for type and keepSeasons
+    // Use aggregates to resolve GROUP BY when both self + admin nominate the same item.
+    // COALESCE prefers the self-nomination; MAX() fallback is deterministic in SQLite
+    // (alphabetical: 'trim' > 'delete'), which correctly preserves the more specific vote.
+    // These use Drizzle column refs (parameterized), not string interpolation — safe from injection.
     const selfPreferredVote = sql<string>`COALESCE(
       MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
       MAX(${userVotes.vote})

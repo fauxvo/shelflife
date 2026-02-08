@@ -40,6 +40,13 @@ export const communityQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
+export const adminUserRequestsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  vote: z.enum(["nominated", "none", "delete", "trim", "all"]).default("all"),
+  watched: z.enum(["true", "false", ""]).optional(),
+});
+
 export const reviewRoundCreateSchema = z.object({
   name: z.string().min(1).max(100),
 });
@@ -54,5 +61,6 @@ export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type MediaQuery = z.infer<typeof mediaQuerySchema>;
 export type CommunityVoteInput = z.infer<typeof communityVoteSchema>;
 export type CommunityQuery = z.infer<typeof communityQuerySchema>;
+export type AdminUserRequestsQuery = z.infer<typeof adminUserRequestsQuerySchema>;
 export type ReviewRoundCreate = z.infer<typeof reviewRoundCreateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;

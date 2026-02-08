@@ -5,6 +5,7 @@ import {
   mediaQuerySchema,
   communityVoteSchema,
   communityQuerySchema,
+  adminUserRequestsQuerySchema,
   reviewRoundCreateSchema,
   reviewActionSchema,
 } from "../schemas";
@@ -256,6 +257,47 @@ describe("communityQuerySchema", () => {
 
   it("rejects limit > 100", () => {
     expect(() => communityQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+});
+
+describe("adminUserRequestsQuerySchema", () => {
+  it("applies all defaults for empty input", () => {
+    const result = adminUserRequestsQuerySchema.parse({});
+    expect(result).toEqual({
+      page: 1,
+      limit: 20,
+      vote: "all",
+    });
+  });
+
+  it("coerces string page to number", () => {
+    expect(adminUserRequestsQuerySchema.parse({ page: "3" }).page).toBe(3);
+  });
+
+  it("coerces string limit to number", () => {
+    expect(adminUserRequestsQuerySchema.parse({ limit: "50" }).limit).toBe(50);
+  });
+
+  it("rejects page=0", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ page: "0" })).toThrow();
+  });
+
+  it("rejects limit > 100", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+
+  it("accepts all valid vote values", () => {
+    for (const vote of ["nominated", "none", "delete", "trim", "all"]) {
+      expect(adminUserRequestsQuerySchema.parse({ vote }).vote).toBe(vote);
+    }
+  });
+
+  it("rejects invalid vote value", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ vote: "invalid" })).toThrow();
+  });
+
+  it("accepts watched='true'", () => {
+    expect(adminUserRequestsQuerySchema.parse({ watched: "true" }).watched).toBe("true");
   });
 });
 
