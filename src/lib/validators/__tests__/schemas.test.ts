@@ -5,14 +5,14 @@ import {
   mediaQuerySchema,
   communityVoteSchema,
   communityQuerySchema,
+  adminUserRequestsQuerySchema,
   reviewRoundCreateSchema,
   reviewActionSchema,
 } from "../schemas";
 
 describe("voteSchema", () => {
-  it("accepts 'keep'", () => {
-    const result = voteSchema.parse({ vote: "keep" });
-    expect(result.vote).toBe("keep");
+  it("rejects 'keep' (no longer valid)", () => {
+    expect(() => voteSchema.parse({ vote: "keep" })).toThrow();
   });
 
   it("accepts 'delete'", () => {
@@ -28,12 +28,6 @@ describe("voteSchema", () => {
 
   it("rejects 'trim' without keepSeasons", () => {
     expect(() => voteSchema.parse({ vote: "trim" })).toThrow();
-  });
-
-  it("accepts 'keep' without keepSeasons", () => {
-    const result = voteSchema.parse({ vote: "keep" });
-    expect(result.vote).toBe("keep");
-    expect(result.keepSeasons).toBeUndefined();
   });
 
   it("accepts 'delete' without keepSeasons", () => {
@@ -177,7 +171,7 @@ describe("mediaQuerySchema", () => {
   });
 
   it("accepts all valid vote values", () => {
-    for (const vote of ["keep", "delete", "trim", "none", "all"]) {
+    for (const vote of ["nominated", "none", "all"]) {
       expect(mediaQuerySchema.parse({ vote }).vote).toBe(vote);
     }
   });
@@ -207,8 +201,8 @@ describe("communityVoteSchema", () => {
     expect(communityVoteSchema.parse({ vote: "keep" })).toEqual({ vote: "keep" });
   });
 
-  it("accepts 'remove'", () => {
-    expect(communityVoteSchema.parse({ vote: "remove" })).toEqual({ vote: "remove" });
+  it("rejects 'remove' (no longer valid)", () => {
+    expect(() => communityVoteSchema.parse({ vote: "remove" })).toThrow();
   });
 
   it("rejects 'delete' (uses different enum)", () => {
@@ -229,7 +223,7 @@ describe("communityQuerySchema", () => {
     const result = communityQuerySchema.parse({});
     expect(result).toEqual({
       type: "all",
-      sort: "most_remove",
+      sort: "least_keep",
       page: 1,
       limit: 20,
     });
@@ -263,6 +257,47 @@ describe("communityQuerySchema", () => {
 
   it("rejects limit > 100", () => {
     expect(() => communityQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+});
+
+describe("adminUserRequestsQuerySchema", () => {
+  it("applies all defaults for empty input", () => {
+    const result = adminUserRequestsQuerySchema.parse({});
+    expect(result).toEqual({
+      page: 1,
+      limit: 20,
+      vote: "all",
+    });
+  });
+
+  it("coerces string page to number", () => {
+    expect(adminUserRequestsQuerySchema.parse({ page: "3" }).page).toBe(3);
+  });
+
+  it("coerces string limit to number", () => {
+    expect(adminUserRequestsQuerySchema.parse({ limit: "50" }).limit).toBe(50);
+  });
+
+  it("rejects page=0", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ page: "0" })).toThrow();
+  });
+
+  it("rejects limit > 100", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ limit: "101" })).toThrow();
+  });
+
+  it("accepts all valid vote values", () => {
+    for (const vote of ["nominated", "none", "delete", "trim", "all"]) {
+      expect(adminUserRequestsQuerySchema.parse({ vote }).vote).toBe(vote);
+    }
+  });
+
+  it("rejects invalid vote value", () => {
+    expect(() => adminUserRequestsQuerySchema.parse({ vote: "invalid" })).toThrow();
+  });
+
+  it("accepts watched='true'", () => {
+    expect(adminUserRequestsQuerySchema.parse({ watched: "true" }).watched).toBe("true");
   });
 });
 

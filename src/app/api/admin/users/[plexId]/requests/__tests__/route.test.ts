@@ -64,22 +64,22 @@ describe("GET /api/admin/users/:plexId/requests", () => {
     const data = await res.json();
 
     const item1 = data.items.find((i: any) => i.id === 1);
-    expect(item1.vote).toBe("keep");
+    expect(item1.vote).toBeNull();
 
     const item2 = data.items.find((i: any) => i.id === 2);
     expect(item2.vote).toBe("delete");
   });
 
-  it("filters by vote=keep", async () => {
+  it("filters by vote=nominated", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest(
-      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep"
+      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=nominated"
     );
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 
-    expect(data.items.length).toBe(1);
-    expect(data.items[0].vote).toBe("keep");
+    expect(data.items.length).toBe(2);
+    expect(data.items.every((i: any) => i.vote === "delete" || i.vote === "trim")).toBe(true);
   });
 
   it("filters by vote=delete", async () => {
@@ -102,7 +102,7 @@ describe("GET /api/admin/users/:plexId/requests", () => {
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 
-    expect(data.items.length).toBe(3);
+    expect(data.items.length).toBe(4);
     expect(data.items.every((i: any) => i.vote === null)).toBe(true);
   });
 
@@ -147,13 +147,13 @@ describe("GET /api/admin/users/:plexId/requests", () => {
   it("pagination total reflects vote filter", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest(
-      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=keep"
+      "http://localhost:3000/api/admin/users/plex-user-1/requests?vote=nominated"
     );
     const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
     const data = await res.json();
 
-    // Only 1 item has "keep" vote, total should be 1 not 5
-    expect(data.pagination.total).toBe(1);
+    // 2 items have nominations (delete/trim), total should be 2
+    expect(data.pagination.total).toBe(2);
     expect(data.pagination.pages).toBe(1);
   });
 
@@ -167,6 +167,34 @@ describe("GET /api/admin/users/:plexId/requests", () => {
 
     expect(data.pagination.total).toBe(1);
     expect(data.pagination.pages).toBe(1);
+  });
+
+  it("includes adminVote field when admin has voted", async () => {
+    // Admin votes on item 1 (belongs to plex-user-1)
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (1, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/users/plex-user-1/requests");
+    const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
+    const data = await res.json();
+
+    const item1 = data.items.find((i: any) => i.id === 1);
+    expect(item1.vote).toBeNull(); // user has no vote on item 1
+    expect(item1.adminVote).toBe("delete"); // admin's vote
+  });
+
+  it("returns adminVote as null when admin has not voted", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/users/plex-user-1/requests");
+    const res = await GET(req, { params: Promise.resolve({ plexId: "plex-user-1" }) });
+    const data = await res.json();
+
+    const item1 = data.items.find((i: any) => i.id === 1);
+    expect(item1.adminVote).toBeNull();
+    expect(item1.adminKeepSeasons).toBeNull();
   });
 
   it("returns 403 for non-admin", async () => {

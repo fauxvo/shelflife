@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { users, mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, countDistinct, inArray } from "drizzle-orm";
 import { AdminUserContent } from "@/components/admin/AdminUserContent";
 
 export default async function AdminUserPage({ params }: { params: Promise<{ plexId: string }> }) {
@@ -22,20 +22,13 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .from(mediaItems)
     .where(eq(mediaItems.requestedByPlexId, plexId));
 
-  const [keepResult] = await db
-    .select({ total: count() })
+  const [nominatedResult] = await db
+    .select({ total: countDistinct(userVotes.mediaItemId) })
     .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, plexId), eq(userVotes.vote, "keep")));
-
-  const [deleteResult] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, plexId), eq(userVotes.vote, "delete")));
-
-  const [trimResult] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, plexId), eq(userVotes.vote, "trim")));
+    .innerJoin(mediaItems, eq(userVotes.mediaItemId, mediaItems.id))
+    .where(
+      and(eq(mediaItems.requestedByPlexId, plexId), inArray(userVotes.vote, ["delete", "trim"]))
+    );
 
   const [watchedResult] = await db
     .select({ total: count() })
@@ -43,11 +36,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .where(and(eq(watchStatus.userPlexId, plexId), eq(watchStatus.watched, true)));
 
   const totalRequests = totalResult?.total || 0;
-  const keepCount = keepResult?.total || 0;
-  const deleteCount = deleteResult?.total || 0;
-  const trimCount = trimResult?.total || 0;
+  const nominatedCount = nominatedResult?.total || 0;
+  const notNominatedCount = totalRequests - nominatedCount;
   const watchedCount = watchedResult?.total || 0;
-  const unvotedCount = totalRequests - keepCount - deleteCount - trimCount;
 
   return (
     <div className="min-h-screen">
@@ -88,10 +79,8 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
         <AdminUserContent
           plexId={plexId}
           totalRequests={totalRequests}
-          keepCount={keepCount}
-          deleteCount={deleteCount}
-          trimCount={trimCount}
-          unvotedCount={unvotedCount}
+          nominatedCount={nominatedCount}
+          notNominatedCount={notNominatedCount}
           watchedCount={watchedCount}
         />
       </main>

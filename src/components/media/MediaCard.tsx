@@ -1,12 +1,13 @@
 import Image from "next/image";
 import { VoteButton } from "./VoteButton";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { ExternalLinks } from "../ui/ExternalLinks";
 import { STATUS_COLORS } from "@/lib/constants";
 import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface MediaCardProps {
   item: MediaItemWithVote;
-  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue) => void;
+  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
 }
 
 export function MediaCard({ item, onVoteChange }: MediaCardProps) {
@@ -68,13 +69,16 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
             Played {item.watchStatus.playCount} time{item.watchStatus.playCount !== 1 ? "s" : ""}
           </p>
         )}
+        <ExternalLinks imdbId={item.imdbId} tmdbId={item.tmdbId} mediaType={item.mediaType} />
         <VoteButton
           mediaItemId={item.id}
           currentVote={item.vote}
           seasonCount={item.seasonCount}
           mediaType={item.mediaType}
           currentKeepSeasons={item.keepSeasons}
-          onVoteChange={(newVote, oldVote) => onVoteChange?.(item.id, oldVote, newVote)}
+          onVoteChange={(newVote: VoteValue | null, oldVote: VoteValue | null) =>
+            onVoteChange?.(item.id, oldVote, newVote)
+          }
         />
       </div>
     </div>

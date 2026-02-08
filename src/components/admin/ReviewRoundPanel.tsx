@@ -3,17 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "../community/VoteTallyBar";
+import type { MediaStatus } from "@/types";
 
 interface RoundCandidate {
   id: number;
   title: string;
   mediaType: "movie" | "tv";
-  status: string;
+  status: MediaStatus;
   requestedByUsername: string;
   seasonCount: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
-  tally: { keepCount: number; removeCount: number };
+  tally: { keepCount: number };
   action: "remove" | "keep" | "skip" | null;
 }
 
@@ -133,42 +134,50 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
                     Trim to latest {c.keepSeasons} of {c.seasonCount} seasons
                   </p>
                 )}
-                <div className="mt-2 max-w-xs">
-                  <VoteTallyBar keepCount={c.tally.keepCount} removeCount={c.tally.removeCount} />
+                {c.status === "removed" ? (
+                  <div className="mt-2 inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
+                    Removed from library
+                  </div>
+                ) : (
+                  <div className="mt-2 max-w-xs">
+                    <VoteTallyBar keepCount={c.tally.keepCount} />
+                  </div>
+                )}
+              </div>
+              {c.status !== "removed" && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAction(c.id, "remove")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      c.action === "remove"
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    Remove
+                  </button>
+                  <button
+                    onClick={() => handleAction(c.id, "keep")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      c.action === "keep"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    Keep
+                  </button>
+                  <button
+                    onClick={() => handleAction(c.id, "skip")}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                      c.action === "skip"
+                        ? "bg-yellow-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    Skip
+                  </button>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAction(c.id, "remove")}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    c.action === "remove"
-                      ? "bg-red-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  Remove
-                </button>
-                <button
-                  onClick={() => handleAction(c.id, "keep")}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    c.action === "keep"
-                      ? "bg-green-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  Keep
-                </button>
-                <button
-                  onClick={() => handleAction(c.id, "skip")}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    c.action === "skip"
-                      ? "bg-yellow-600 text-white"
-                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  }`}
-                >
-                  Skip
-                </button>
-              </div>
+              )}
             </div>
           ))}
         </div>

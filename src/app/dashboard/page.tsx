@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
 import { AppVersion } from "@/components/ui/AppVersion";
 
@@ -16,20 +16,12 @@ export default async function DashboardPage() {
     .from(mediaItems)
     .where(eq(mediaItems.requestedByPlexId, session.plexId));
 
-  const [keepResult] = await db
+  const [nominatedResult] = await db
     .select({ total: count() })
     .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.vote, "keep")));
-
-  const [deleteResult] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.vote, "delete")));
-
-  const [trimResult] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.vote, "trim")));
+    .where(
+      and(eq(userVotes.userPlexId, session.plexId), inArray(userVotes.vote, ["delete", "trim"]))
+    );
 
   const [watchedResult] = await db
     .select({ total: count() })
@@ -37,11 +29,9 @@ export default async function DashboardPage() {
     .where(and(eq(watchStatus.userPlexId, session.plexId), eq(watchStatus.watched, true)));
 
   const totalRequests = totalResult?.total || 0;
-  const keepCount = keepResult?.total || 0;
-  const deleteCount = deleteResult?.total || 0;
-  const trimCount = trimResult?.total || 0;
+  const nominatedCount = nominatedResult?.total || 0;
+  const notNominatedCount = totalRequests - nominatedCount;
   const watchedCount = watchedResult?.total || 0;
-  const unvotedCount = totalRequests - keepCount - deleteCount - trimCount;
 
   return (
     <div className="min-h-screen">
@@ -72,10 +62,8 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <DashboardContent
           totalRequests={totalRequests}
-          keepCount={keepCount}
-          deleteCount={deleteCount}
-          trimCount={trimCount}
-          unvotedCount={unvotedCount}
+          nominatedCount={nominatedCount}
+          notNominatedCount={notNominatedCount}
           watchedCount={watchedCount}
         />
       </main>

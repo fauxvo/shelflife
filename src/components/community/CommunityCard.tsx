@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { ExternalLinks } from "../ui/ExternalLinks";
 import { VoteTallyBar } from "./VoteTallyBar";
 import { CommunityVoteButton } from "./CommunityVoteButton";
 import { VoteButton } from "../media/VoteButton";
@@ -10,12 +11,8 @@ import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types"
 
 interface CommunityCardProps {
   item: CommunityCandidate;
-  onVoteChange?: (
-    itemId: number,
-    vote: CommunityVoteValue | null,
-    delta: { keep: number; remove: number }
-  ) => void;
-  onSelfVoteChange?: (itemId: number, vote: VoteValue) => void;
+  onVoteChange?: (itemId: number, vote: CommunityVoteValue | null, delta: { keep: number }) => void;
+  onSelfVoteChange?: (itemId: number, vote: VoteValue | null) => void;
 }
 
 export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: CommunityCardProps) {
@@ -80,32 +77,15 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
             )}
           </p>
         )}
-        {item.imdbId && (
-          <a
-            href={`https://www.imdb.com/title/${item.imdbId}/`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-[#e5a00d] hover:underline"
-          >
-            IMDB
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-              />
-            </svg>
-          </a>
-        )}
+        <ExternalLinks imdbId={item.imdbId} tmdbId={item.tmdbId} mediaType={item.mediaType} />
         {item.status === "removed" ? (
           <div className="rounded bg-red-900/30 px-2 py-2 text-center text-sm font-medium text-red-400">
             Removed from library
           </div>
         ) : (
           <>
-            <VoteTallyBar keepCount={item.tally.keepCount} removeCount={item.tally.removeCount} />
-            {item.isOwn ? (
+            <VoteTallyBar keepCount={item.tally.keepCount} />
+            {item.isRequestor || item.isNominator ? (
               <div className="space-y-1">
                 <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
                 <VoteButton
@@ -114,7 +94,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
                   seasonCount={item.seasonCount}
                   mediaType={item.mediaType}
                   currentKeepSeasons={item.keepSeasons}
-                  onVoteChange={(newVote) => onSelfVoteChange?.(item.id, newVote)}
+                  onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
                 />
               </div>
             ) : (

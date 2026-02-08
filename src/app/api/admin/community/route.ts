@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { communityQuerySchema } from "@/lib/validators/schemas";
-import { buildPagination } from "@/lib/db/queries";
+import { buildPagination, getNominationCondition } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, desc, inArray } from "drizzle-orm";
@@ -17,12 +17,8 @@ export async function GET(request: NextRequest) {
 
     const offset = (query.page - 1) * query.limit;
 
-    // Base condition: requestor self-nominated for deletion or trim
-    const baseCondition = and(
-      eq(userVotes.mediaItemId, mediaItems.id),
-      eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-      inArray(userVotes.vote, ["delete", "trim"])
-    );
+    // Base condition: items nominated for deletion/trim (self-nominated or admin-nominated)
+    const baseCondition = getNominationCondition();
 
     // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
     const keepCountSub = db
@@ -35,15 +31,17 @@ export async function GET(request: NextRequest) {
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    const removeCountSub = db
-      .select({
-        mediaItemId: communityVotes.mediaItemId,
-        cnt: count().as("remove_count"),
-      })
-      .from(communityVotes)
-      .where(eq(communityVotes.vote, "remove"))
-      .groupBy(communityVotes.mediaItemId)
-      .as("remove_tally");
+    // Use aggregates to resolve GROUP BY non-determinism:
+    // Prefer self-nomination over admin nomination for type and keepSeasons
+    const selfPreferredVote = sql<string>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
+      MAX(${userVotes.vote})
+    )`.as("nomination_type");
+
+    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
+      MAX(${userVotes.keepSeasons})
+    )`.as("keep_seasons_agg");
 
     let baseQuery = db
       .select({
@@ -52,18 +50,18 @@ export async function GET(request: NextRequest) {
         mediaType: mediaItems.mediaType,
         posterPath: mediaItems.posterPath,
         status: mediaItems.status,
+        tmdbId: mediaItems.tmdbId,
         imdbId: mediaItems.imdbId,
         requestedAt: mediaItems.requestedAt,
         requestedByPlexId: mediaItems.requestedByPlexId,
         requestedByUsername: users.username,
         seasonCount: mediaItems.seasonCount,
-        nominationType: userVotes.vote,
-        keepSeasons: userVotes.keepSeasons,
+        nominationType: selfPreferredVote,
+        keepSeasons: selfPreferredKeepSeasons,
         watched: watchStatus.watched,
         playCount: watchStatus.playCount,
         lastWatchedAt: watchStatus.lastWatchedAt,
         keepCount: keepCountSub.cnt,
-        removeCount: removeCountSub.cnt,
       })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition!)
@@ -75,8 +73,7 @@ export async function GET(request: NextRequest) {
           eq(watchStatus.userPlexId, mediaItems.requestedByPlexId)
         )
       )
-      .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
-      .leftJoin(removeCountSub, eq(removeCountSub.mediaItemId, mediaItems.id));
+      .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id));
 
     const adminWhere: SQL[] = [];
     if (query.type !== "all") {
@@ -88,10 +85,8 @@ export async function GET(request: NextRequest) {
     const commonSort = getCommonSortOrder(query.sort);
     if (commonSort) {
       baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
-    } else if (query.sort === "most_remove") {
-      baseQuery = baseQuery.orderBy(
-        sql`(COALESCE(${removeCountSub.cnt}, 0) - COALESCE(${keepCountSub.cnt}, 0)) DESC`
-      ) as typeof baseQuery;
+    } else if (query.sort === "least_keep") {
+      baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
         sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`
@@ -102,7 +97,8 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.orderBy(DEFAULT_SORT_ORDER) as typeof baseQuery;
     }
 
-    const items = await baseQuery.limit(query.limit).offset(offset);
+    // GROUP BY to deduplicate when both self + admin nominate the same item
+    const items = await baseQuery.groupBy(mediaItems.id).limit(query.limit).offset(offset);
 
     // Count
     const countWhere: SQL[] = [];
@@ -110,13 +106,13 @@ export async function GET(request: NextRequest) {
       countWhere.push(eq(mediaItems.mediaType, query.type));
     }
     const countQuery = db
-      .select({ total: count() })
+      .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition!)
       .where(and(...countWhere));
 
     const totalResult = await countQuery;
-    const total = totalResult[0]?.total || 0;
+    const total = Number(totalResult[0]?.total) || 0;
 
     // Get voter breakdown per item
     const itemIds = items.map((i) => i.id);
@@ -156,12 +152,13 @@ export async function GET(request: NextRequest) {
         mediaType: i.mediaType,
         posterPath: i.posterPath,
         status: i.status,
+        tmdbId: i.tmdbId,
         imdbId: i.imdbId,
         requestedByUsername: i.requestedByUsername || "Unknown",
         requestedAt: i.requestedAt,
         seasonCount: i.seasonCount || null,
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
-        keepSeasons: i.keepSeasons || null,
+        keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus:
           i.watched !== null && i.watched !== undefined
             ? {
@@ -172,7 +169,6 @@ export async function GET(request: NextRequest) {
             : null,
         tally: {
           keepCount: Number(i.keepCount) || 0,
-          removeCount: Number(i.removeCount) || 0,
         },
         voters: voterBreakdown[i.id] || [],
       })),

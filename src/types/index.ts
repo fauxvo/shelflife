@@ -33,8 +33,8 @@ export type NewReviewRound = typeof reviewRounds.$inferInsert;
 export type ReviewAction = typeof reviewActions.$inferSelect;
 export type NewReviewAction = typeof reviewActions.$inferInsert;
 
-export type VoteValue = "keep" | "delete" | "trim";
-export type CommunityVoteValue = "keep" | "remove";
+export type VoteValue = "delete" | "trim";
+export type CommunityVoteValue = "keep";
 export type MediaType = "movie" | "tv";
 export type MediaStatus =
   | "unknown"
@@ -56,6 +56,8 @@ export interface SessionPayload {
 export interface MediaItemWithVote extends MediaItem {
   vote: VoteValue | null;
   keepSeasons: number | null;
+  adminVote?: VoteValue | null;
+  adminKeepSeasons?: number | null;
   watchStatus: {
     watched: boolean;
     playCount: number;
@@ -68,7 +70,8 @@ export interface CommunityCandidate {
   title: string;
   mediaType: "movie" | "tv";
   posterPath: string | null;
-  status: string;
+  status: MediaStatus;
+  tmdbId: number | null;
   imdbId: string | null;
   requestedByUsername: string;
   requestedAt: string | null;
@@ -80,7 +83,8 @@ export interface CommunityCandidate {
     playCount: number;
     lastWatchedAt: string | null;
   } | null;
-  tally: { keepCount: number; removeCount: number };
+  tally: { keepCount: number };
   currentUserVote: CommunityVoteValue | null;
-  isOwn: boolean;
+  isRequestor: boolean;
+  isNominator: boolean;
 }

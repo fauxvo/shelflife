@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
-import { eq, count, desc } from "drizzle-orm";
+import { eq, count, desc, inArray } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
 import { AppVersion } from "@/components/ui/AppVersion";
@@ -14,14 +14,10 @@ export default async function AdminPage() {
   // Get overview stats
   const [totalMedia] = await db.select({ total: count() }).from(mediaItems);
   const [totalUsers] = await db.select({ total: count() }).from(users);
-  const [totalDeleteVotes] = await db
+  const [totalNominations] = await db
     .select({ total: count() })
     .from(userVotes)
-    .where(eq(userVotes.vote, "delete"));
-  const [totalKeepVotes] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(eq(userVotes.vote, "keep"));
+    .where(inArray(userVotes.vote, ["delete", "trim"]));
 
   // Get last sync
   const lastSyncResult = await db.select().from(syncLog).orderBy(desc(syncLog.startedAt)).limit(1);
@@ -66,7 +62,7 @@ export default async function AdminPage() {
       </header>
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         {/* Overview Stats */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
             <p className="text-xs tracking-wide text-gray-500 uppercase">Total Media</p>
             <p className="mt-1 text-2xl font-bold">{totalMedia?.total || 0}</p>
@@ -76,12 +72,8 @@ export default async function AdminPage() {
             <p className="mt-1 text-2xl font-bold">{totalUsers?.total || 0}</p>
           </div>
           <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-            <p className="text-xs tracking-wide text-gray-500 uppercase">Keep Votes</p>
-            <p className="mt-1 text-2xl font-bold text-green-400">{totalKeepVotes?.total || 0}</p>
-          </div>
-          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-            <p className="text-xs tracking-wide text-gray-500 uppercase">Delete Votes</p>
-            <p className="mt-1 text-2xl font-bold text-red-400">{totalDeleteVotes?.total || 0}</p>
+            <p className="text-xs tracking-wide text-gray-500 uppercase">Nominations</p>
+            <p className="mt-1 text-2xl font-bold text-red-400">{totalNominations?.total || 0}</p>
           </div>
         </div>
 

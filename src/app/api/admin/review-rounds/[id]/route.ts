@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
+import { getNominationCondition } from "@/lib/db/queries";
 import {
   reviewRounds,
   reviewActions,
@@ -9,7 +10,7 @@ import {
   communityVotes,
   users,
 } from "@/lib/db/schema";
-import { eq, and, count, sql, inArray } from "drizzle-orm";
+import { eq, count, sql } from "drizzle-orm";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -38,16 +39,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    const removeCountSub = db
-      .select({
-        mediaItemId: communityVotes.mediaItemId,
-        cnt: count().as("remove_count"),
-      })
-      .from(communityVotes)
-      .where(eq(communityVotes.vote, "remove"))
-      .groupBy(communityVotes.mediaItemId)
-      .as("remove_tally");
-
     const actionSubquery = db
       .select({
         mediaItemId: reviewActions.mediaItemId,
@@ -57,6 +48,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .where(eq(reviewActions.reviewRoundId, roundId))
       .as("round_action");
 
+    const baseCondition = getNominationCondition();
+
+    // Use aggregates to resolve GROUP BY non-determinism:
+    // Prefer self-nomination over admin nomination for type and keepSeasons
+    const selfPreferredVote = sql<string>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
+      MAX(${userVotes.vote})
+    )`.as("nomination_type");
+
+    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
+      MAX(${userVotes.keepSeasons})
+    )`.as("keep_seasons_agg");
+
     const candidates = await db
       .select({
         id: mediaItems.id,
@@ -65,26 +70,18 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         status: mediaItems.status,
         requestedByUsername: users.username,
         seasonCount: mediaItems.seasonCount,
-        nominationType: userVotes.vote,
-        keepSeasons: userVotes.keepSeasons,
+        nominationType: selfPreferredVote,
+        keepSeasons: selfPreferredKeepSeasons,
         keepCount: keepCountSub.cnt,
-        removeCount: removeCountSub.cnt,
         action: actionSubquery.action,
       })
       .from(mediaItems)
-      .innerJoin(
-        userVotes,
-        and(
-          eq(userVotes.mediaItemId, mediaItems.id),
-          eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-          inArray(userVotes.vote, ["delete", "trim"])
-        )
-      )
+      .innerJoin(userVotes, baseCondition!)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
       .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
-      .leftJoin(removeCountSub, eq(removeCountSub.mediaItemId, mediaItems.id))
       .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
-      .orderBy(sql`(COALESCE(${removeCountSub.cnt}, 0) - COALESCE(${keepCountSub.cnt}, 0)) DESC`);
+      .groupBy(mediaItems.id)
+      .orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`);
 
     return NextResponse.json({
       round: round[0],
@@ -96,10 +93,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         requestedByUsername: c.requestedByUsername || "Unknown",
         seasonCount: c.seasonCount || null,
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
-        keepSeasons: c.keepSeasons || null,
+        keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,
         tally: {
           keepCount: Number(c.keepCount) || 0,
-          removeCount: Number(c.removeCount) || 0,
         },
         action: c.action || null,
       })),

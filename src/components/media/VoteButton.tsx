@@ -9,7 +9,7 @@ interface VoteButtonProps {
   seasonCount?: number | null;
   mediaType?: "movie" | "tv";
   currentKeepSeasons?: number | null;
-  onVoteChange?: (newVote: VoteValue, oldVote: VoteValue | null) => void;
+  onVoteChange?: (newVote: VoteValue | null, oldVote: VoteValue | null) => void;
 }
 
 export function VoteButton({
@@ -37,34 +37,81 @@ export function VoteButton({
   }, [currentKeepSeasons]);
 
   const canTrim = mediaType === "tv" && seasonCount && seasonCount > 1;
+  const isNominated = vote === "delete" || vote === "trim";
 
-  const handleVote = async (newVote: VoteValue, seasons?: number) => {
+  const handleNominate = async () => {
+    if (isNominated) {
+      // Un-nominate via DELETE
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/media/${mediaItemId}/vote`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          const oldVote = vote;
+          setVote(null);
+          setShowTrimSelector(false);
+          onVoteChange?.(null, oldVote);
+        } else {
+          const body = await res.json().catch(() => null);
+          setError(body?.error || "Failed. Try again.");
+        }
+      } catch (err) {
+        console.error("Failed to un-nominate:", err);
+        setError("Failed. Try again.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Nominate for deletion via POST
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/media/${mediaItemId}/vote`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vote: "delete" }),
+        });
+        if (res.ok) {
+          const oldVote = vote;
+          setVote("delete");
+          onVoteChange?.("delete", oldVote);
+        } else {
+          const body = await res.json().catch(() => null);
+          setError(body?.error || "Failed. Try again.");
+        }
+      } catch (err) {
+        console.error("Failed to nominate:", err);
+        setError("Failed. Try again.");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleTrim = async (seasons: number) => {
     setLoading(true);
     setError(null);
     try {
-      const body: Record<string, unknown> = { vote: newVote };
-      if (newVote === "trim" && seasons !== undefined) {
-        body.keepSeasons = seasons;
-      }
-
       const res = await fetch(`/api/media/${mediaItemId}/vote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ vote: "trim", keepSeasons: seasons }),
       });
-
       if (res.ok) {
         const oldVote = vote;
-        setVote(newVote);
-        if (newVote === "trim" && seasons !== undefined) {
-          setKeepSeasons(seasons);
-        }
+        setVote("trim");
+        setKeepSeasons(seasons);
         setShowTrimSelector(false);
-        onVoteChange?.(newVote, oldVote);
+        onVoteChange?.("trim", oldVote);
+      } else {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || "Failed. Try again.");
       }
     } catch (err) {
-      console.error("Failed to cast vote:", err);
-      setError("Vote failed. Try again.");
+      console.error("Failed to set trim:", err);
+      setError("Failed. Try again.");
     } finally {
       setLoading(false);
     }
@@ -73,44 +120,31 @@ export function VoteButton({
   return (
     <div className="space-y-2">
       {error && <p className="text-xs text-red-400">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={() => handleVote("keep")}
-          disabled={loading}
-          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            vote === "keep"
-              ? "bg-green-600 text-white"
-              : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-          } disabled:opacity-50`}
-        >
-          Keep
-        </button>
-        <button
-          onClick={() => handleVote("delete")}
-          disabled={loading}
-          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-            vote === "delete"
+      <button
+        onClick={handleNominate}
+        disabled={loading}
+        className={`w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+          vote === "trim"
+            ? "bg-amber-600 text-white"
+            : vote === "delete"
               ? "bg-red-600 text-white"
               : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-          } disabled:opacity-50`}
-        >
-          Can Delete
-        </button>
-      </div>
-      {canTrim && (
+        } disabled:opacity-50`}
+      >
+        {vote === "trim"
+          ? `Trim: keep latest ${keepSeasons} season${keepSeasons !== 1 ? "s" : ""}`
+          : vote === "delete"
+            ? "Nominated for Deletion"
+            : "Nominate for Deletion"}
+      </button>
+      {canTrim && isNominated && (
         <>
           <button
             onClick={() => setShowTrimSelector(!showTrimSelector)}
             disabled={loading}
-            className={`w-full rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              vote === "trim"
-                ? "bg-amber-600 text-white"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            } disabled:opacity-50`}
+            className="w-full text-center text-xs text-amber-400 hover:text-amber-300 disabled:opacity-50"
           >
-            {vote === "trim"
-              ? `Trim: keep latest ${keepSeasons} season${keepSeasons !== 1 ? "s" : ""}`
-              : "Trim Seasons"}
+            {vote === "trim" ? "Change trim settings" : "Trim seasons instead?"}
           </button>
           {showTrimSelector && (
             <div className="flex items-center gap-2 rounded-md bg-gray-800 p-2">
@@ -127,7 +161,7 @@ export function VoteButton({
               />
               <span className="text-xs text-gray-400">of {seasonCount}</span>
               <button
-                onClick={() => handleVote("trim", keepSeasons)}
+                onClick={() => handleTrim(keepSeasons)}
                 disabled={loading}
                 className="ml-auto rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-500 disabled:opacity-50"
               >

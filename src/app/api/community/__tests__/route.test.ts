@@ -69,10 +69,9 @@ describe("GET /api/community", () => {
     const res = await GET(req);
     const data = await res.json();
 
-    // Item 2 has community votes: plex-user-2 'remove', plex-admin 'keep'
+    // Item 2 has community votes: plex-user-2 'keep', plex-admin 'keep'
     const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.tally.keepCount).toBe(1);
-    expect(item2.tally.removeCount).toBe(1);
+    expect(item2.tally.keepCount).toBe(2);
   });
 
   it("returns current user's community vote", async () => {
@@ -81,9 +80,9 @@ describe("GET /api/community", () => {
     const res = await GET(req);
     const data = await res.json();
 
-    // plex-user-2 voted 'remove' on item 2
+    // plex-user-2 voted 'keep' on item 2
     const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.currentUserVote).toBe("remove");
+    expect(item2.currentUserVote).toBe("keep");
   });
 
   it("does not return voter identities", async () => {
@@ -134,9 +133,9 @@ describe("GET /api/community", () => {
     expect(titles).not.toContain("Test Movie 2");
   });
 
-  it("sorts by most_remove (default)", async () => {
+  it("sorts by least_keep (default)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/community?sort=most_remove");
+    const req = createRequest("http://localhost:3000/api/community?sort=least_keep");
     const res = await GET(req);
     const data = await res.json();
 
@@ -210,19 +209,96 @@ describe("GET /api/community", () => {
     expect(trimItem.keepSeasons).toBe(1);
   });
 
-  it("marks own items with isOwn flag", async () => {
+  it("marks items with isRequestor and isNominator flags", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/community");
     const res = await GET(req);
     const data = await res.json();
 
-    // Item 5 is user-2's own nomination
+    // Item 5 is user-2's own request and own nomination
     const ownItem = data.items.find((i: any) => i.title === "Other Movie");
-    expect(ownItem.isOwn).toBe(true);
+    expect(ownItem.isRequestor).toBe(true);
+    expect(ownItem.isNominator).toBe(true);
 
-    // Item 2 is user-1's nomination — not own for user-2
+    // Item 2 is user-1's nomination — not user-2's request or nomination
     const otherItem = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(otherItem.isOwn).toBe(false);
+    expect(otherItem.isRequestor).toBe(false);
+    expect(otherItem.isNominator).toBe(false);
+  });
+
+  it("shows admin-nominated items in community list", async () => {
+    // Admin nominates item 6 (belongs to plex-user-1) for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const titles = data.items.map((i: any) => i.title);
+    expect(titles).toContain("Another Movie");
+  });
+
+  it("does not duplicate items when both self and admin nominate", async () => {
+    // Item 2 already has plex-user-1 vote=delete (self-nomination)
+    // Admin also votes delete
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const item2Entries = data.items.filter((i: any) => i.title === "Test Movie 2");
+    expect(item2Entries.length).toBe(1);
+  });
+
+  it("requestor sees isRequestor=true when admin nominated their item", async () => {
+    // Admin nominates item 6 (belongs to plex-user-1) for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+    );
+
+    // plex-user-1 sees the item — isRequestor=true, isNominator=false (admin nominated, not them)
+    mockRequireAuth.mockResolvedValue({
+      userId: 1,
+      plexId: "plex-user-1",
+      username: "testuser",
+      isAdmin: false,
+    });
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const adminNominated = data.items.find((i: any) => i.title === "Another Movie");
+    expect(adminNominated).toBeDefined();
+    expect(adminNominated.isRequestor).toBe(true);
+    expect(adminNominated.isNominator).toBe(false);
+  });
+
+  it("admin sees isNominator=true for items they nominated", async () => {
+    // Admin nominates item 6 for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAuth.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const adminNominated = data.items.find((i: any) => i.title === "Another Movie");
+    expect(adminNominated).toBeDefined();
+    expect(adminNominated.isRequestor).toBe(false);
+    expect(adminNominated.isNominator).toBe(true);
   });
 
   it("returns correct nominationType for delete candidates", async () => {

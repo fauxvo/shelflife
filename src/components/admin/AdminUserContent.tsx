@@ -7,20 +7,16 @@ import { AdminUserMedia } from "./AdminUserMedia";
 interface AdminUserContentProps {
   plexId: string;
   totalRequests: number;
-  keepCount: number;
-  deleteCount: number;
-  trimCount: number;
-  unvotedCount: number;
+  nominatedCount: number;
+  notNominatedCount: number;
   watchedCount: number;
 }
 
 export function AdminUserContent({
   plexId,
   totalRequests,
-  keepCount,
-  deleteCount,
-  trimCount,
-  unvotedCount,
+  nominatedCount,
+  notNominatedCount,
   watchedCount,
 }: AdminUserContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
@@ -29,10 +25,8 @@ export function AdminUserContent({
     <>
       <UserStats
         totalRequests={totalRequests}
-        keepCount={keepCount}
-        deleteCount={deleteCount}
-        trimCount={trimCount}
-        unvotedCount={unvotedCount}
+        nominatedCount={nominatedCount}
+        notNominatedCount={notNominatedCount}
         watchedCount={watchedCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}
