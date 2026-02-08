@@ -71,7 +71,7 @@ export const userVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
-    vote: text("vote", { enum: ["keep", "delete", "trim"] }).notNull(),
+    vote: text("vote", { enum: ["delete", "trim"] }).notNull(),
     keepSeasons: integer("keep_seasons"),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
@@ -93,7 +93,7 @@ export const communityVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
-    vote: text("vote", { enum: ["keep", "remove"] }).notNull(),
+    vote: text("vote", { enum: ["keep"] }).notNull(),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
       .notNull(),

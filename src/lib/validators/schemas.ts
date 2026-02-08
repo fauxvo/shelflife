@@ -3,7 +3,7 @@ import { COMMON_SORTS } from "@/lib/db/sorting";
 
 export const voteSchema = z
   .object({
-    vote: z.enum(["keep", "delete", "trim"]),
+    vote: z.enum(["delete", "trim"]),
     keepSeasons: z.coerce.number().int().positive().optional(),
   })
   .refine((data) => data.vote !== "trim" || data.keepSeasons !== undefined, {
@@ -20,7 +20,7 @@ export const mediaQuerySchema = z.object({
   status: z
     .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
     .default("all"),
-  vote: z.enum(["keep", "delete", "trim", "none", "all"]).default("all"),
+  vote: z.enum(["nominated", "none", "all"]).default("all"),
   search: z.string().max(200).optional(),
   watched: z.enum(["true", "false", ""]).optional(),
   sort: z.enum(COMMON_SORTS).default("title_asc"),
@@ -29,15 +29,13 @@ export const mediaQuerySchema = z.object({
 });
 
 export const communityVoteSchema = z.object({
-  vote: z.enum(["keep", "remove"]),
+  vote: z.enum(["keep"]),
 });
 
 export const communityQuerySchema = z.object({
   type: z.enum(["movie", "tv", "all"]).default("all"),
   unvoted: z.enum(["true", "false", ""]).optional(),
-  sort: z
-    .enum(["most_remove", "oldest_unwatched", "newest", ...COMMON_SORTS])
-    .default("most_remove"),
+  sort: z.enum(["least_keep", "oldest_unwatched", "newest", ...COMMON_SORTS]).default("least_keep"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Pagination } from "../ui/Pagination";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { ExternalLinks } from "../ui/ExternalLinks";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
+import { VoteButton } from "../media/VoteButton";
 import { STATUS_COLORS, VOTE_COLORS, VOTE_LABELS } from "@/lib/constants";
-import type { MediaItemWithVote } from "@/types";
+import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface AdminUserMediaProps {
   plexId: string;
@@ -14,6 +17,7 @@ interface AdminUserMediaProps {
 }
 
 export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
+  const router = useRouter();
   const [items, setItems] = useState<MediaItemWithVote[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -36,7 +40,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
       });
 
       // Apply stats filter override
-      if (statsFilter === "keep" || statsFilter === "delete" || statsFilter === "none") {
+      if (statsFilter === "nominated" || statsFilter === "none") {
         params.set("vote", statsFilter);
       }
       if (statsFilter === "watched") {
@@ -68,7 +72,9 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
       ? items
       : filter === "none"
         ? items.filter((i) => !i.vote)
-        : items.filter((i) => i.vote === filter);
+        : filter === "nominated"
+          ? items.filter((i) => i.vote === "delete" || i.vote === "trim")
+          : items;
 
   if (loading) {
     return <MediaCardSkeleton />;
@@ -77,15 +83,15 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
   return (
     <div className="space-y-4">
       {/* Filter */}
-      <div className="flex gap-2 items-center">
+      <div className="flex items-center gap-2">
         {!statsFilter &&
-          ["all", "keep", "delete", "none"].map((f) => (
+          ["all", "nominated", "none"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                 filter === f
-                  ? "bg-[#e5a00d] text-black font-medium"
+                  ? "bg-[#e5a00d] font-medium text-black"
                   : "bg-gray-800 text-gray-300 hover:bg-gray-700"
               }`}
             >
@@ -100,17 +106,17 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="py-8 text-center text-gray-500">
           <p>No items match this filter</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="bg-gray-900 rounded-lg overflow-hidden border border-gray-800"
+              className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
             >
-              <div className="aspect-[2/3] relative bg-gray-800">
+              <div className="relative aspect-[2/3] bg-gray-800">
                 {item.posterPath ? (
                   <Image
                     src={`https://image.tmdb.org/t/p/w300${item.posterPath}`}
@@ -120,9 +126,9 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
                     sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                  <div className="flex h-full w-full items-center justify-center text-gray-600">
                     <svg
-                      className="w-12 h-12"
+                      className="h-12 w-12"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -141,31 +147,49 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
                 </div>
                 {item.watchStatus?.watched && (
                   <div className="absolute top-2 right-2">
-                    <span className="text-xs px-2 py-0.5 rounded bg-purple-900/80 text-purple-300">
+                    <span className="rounded bg-purple-900/80 px-2 py-0.5 text-xs text-purple-300">
                       Watched
                     </span>
                   </div>
                 )}
               </div>
-              <div className="p-3 space-y-2">
-                <h3 className="font-medium text-sm truncate" title={item.title}>
+              <div className="space-y-2 p-3">
+                <h3 className="truncate text-sm font-medium" title={item.title}>
                   {item.title}
                 </h3>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-xs px-2 py-0.5 rounded ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
+                    className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
                   >
                     {item.status}
                   </span>
                   {item.vote ? (
-                    <span className={`text-xs px-2 py-0.5 rounded ${VOTE_COLORS[item.vote]}`}>
-                      {item.vote === "keep" ? "Keep" : "Delete"}
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs ${VOTE_COLORS[item.vote] || "bg-red-900/50 text-red-300"}`}
+                    >
+                      User: {VOTE_LABELS[item.vote] || "Nominated"}
                     </span>
                   ) : (
-                    <span className="text-xs px-2 py-0.5 rounded bg-gray-800 text-gray-500">
-                      No vote
+                    <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-500">
+                      User: Not nominated
                     </span>
                   )}
+                </div>
+                <div className="mt-1">
+                  <p className="mb-1 text-xs text-gray-500">Your nomination:</p>
+                  <VoteButton
+                    mediaItemId={item.id}
+                    currentVote={item.adminVote ?? null}
+                    seasonCount={item.seasonCount}
+                    mediaType={item.mediaType}
+                    currentKeepSeasons={item.adminKeepSeasons ?? null}
+                    onVoteChange={(newVote: VoteValue | null) => {
+                      setItems((prev) =>
+                        prev.map((i) => (i.id === item.id ? { ...i, adminVote: newVote } : i))
+                      );
+                      router.refresh();
+                    }}
+                  />
                 </div>
                 {item.watchStatus && item.watchStatus.playCount > 0 && (
                   <p className="text-xs text-gray-500">
@@ -173,6 +197,11 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
                     {item.watchStatus.playCount !== 1 ? "s" : ""}
                   </p>
                 )}
+                <ExternalLinks
+                  imdbId={item.imdbId}
+                  tmdbId={item.tmdbId}
+                  mediaType={item.mediaType}
+                />
               </div>
             </div>
           ))}

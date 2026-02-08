@@ -10,9 +10,8 @@ import {
 } from "../schemas";
 
 describe("voteSchema", () => {
-  it("accepts 'keep'", () => {
-    const result = voteSchema.parse({ vote: "keep" });
-    expect(result.vote).toBe("keep");
+  it("rejects 'keep' (no longer valid)", () => {
+    expect(() => voteSchema.parse({ vote: "keep" })).toThrow();
   });
 
   it("accepts 'delete'", () => {
@@ -28,12 +27,6 @@ describe("voteSchema", () => {
 
   it("rejects 'trim' without keepSeasons", () => {
     expect(() => voteSchema.parse({ vote: "trim" })).toThrow();
-  });
-
-  it("accepts 'keep' without keepSeasons", () => {
-    const result = voteSchema.parse({ vote: "keep" });
-    expect(result.vote).toBe("keep");
-    expect(result.keepSeasons).toBeUndefined();
   });
 
   it("accepts 'delete' without keepSeasons", () => {
@@ -177,7 +170,7 @@ describe("mediaQuerySchema", () => {
   });
 
   it("accepts all valid vote values", () => {
-    for (const vote of ["keep", "delete", "trim", "none", "all"]) {
+    for (const vote of ["nominated", "none", "all"]) {
       expect(mediaQuerySchema.parse({ vote }).vote).toBe(vote);
     }
   });
@@ -207,8 +200,8 @@ describe("communityVoteSchema", () => {
     expect(communityVoteSchema.parse({ vote: "keep" })).toEqual({ vote: "keep" });
   });
 
-  it("accepts 'remove'", () => {
-    expect(communityVoteSchema.parse({ vote: "remove" })).toEqual({ vote: "remove" });
+  it("rejects 'remove' (no longer valid)", () => {
+    expect(() => communityVoteSchema.parse({ vote: "remove" })).toThrow();
   });
 
   it("rejects 'delete' (uses different enum)", () => {
@@ -229,7 +222,7 @@ describe("communityQuerySchema", () => {
     const result = communityQuerySchema.parse({});
     expect(result).toEqual({
       type: "all",
-      sort: "most_remove",
+      sort: "least_keep",
       page: 1,
       limit: 20,
     });

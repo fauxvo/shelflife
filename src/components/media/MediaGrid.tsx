@@ -10,7 +10,7 @@ import type { MediaItemWithVote, VoteValue } from "@/types";
 interface MediaGridProps {
   initialItems?: MediaItemWithVote[];
   statsFilter?: string | null;
-  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue) => void;
+  onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
 }
 
 export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGridProps) {
@@ -62,12 +62,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
       }
 
       // Apply stats filter override
-      if (
-        statsFilter === "keep" ||
-        statsFilter === "delete" ||
-        statsFilter === "trim" ||
-        statsFilter === "none"
-      ) {
+      if (statsFilter === "nominated" || statsFilter === "none") {
         params.set("vote", statsFilter);
       }
       if (statsFilter === "watched") {
@@ -140,11 +135,9 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
             }}
             className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
           >
-            <option value="all">All Votes</option>
-            <option value="keep">Keeping</option>
-            <option value="delete">Can Delete</option>
-            <option value="trim">Trim Seasons</option>
-            <option value="none">Not Voted</option>
+            <option value="all">All</option>
+            <option value="nominated">Nominated</option>
+            <option value="none">Not Nominated</option>
           </select>
         )}
         <select

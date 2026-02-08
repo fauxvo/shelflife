@@ -9,7 +9,7 @@ import {
 } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
-import { eq, and, ne, isNull, like, type SQL } from "drizzle-orm";
+import { eq, and, ne, isNull, inArray, like, type SQL } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
     if (query.vote !== "all") {
       if (query.vote === "none") {
         conditions.push(isNull(userVotes.vote));
-      } else {
-        conditions.push(eq(userVotes.vote, query.vote));
+      } else if (query.vote === "nominated") {
+        conditions.push(inArray(userVotes.vote, ["delete", "trim"]));
       }
     }
     if (query.search) {

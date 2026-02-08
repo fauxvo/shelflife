@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
-import { eq, and, count, inArray } from "drizzle-orm";
+import { eq, count, sql } from "drizzle-orm";
+import { getNominationCondition } from "@/lib/db/queries";
 import { CommunityContent } from "@/components/community/CommunityContent";
 import { AppVersion } from "@/components/ui/AppVersion";
 
@@ -10,18 +11,11 @@ export default async function CommunityPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
-  // Count candidates (items where requestor voted "delete" or "trim")
+  // Count candidates — uses same condition as the community grid
   const [candidateResult] = await db
-    .select({ total: count() })
+    .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
     .from(mediaItems)
-    .innerJoin(
-      userVotes,
-      and(
-        eq(userVotes.mediaItemId, mediaItems.id),
-        eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-        inArray(userVotes.vote, ["delete", "trim"])
-      )
-    );
+    .innerJoin(userVotes, getNominationCondition());
 
   // Count total community votes
   const [voteResult] = await db.select({ total: count() }).from(communityVotes);

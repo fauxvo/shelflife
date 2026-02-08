@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, communityVotes } from "@/lib/db/schema";
-import { eq, and, ne, inArray } from "drizzle-orm";
+import { mediaItems, userVotes, communityVotes, users } from "@/lib/db/schema";
+import { eq, and, ne, inArray, or } from "drizzle-orm";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,11 +15,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { vote } = communityVoteSchema.parse(body);
+    // Body is optional — the only valid community vote is "keep"
+    const vote = "keep" as const;
+    try {
+      const body = await request.json();
+      communityVoteSchema.parse(body);
+    } catch (error) {
+      // Zod validation error means an invalid vote value was sent
+      if (error instanceof Error && error.name === "ZodError") {
+        return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
+      }
+      // JSON parse error (empty body) is fine — vote defaults to "keep"
+    }
 
     // Verify the item exists and is a valid community candidate:
-    // - The requestor must have voted "delete" on their own item
+    // - Someone voted "delete"/"trim" AND (they are the requestor OR they are an admin)
     // - The current user is NOT the requestor (can't community-vote on your own)
     const item = await db
       .select({
@@ -31,8 +41,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userVotes,
         and(
           eq(userVotes.mediaItemId, mediaItems.id),
-          eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-          inArray(userVotes.vote, ["delete", "trim"])
+          inArray(userVotes.vote, ["delete", "trim"]),
+          or(
+            eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
+            inArray(
+              userVotes.userPlexId,
+              db.select({ plexId: users.plexId }).from(users).where(eq(users.isAdmin, true))
+            )
+          )
         )
       )
       .where(and(eq(mediaItems.id, mediaItemId), ne(mediaItems.requestedByPlexId, session.plexId)))
@@ -63,9 +79,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, vote });
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
-    }
     return handleAuthError(error);
   }
 }

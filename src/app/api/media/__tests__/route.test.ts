@@ -108,24 +108,14 @@ describe("GET /api/media", () => {
     expect(data.items[0].title).toBe("Test Show 2");
   });
 
-  it("filters by vote=keep", async () => {
+  it("filters by vote=nominated (delete or trim)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?vote=keep");
+    const req = createRequest("http://localhost:3000/api/media?vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
-    expect(data.items.every((i: any) => i.vote === "keep")).toBe(true);
-    expect(data.items.length).toBe(1);
-  });
-
-  it("filters by vote=delete", async () => {
-    mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?vote=delete");
-    const res = await GET(req);
-    const data = await res.json();
-
-    expect(data.items.every((i: any) => i.vote === "delete")).toBe(true);
-    expect(data.items.length).toBe(1);
+    expect(data.items.every((i: any) => i.vote === "delete" || i.vote === "trim")).toBe(true);
+    expect(data.items.length).toBe(2);
   });
 
   it("filters by vote=none (no vote cast)", async () => {
@@ -135,7 +125,7 @@ describe("GET /api/media", () => {
     const data = await res.json();
 
     expect(data.items.every((i: any) => i.vote === null)).toBe(true);
-    expect(data.items.length).toBe(3);
+    expect(data.items.length).toBe(4);
   });
 
   it("filters by watched=true", async () => {
@@ -150,13 +140,13 @@ describe("GET /api/media", () => {
 
   it("combines type + vote filters", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?type=movie&vote=keep");
+    const req = createRequest("http://localhost:3000/api/media?type=movie&vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
     expect(data.items.length).toBe(1);
     expect(data.items[0].mediaType).toBe("movie");
-    expect(data.items[0].vote).toBe("keep");
+    expect(data.items[0].vote).toBe("delete");
   });
 
   it("returns pagination metadata", async () => {
@@ -188,7 +178,7 @@ describe("GET /api/media", () => {
     const data = await res.json();
 
     const item1 = data.items.find((i: any) => i.id === 1);
-    expect(item1.vote).toBe("keep");
+    expect(item1.vote).toBeNull();
     expect(item1.watchStatus).toEqual({
       watched: true,
       playCount: 3,
@@ -202,14 +192,14 @@ describe("GET /api/media", () => {
 
   it("pagination total reflects vote filter", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
-    const req = createRequest("http://localhost:3000/api/media?vote=keep");
+    const req = createRequest("http://localhost:3000/api/media?vote=nominated");
     const res = await GET(req);
     const data = await res.json();
 
-    // Only 1 item has "keep" vote, so total should be 1, not 5
-    expect(data.pagination.total).toBe(1);
+    // 2 items have nominations (delete/trim), so total should be 2
+    expect(data.pagination.total).toBe(2);
     expect(data.pagination.pages).toBe(1);
-    expect(data.items.length).toBe(1);
+    expect(data.items.length).toBe(2);
   });
 
   it("pagination total reflects watched filter", async () => {
@@ -229,8 +219,8 @@ describe("GET /api/media", () => {
     const res = await GET(req);
     const data = await res.json();
 
-    // Movies with no vote for plex-user-1: item 6 (Another Movie)
-    expect(data.pagination.total).toBe(1);
+    // Movies with no vote for plex-user-1: item 1 (Test Movie 1) and item 6 (Another Movie)
+    expect(data.pagination.total).toBe(2);
     expect(data.pagination.pages).toBe(1);
   });
 

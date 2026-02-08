@@ -54,7 +54,7 @@ export function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
-      vote TEXT NOT NULL CHECK(vote IN ('keep', 'delete', 'trim')),
+      vote TEXT NOT NULL CHECK(vote IN ('delete', 'trim')),
       keep_seasons INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -66,7 +66,7 @@ export function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
-      vote TEXT NOT NULL CHECK(vote IN ('keep', 'remove')),
+      vote TEXT NOT NULL CHECK(vote IN ('keep')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -134,7 +134,6 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
   // Votes
   sqlite.exec(`
     INSERT INTO user_votes (media_item_id, user_plex_id, vote, keep_seasons) VALUES
-      (1, 'plex-user-1', 'keep', NULL),
       (2, 'plex-user-1', 'delete', NULL),
       (5, 'plex-user-2', 'delete', NULL),
       (7, 'plex-user-1', 'trim', 1);
@@ -151,8 +150,8 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
   // Community votes on items that have been self-nominated for deletion (items 2 and 5)
   sqlite.exec(`
     INSERT INTO community_votes (media_item_id, user_plex_id, vote) VALUES
-      (2, 'plex-user-2', 'remove'),
+      (2, 'plex-user-2', 'keep'),
       (2, 'plex-admin', 'keep'),
-      (5, 'plex-user-1', 'remove');
+      (5, 'plex-user-1', 'keep');
   `);
 }
