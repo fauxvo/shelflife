@@ -8,7 +8,8 @@ import {
   buildPagination,
 } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, isNull, like, type SQL } from "drizzle-orm";
+import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
+import { eq, and, ne, isNull, like, type SQL } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,12 @@ export async function GET(request: NextRequest) {
     const offset = (query.page - 1) * query.limit;
 
     // Build conditions - all filtering happens in SQL
+    // When status=all, hide removed items so they don't clutter the default view.
+    // Users can explicitly select ?status=removed to see them.
     const conditions: SQL[] = [eq(mediaItems.requestedByPlexId, session.plexId)];
+    if (query.status === "all") {
+      conditions.push(ne(mediaItems.status, "removed"));
+    }
 
     if (query.type !== "all") {
       conditions.push(eq(mediaItems.mediaType, query.type));
@@ -45,9 +51,11 @@ export async function GET(request: NextRequest) {
 
     const whereClause = and(...conditions)!;
 
+    const orderExpr = getCommonSortOrder(query.sort) ?? DEFAULT_SORT_ORDER;
+
     const items = await mediaQueryWithJoins(session.plexId)
       .where(whereClause)
-      .orderBy(mediaItems.title)
+      .orderBy(orderExpr)
       .limit(query.limit)
       .offset(offset);
 

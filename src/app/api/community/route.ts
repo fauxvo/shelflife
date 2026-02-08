@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, isNull, desc, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
+import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
 
 async function getCandidateCount(
   dbInstance: typeof db,
@@ -139,7 +140,10 @@ export async function GET(request: NextRequest) {
     baseQuery = baseQuery.where(and(...whereConditions)) as typeof baseQuery;
 
     // Apply sorting
-    if (query.sort === "most_remove") {
+    const commonSort = getCommonSortOrder(query.sort);
+    if (commonSort) {
+      baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
+    } else if (query.sort === "most_remove") {
       baseQuery = baseQuery.orderBy(desc(removeCountSub.cnt)) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
@@ -147,6 +151,8 @@ export async function GET(request: NextRequest) {
       ) as typeof baseQuery;
     } else if (query.sort === "newest") {
       baseQuery = baseQuery.orderBy(desc(userVotes.updatedAt)) as typeof baseQuery;
+    } else {
+      baseQuery = baseQuery.orderBy(DEFAULT_SORT_ORDER) as typeof baseQuery;
     }
 
     const items = await baseQuery.limit(query.limit).offset(offset);

@@ -105,6 +105,45 @@ describe("GET /api/admin/community", () => {
     expect(res.status).toBe(403);
   });
 
+  it("sorts by title_asc when sort param is provided", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community?sort=title_asc");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const titles = data.items.map((i: any) => i.title);
+    const sorted = [...titles].sort((a: string, b: string) => a.localeCompare(b));
+    expect(titles).toEqual(sorted);
+  });
+
+  it("sorts by requested_newest", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community?sort=requested_newest");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const dates = data.items.map((i: any) => i.requestedAt);
+    for (let i = 0; i < dates.length - 1; i++) {
+      expect(dates[i] >= dates[i + 1]).toBe(true);
+    }
+  });
+
+  it("includes removed items in admin listing with status badge", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 2`);
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const removedItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    expect(removedItem).toBeDefined();
+    expect(removedItem.status).toBe("removed");
+    expect(data.items.length).toBe(3);
+    expect(data.pagination.total).toBe(3);
+  });
+
   it("handles pagination", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community?page=1&limit=1");

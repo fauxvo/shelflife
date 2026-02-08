@@ -36,7 +36,13 @@ export type NewReviewAction = typeof reviewActions.$inferInsert;
 export type VoteValue = "keep" | "delete" | "trim";
 export type CommunityVoteValue = "keep" | "remove";
 export type MediaType = "movie" | "tv";
-export type MediaStatus = "unknown" | "pending" | "processing" | "partial" | "available";
+export type MediaStatus =
+  | "unknown"
+  | "pending"
+  | "processing"
+  | "partial"
+  | "available"
+  | "removed";
 export type SyncType = "overseerr" | "tautulli" | "full";
 export type SyncStatus = "running" | "completed" | "failed";
 

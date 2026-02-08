@@ -166,6 +166,29 @@ describe("GET /api/community", () => {
     expect(data.pagination.total).toBeGreaterThan(0);
   });
 
+  it("sorts by title_asc (alphabetical)", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community?sort=title_asc");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const titles = data.items.map((i: any) => i.title);
+    const sorted = [...titles].sort((a: string, b: string) => a.localeCompare(b));
+    expect(titles).toEqual(sorted);
+  });
+
+  it("sorts by requested_newest", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community?sort=requested_newest");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const dates = data.items.map((i: any) => i.requestedAt);
+    for (let i = 0; i < dates.length - 1; i++) {
+      expect(dates[i] >= dates[i + 1]).toBe(true);
+    }
+  });
+
   it("returns 401 when unauthenticated", async () => {
     mockRequireAuth.mockRejectedValue(new AuthError("Not authenticated", 401));
     const req = createRequest("http://localhost:3000/api/community");
@@ -212,5 +235,22 @@ describe("GET /api/community", () => {
     expect(deleteItem).toBeDefined();
     expect(deleteItem.nominationType).toBe("delete");
     expect(deleteItem.keepSeasons).toBeNull();
+  });
+
+  it("includes removed items in community listing with status badge", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 2`);
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const removedItem = data.items.find((i: any) => i.title === "Test Movie 2");
+    expect(removedItem).toBeDefined();
+    expect(removedItem.status).toBe("removed");
+    // All candidates should still be present
+    expect(data.items.length).toBe(3);
+    expect(data.pagination.total).toBe(3);
   });
 });

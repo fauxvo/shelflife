@@ -80,11 +80,7 @@ describe("syncOverseerr", () => {
     expect(count).toBe(1);
 
     // Verify it was inserted
-    const items = testDb.db
-      .select()
-      .from(mediaItems)
-      .where(eq(mediaItems.overseerrId, 300))
-      .all();
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 300)).all();
     expect(items.length).toBe(1);
     expect(items[0].title).toBe("New Movie");
   });
@@ -105,11 +101,7 @@ describe("syncOverseerr", () => {
 
     await syncOverseerr();
 
-    const userList = testDb.db
-      .select()
-      .from(users)
-      .where(eq(users.plexId, "777"))
-      .all();
+    const userList = testDb.db.select().from(users).where(eq(users.plexId, "777")).all();
     expect(userList.length).toBe(1);
     expect(userList[0].username).toBe("brandnewuser");
   });
@@ -132,11 +124,7 @@ describe("syncOverseerr", () => {
     expect(count).toBe(1);
 
     // Should use fallback title
-    const items = testDb.db
-      .select()
-      .from(mediaItems)
-      .where(eq(mediaItems.overseerrId, 302))
-      .all();
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 302)).all();
     expect(items[0].title).toContain("Unknown");
   });
 
@@ -181,8 +169,82 @@ describe("syncOverseerr", () => {
 
   it("returns 0 for empty requests", async () => {
     mockGetAllRequests.mockResolvedValue([]);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const count = await syncOverseerr();
+    warnSpy.mockRestore();
     expect(count).toBe(0);
+  });
+
+  it("does not mark all items as removed when Overseerr returns empty (safety guard)", async () => {
+    mockGetAllRequests.mockResolvedValue([]);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await syncOverseerr();
+    warnSpy.mockRestore();
+
+    // Items should NOT be marked as removed — safety guard should prevent mass removal
+    const removed = testDb.db
+      .select()
+      .from(mediaItems)
+      .where(eq(mediaItems.status, "removed"))
+      .all();
+    expect(removed.length).toBe(0);
+  });
+
+  it("marks items not in Overseerr response as 'removed'", async () => {
+    // Overseerr returns only overseerr_id=100 (item 1), so items 2-7 should be marked removed
+    mockGetAllRequests.mockResolvedValue([
+      {
+        id: 200,
+        status: 2,
+        createdAt: "2024-06-01",
+        updatedAt: "2024-06-02",
+        type: "movie",
+        media: { id: 100, tmdbId: 1000, status: 5, ratingKey: "rk-1" },
+        requestedBy: { id: 1, plexId: "plex-user-1", plexUsername: "testuser" },
+      },
+    ]);
+    mockGetMediaDetails.mockResolvedValue({ id: 1000, title: "Test Movie 1" });
+
+    await syncOverseerr();
+
+    // Item with overseerr_id=100 should NOT be removed
+    const kept = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 100)).all();
+    expect(kept[0].status).not.toBe("removed");
+
+    // Items with other overseerr_ids should be marked as removed
+    const removed = testDb.db
+      .select()
+      .from(mediaItems)
+      .where(eq(mediaItems.status, "removed"))
+      .all();
+    expect(removed.length).toBe(6);
+  });
+
+  it("does not re-process items already marked as 'removed'", async () => {
+    // First, manually mark an item as removed
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE overseerr_id = 101`);
+
+    // Overseerr returns only overseerr_id=100
+    mockGetAllRequests.mockResolvedValue([
+      {
+        id: 200,
+        status: 2,
+        createdAt: "2024-06-01",
+        updatedAt: "2024-06-02",
+        type: "movie",
+        media: { id: 100, tmdbId: 1000, status: 5, ratingKey: "rk-1" },
+        requestedBy: { id: 1, plexId: "plex-user-1", plexUsername: "testuser" },
+      },
+    ]);
+    mockGetMediaDetails.mockResolvedValue({ id: 1000, title: "Test Movie 1" });
+
+    await syncOverseerr();
+
+    // Item 101 was already removed — verify it's still removed (idempotent)
+    const item = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 101)).all();
+    expect(item[0].status).toBe("removed");
   });
 });
 
@@ -245,7 +307,9 @@ describe("runFullSync", () => {
     mockGetTautulliUsers.mockResolvedValue([]);
     mockGetHistory.mockResolvedValue([]);
 
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     await runFullSync();
+    warnSpy.mockRestore();
 
     const logs = testDb.db.select().from(syncLog).all();
     expect(logs.length).toBeGreaterThanOrEqual(1);
@@ -259,7 +323,9 @@ describe("runFullSync", () => {
     mockGetTautulliUsers.mockResolvedValue([]);
     mockGetHistory.mockResolvedValue([]);
 
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     await runFullSync();
+    warnSpy.mockRestore();
 
     const logs = testDb.db.select().from(syncLog).all();
     const lastLog = logs[logs.length - 1];
@@ -291,7 +357,9 @@ describe("runFullSync", () => {
     mockGetTautulliUsers.mockResolvedValue([]);
     mockGetHistory.mockResolvedValue([]);
 
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await runFullSync();
+    warnSpy.mockRestore();
     expect(result).toEqual({ overseerr: 0, tautulli: 0 });
   });
 });

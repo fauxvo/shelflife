@@ -3,7 +3,8 @@ import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
 import { getOverseerrClient, mapMediaStatus } from "./overseerr";
 import { getTautulliClient } from "./tautulli";
 import { upsertUser } from "./user-upsert";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { eq, and, ne, count, isNotNull, notInArray } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 
 export interface SyncProgress {
   phase: "overseerr" | "tautulli";
@@ -14,6 +15,36 @@ export interface SyncProgress {
 }
 
 type ProgressCallback = (progress: SyncProgress) => void;
+
+async function markStaleItemsRemoved(
+  extraConditions: SQL[],
+  synced: number,
+  total: number,
+  onProgress?: ProgressCallback
+): Promise<number> {
+  const removed = await db
+    .update(mediaItems)
+    .set({
+      status: "removed",
+      updatedAt: new Date().toISOString(),
+    })
+    .where(
+      and(...extraConditions, ne(mediaItems.status, "removed"), isNotNull(mediaItems.overseerrId))
+    )
+    .returning({ id: mediaItems.id });
+
+  if (removed.length > 0) {
+    onProgress?.({
+      phase: "overseerr",
+      step: `Marked ${removed.length} stale item(s) as removed`,
+      current: synced,
+      total,
+      detail: `${removed.length} removed`,
+    });
+  }
+
+  return removed.length;
+}
 
 export async function syncOverseerr(onProgress?: ProgressCallback): Promise<number> {
   const client = getOverseerrClient();
@@ -119,6 +150,35 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         total,
         detail: title,
       });
+    }
+  }
+
+  // Mark items no longer in Overseerr as "removed".
+  // Uses media.id (overseerrId) when available, falls back to request.id.
+  // This matches the upsert logic at line 80 which uses the same fallback.
+  const seenOverseerrIds = requests
+    .map((r) => r.media?.id ?? r.id)
+    .filter((id): id is number => id != null);
+
+  if (seenOverseerrIds.length > 0) {
+    await markStaleItemsRemoved(
+      [notInArray(mediaItems.overseerrId, seenOverseerrIds)],
+      synced,
+      total,
+      onProgress
+    );
+  } else if (total === 0) {
+    // Safety: if Overseerr returned 0 requests but we have existing items,
+    // this likely indicates an API issue — skip bulk removal to prevent data loss.
+    const existing = await db
+      .select({ total: count() })
+      .from(mediaItems)
+      .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.overseerrId)));
+
+    if (existing[0]?.total > 0) {
+      console.warn(
+        `Overseerr returned 0 requests but ${existing[0].total} items exist locally. Skipping stale removal.`
+      );
     }
   }
 
