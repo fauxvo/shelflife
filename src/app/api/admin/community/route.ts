@@ -4,7 +4,9 @@ import { communityQuerySchema } from "@/lib/validators/schemas";
 import { buildPagination } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, sql, inArray } from "drizzle-orm";
+import { eq, and, count, sql, desc, inArray } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
 
 export async function GET(request: NextRequest) {
   try {
@@ -76,26 +78,42 @@ export async function GET(request: NextRequest) {
       .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
       .leftJoin(removeCountSub, eq(removeCountSub.mediaItemId, mediaItems.id));
 
+    const adminWhere: SQL[] = [];
     if (query.type !== "all") {
-      baseQuery = baseQuery.where(eq(mediaItems.mediaType, query.type)) as typeof baseQuery;
+      adminWhere.push(eq(mediaItems.mediaType, query.type));
     }
+    baseQuery = baseQuery.where(and(...adminWhere)) as typeof baseQuery;
 
-    // Sort by consensus strength (remove - keep DESC) for admin
-    baseQuery = baseQuery.orderBy(
-      sql`(COALESCE(${removeCountSub.cnt}, 0) - COALESCE(${keepCountSub.cnt}, 0)) DESC`
-    ) as typeof baseQuery;
+    // Apply sorting
+    const commonSort = getCommonSortOrder(query.sort);
+    if (commonSort) {
+      baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
+    } else if (query.sort === "most_remove") {
+      baseQuery = baseQuery.orderBy(
+        sql`(COALESCE(${removeCountSub.cnt}, 0) - COALESCE(${keepCountSub.cnt}, 0)) DESC`
+      ) as typeof baseQuery;
+    } else if (query.sort === "oldest_unwatched") {
+      baseQuery = baseQuery.orderBy(
+        sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`
+      ) as typeof baseQuery;
+    } else if (query.sort === "newest") {
+      baseQuery = baseQuery.orderBy(desc(userVotes.updatedAt)) as typeof baseQuery;
+    } else {
+      baseQuery = baseQuery.orderBy(DEFAULT_SORT_ORDER) as typeof baseQuery;
+    }
 
     const items = await baseQuery.limit(query.limit).offset(offset);
 
     // Count
-    let countQuery = db
+    const countWhere: SQL[] = [];
+    if (query.type !== "all") {
+      countWhere.push(eq(mediaItems.mediaType, query.type));
+    }
+    const countQuery = db
       .select({ total: count() })
       .from(mediaItems)
-      .innerJoin(userVotes, baseCondition!);
-
-    if (query.type !== "all") {
-      countQuery = countQuery.where(eq(mediaItems.mediaType, query.type)) as typeof countQuery;
-    }
+      .innerJoin(userVotes, baseCondition!)
+      .where(and(...countWhere));
 
     const totalResult = await countQuery;
     const total = totalResult[0]?.total || 0;

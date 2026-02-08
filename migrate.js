@@ -1,6 +1,6 @@
 // Standalone migration script - runs in Docker entrypoint before the app starts.
 // Reads Drizzle-generated SQL migration files and executes them against SQLite.
-// Safe to run repeatedly: catches "already exists" errors gracefully.
+// Safe to run repeatedly: catches "already exists" and "duplicate column name" errors gracefully.
 
 const Database = require("better-sqlite3");
 const fs = require("fs");

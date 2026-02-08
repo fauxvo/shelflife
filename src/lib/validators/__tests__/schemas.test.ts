@@ -101,6 +101,7 @@ describe("mediaQuerySchema", () => {
       type: "all",
       status: "all",
       vote: "all",
+      sort: "title_asc",
       page: 1,
       limit: 20,
     });
@@ -162,7 +163,15 @@ describe("mediaQuerySchema", () => {
   });
 
   it("accepts all valid status values", () => {
-    for (const status of ["available", "pending", "processing", "partial", "unknown", "all"]) {
+    for (const status of [
+      "available",
+      "pending",
+      "processing",
+      "partial",
+      "unknown",
+      "removed",
+      "all",
+    ]) {
       expect(mediaQuerySchema.parse({ status }).status).toBe(status);
     }
   });
@@ -180,6 +189,16 @@ describe("mediaQuerySchema", () => {
 
   it("rejects search > 200 chars", () => {
     expect(() => mediaQuerySchema.parse({ search: "a".repeat(201) })).toThrow();
+  });
+
+  it("accepts all valid sort values", () => {
+    for (const sort of ["title_asc", "title_desc", "requested_newest", "requested_oldest"]) {
+      expect(mediaQuerySchema.parse({ sort }).sort).toBe(sort);
+    }
+  });
+
+  it("rejects invalid sort value", () => {
+    expect(() => mediaQuerySchema.parse({ sort: "invalid" })).toThrow();
   });
 });
 
@@ -226,6 +245,12 @@ describe("communityQuerySchema", () => {
 
   it("accepts unvoted='true'", () => {
     expect(communityQuerySchema.parse({ unvoted: "true" }).unvoted).toBe("true");
+  });
+
+  it("accepts common sort values", () => {
+    for (const sort of ["title_asc", "title_desc", "requested_newest", "requested_oldest"]) {
+      expect(communityQuerySchema.parse({ sort }).sort).toBe(sort);
+    }
   });
 
   it("rejects invalid sort value", () => {

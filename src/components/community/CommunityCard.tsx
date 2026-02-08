@@ -98,25 +98,33 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
             </svg>
           </a>
         )}
-        <VoteTallyBar keepCount={item.tally.keepCount} removeCount={item.tally.removeCount} />
-        {item.isOwn ? (
-          <div className="space-y-1">
-            <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
-            <VoteButton
-              mediaItemId={item.id}
-              currentVote={item.nominationType}
-              seasonCount={item.seasonCount}
-              mediaType={item.mediaType}
-              currentKeepSeasons={item.keepSeasons}
-              onVoteChange={(newVote) => onSelfVoteChange?.(item.id, newVote)}
-            />
+        {item.status === "removed" ? (
+          <div className="rounded bg-red-900/30 px-2 py-2 text-center text-sm font-medium text-red-400">
+            Removed from library
           </div>
         ) : (
-          <CommunityVoteButton
-            mediaItemId={item.id}
-            currentVote={item.currentUserVote}
-            onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
-          />
+          <>
+            <VoteTallyBar keepCount={item.tally.keepCount} removeCount={item.tally.removeCount} />
+            {item.isOwn ? (
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
+                <VoteButton
+                  mediaItemId={item.id}
+                  currentVote={item.nominationType}
+                  seasonCount={item.seasonCount}
+                  mediaType={item.mediaType}
+                  currentKeepSeasons={item.keepSeasons}
+                  onVoteChange={(newVote) => onSelfVoteChange?.(item.id, newVote)}
+                />
+              </div>
+            ) : (
+              <CommunityVoteButton
+                mediaItemId={item.id}
+                currentVote={item.currentUserVote}
+                onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COMMON_SORTS } from "@/lib/db/sorting";
 
 export const voteSchema = z
   .object({
@@ -17,11 +18,12 @@ export const syncRequestSchema = z.object({
 export const mediaQuerySchema = z.object({
   type: z.enum(["movie", "tv", "all"]).default("all"),
   status: z
-    .enum(["available", "pending", "processing", "partial", "unknown", "all"])
+    .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
     .default("all"),
   vote: z.enum(["keep", "delete", "trim", "none", "all"]).default("all"),
   search: z.string().max(200).optional(),
   watched: z.enum(["true", "false", ""]).optional(),
+  sort: z.enum(COMMON_SORTS).default("title_asc"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
@@ -33,7 +35,9 @@ export const communityVoteSchema = z.object({
 export const communityQuerySchema = z.object({
   type: z.enum(["movie", "tv", "all"]).default("all"),
   unvoted: z.enum(["true", "false", ""]).optional(),
-  sort: z.enum(["most_remove", "oldest_unwatched", "newest"]).default("most_remove"),
+  sort: z
+    .enum(["most_remove", "oldest_unwatched", "newest", ...COMMON_SORTS])
+    .default("most_remove"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

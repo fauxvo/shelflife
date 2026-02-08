@@ -254,6 +254,68 @@ describe("GET /api/media", () => {
     expect(data.pagination.total).toBe(0);
   });
 
+  it("excludes removed items by default", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(data.items.find((i: any) => i.id === 1)).toBeUndefined();
+    expect(data.items.length).toBe(5);
+  });
+
+  it("includes removed items when status=removed is explicit", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`UPDATE media_items SET status = 'removed' WHERE id = 1`);
+
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?status=removed");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(data.items.length).toBe(1);
+    expect(data.items[0].id).toBe(1);
+    expect(data.items[0].status).toBe("removed");
+  });
+
+  it("sorts by title_desc (Z-A)", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?sort=title_desc");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const titles = data.items.map((i: any) => i.title);
+    const sorted = [...titles].sort((a: string, b: string) => b.localeCompare(a));
+    expect(titles).toEqual(sorted);
+  });
+
+  it("sorts by requested_newest", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?sort=requested_newest");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const dates = data.items.map((i: any) => i.requestedAt);
+    for (let i = 0; i < dates.length - 1; i++) {
+      expect(dates[i] >= dates[i + 1]).toBe(true);
+    }
+  });
+
+  it("sorts by requested_oldest", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const req = createRequest("http://localhost:3000/api/media?sort=requested_oldest");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const dates = data.items.map((i: any) => i.requestedAt);
+    for (let i = 0; i < dates.length - 1; i++) {
+      expect(dates[i] <= dates[i + 1]).toBe(true);
+    }
+  });
+
   it("returns 401 when not authenticated", async () => {
     mockRequireAuth.mockRejectedValue(new AuthError("Not authenticated", 401));
     const req = createRequest("http://localhost:3000/api/media");

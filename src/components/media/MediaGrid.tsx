@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MediaCard } from "./MediaCard";
 import { Pagination } from "../ui/Pagination";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
-import { VOTE_LABELS } from "@/lib/constants";
+import { VOTE_LABELS, SORT_LABELS } from "@/lib/constants";
 import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface MediaGridProps {
@@ -25,6 +25,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
     type: "all",
     status: "all",
     vote: "all",
+    sort: "title_asc",
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -53,6 +54,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
         type: filters.type,
         status: filters.status,
         vote: filters.vote,
+        sort: filters.sort,
       });
 
       if (debouncedSearch) {
@@ -127,6 +129,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
           <option value="pending">Pending</option>
           <option value="processing">Processing</option>
           <option value="partial">Partial</option>
+          <option value="removed">Removed</option>
         </select>
         {!statsFilter && (
           <select
@@ -144,6 +147,20 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
             <option value="none">Not Voted</option>
           </select>
         )}
+        <select
+          value={filters.sort}
+          onChange={(e) => {
+            setFilters((f) => ({ ...f, sort: e.target.value }));
+            setPage(1);
+          }}
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
+        >
+          {Object.entries(SORT_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
         {statsFilter && (
           <span className="flex items-center text-sm text-[#e5a00d]">
             Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
