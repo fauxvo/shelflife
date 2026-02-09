@@ -42,6 +42,7 @@ vi.mock("@/lib/db", () => ({
 const routeModule = await import("../route");
 const { GET, POST } = routeModule;
 
+const roundDetailModule = await import("@/app/api/admin/review-rounds/[id]/route");
 const actionModule = await import("@/app/api/admin/review-rounds/[id]/action/route");
 const closeModule = await import("@/app/api/admin/review-rounds/[id]/close/route");
 
@@ -206,6 +207,64 @@ describe("POST /api/admin/review-rounds/:id/action", () => {
 
     expect(data.success).toBe(true);
     expect(data.action).toBe("keep");
+  });
+});
+
+describe("GET /api/admin/review-rounds/:id (candidates)", () => {
+  it("includes admin-nominated items as candidates", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    // Admin nominates item 6 (belongs to plex-user-1) for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+    );
+
+    // Create a review round
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Admin Nomination Round" },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    // Get candidates
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`);
+    const res = await roundDetailModule.GET(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    const titles = data.candidates.map((c: any) => c.title);
+    expect(titles).toContain("Another Movie");
+  });
+
+  it("does not duplicate candidates when both self and admin nominate", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    // Admin also votes delete on item 2 (already self-nominated by plex-user-1)
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+    );
+
+    // Create a review round
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Dedup Round" },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    // Get candidates
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`);
+    const res = await roundDetailModule.GET(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    const item2Entries = data.candidates.filter((c: any) => c.title === "Test Movie 2");
+    expect(item2Entries.length).toBe(1);
   });
 });
 

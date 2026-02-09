@@ -7,44 +7,40 @@ import type { VoteValue } from "@/types";
 
 interface DashboardContentProps {
   totalRequests: number;
-  keepCount: number;
-  deleteCount: number;
-  trimCount: number;
-  unvotedCount: number;
+  nominatedCount: number;
+  notNominatedCount: number;
   watchedCount: number;
 }
 
 export function DashboardContent({
   totalRequests,
-  keepCount: initialKeep,
-  deleteCount: initialDelete,
-  trimCount: initialTrim,
-  unvotedCount: initialUnvoted,
+  nominatedCount: initialNominated,
+  notNominatedCount: initialNotNominated,
   watchedCount,
 }: DashboardContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    keep: initialKeep,
-    delete: initialDelete,
-    trim: initialTrim,
-    unvoted: initialUnvoted,
+    nominated: initialNominated,
+    notNominated: initialNotNominated,
   });
 
   const handleVoteChange = useCallback(
-    (_itemId: number, oldVote: VoteValue | null, newVote: VoteValue) => {
+    (_itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => {
       setStats((prev) => {
         const next = { ...prev };
+        const wasNominated = oldVote === "delete" || oldVote === "trim";
+        const isNominated = newVote === "delete" || newVote === "trim";
 
-        // Decrement old bucket
-        if (oldVote === "keep") next.keep--;
-        else if (oldVote === "delete") next.delete--;
-        else if (oldVote === "trim") next.trim--;
-        else next.unvoted--; // was null (unvoted)
-
-        // Increment new bucket
-        if (newVote === "keep") next.keep++;
-        else if (newVote === "delete") next.delete++;
-        else if (newVote === "trim") next.trim++;
+        if (wasNominated && !isNominated) {
+          // Un-nominating
+          next.nominated--;
+          next.notNominated++;
+        } else if (!wasNominated && isNominated) {
+          // Nominating
+          next.nominated++;
+          next.notNominated--;
+        }
+        // delete -> trim or trim -> delete: no stat change
 
         return next;
       });
@@ -56,10 +52,8 @@ export function DashboardContent({
     <>
       <UserStats
         totalRequests={totalRequests}
-        keepCount={stats.keep}
-        deleteCount={stats.delete}
-        trimCount={stats.trim}
-        unvotedCount={stats.unvoted}
+        nominatedCount={stats.nominated}
+        notNominatedCount={stats.notNominated}
         watchedCount={watchedCount}
         activeFilter={statsFilter}
         onFilterChange={setStatsFilter}

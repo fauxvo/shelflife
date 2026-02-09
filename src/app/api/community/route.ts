@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityQuerySchema } from "@/lib/validators/schemas";
-import { buildPagination } from "@/lib/db/queries";
+import { buildPagination, getNominationCondition } from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, sql, isNull, desc, inArray } from "drizzle-orm";
+import { eq, and, count, sql, isNull, desc } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
 
@@ -35,13 +35,13 @@ async function getCandidateCount(
   }
 
   const result = await dbInstance
-    .select({ total: count() })
+    .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
     .from(mediaItems)
     .innerJoin(userVotes, baseCondition)
     .leftJoin(userCvCount, eq(userCvCount.mediaItemId, mediaItems.id))
     .where(and(...whereConditions));
 
-  return result[0]?.total || 0;
+  return Number(result[0]?.total) || 0;
 }
 
 export async function GET(request: NextRequest) {
@@ -53,12 +53,8 @@ export async function GET(request: NextRequest) {
 
     const offset = (query.page - 1) * query.limit;
 
-    // Base query: items where the requestor voted "delete" or "trim" on their own item
-    const baseCondition = and(
-      eq(userVotes.mediaItemId, mediaItems.id),
-      eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-      inArray(userVotes.vote, ["delete", "trim"])
-    );
+    // Base query: items nominated for deletion/trim (self-nominated or admin-nominated)
+    const baseCondition = getNominationCondition();
 
     // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
     const keepCountSub = db
@@ -71,16 +67,6 @@ export async function GET(request: NextRequest) {
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    const removeCountSub = db
-      .select({
-        mediaItemId: communityVotes.mediaItemId,
-        cnt: count().as("remove_count"),
-      })
-      .from(communityVotes)
-      .where(eq(communityVotes.vote, "remove"))
-      .groupBy(communityVotes.mediaItemId)
-      .as("remove_tally");
-
     // Current user's community vote
     const userCommunityVote = db
       .select({
@@ -91,6 +77,25 @@ export async function GET(request: NextRequest) {
       .where(eq(communityVotes.userPlexId, session.plexId))
       .as("user_cv");
 
+    // Use aggregates to resolve GROUP BY when both self + admin nominate the same item.
+    // COALESCE prefers the self-nomination; MAX() fallback is deterministic in SQLite
+    // (alphabetical: 'trim' > 'delete'), which correctly preserves the more specific vote.
+    // These use Drizzle column refs (parameterized), not string interpolation — safe from injection.
+    const selfPreferredVote = sql<string>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
+      MAX(${userVotes.vote})
+    )`.as("nomination_type");
+
+    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
+      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
+      MAX(${userVotes.keepSeasons})
+    )`.as("keep_seasons_agg");
+
+    const isNominator =
+      sql<number>`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN 1 ELSE 0 END)`.as(
+        "is_nominator"
+      );
+
     let baseQuery = db
       .select({
         id: mediaItems.id,
@@ -98,20 +103,21 @@ export async function GET(request: NextRequest) {
         mediaType: mediaItems.mediaType,
         posterPath: mediaItems.posterPath,
         status: mediaItems.status,
+        tmdbId: mediaItems.tmdbId,
         imdbId: mediaItems.imdbId,
         requestedAt: mediaItems.requestedAt,
         requestedByUsername: users.username,
         seasonCount: mediaItems.seasonCount,
-        nominationType: userVotes.vote,
-        keepSeasons: userVotes.keepSeasons,
+        nominationType: selfPreferredVote,
+        keepSeasons: selfPreferredKeepSeasons,
         watched: watchStatus.watched,
         playCount: watchStatus.playCount,
         lastWatchedAt: watchStatus.lastWatchedAt,
         keepCount: keepCountSub.cnt,
-        removeCount: removeCountSub.cnt,
         currentUserVote: userCommunityVote.vote,
-        selfVoteUpdatedAt: userVotes.updatedAt,
+        selfVoteUpdatedAt: sql<string>`MAX(${userVotes.updatedAt})`.as("self_vote_updated_at"),
         requestedByPlexId: mediaItems.requestedByPlexId,
+        isNominator,
       })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition!)
@@ -124,7 +130,6 @@ export async function GET(request: NextRequest) {
         )
       )
       .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
-      .leftJoin(removeCountSub, eq(removeCountSub.mediaItemId, mediaItems.id))
       .leftJoin(userCommunityVote, eq(userCommunityVote.mediaItemId, mediaItems.id));
 
     // Build WHERE conditions — optional filters
@@ -143,8 +148,8 @@ export async function GET(request: NextRequest) {
     const commonSort = getCommonSortOrder(query.sort);
     if (commonSort) {
       baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
-    } else if (query.sort === "most_remove") {
-      baseQuery = baseQuery.orderBy(desc(removeCountSub.cnt)) as typeof baseQuery;
+    } else if (query.sort === "least_keep") {
+      baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
         sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`
@@ -155,7 +160,8 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.orderBy(DEFAULT_SORT_ORDER) as typeof baseQuery;
     }
 
-    const items = await baseQuery.limit(query.limit).offset(offset);
+    // GROUP BY to deduplicate when both self + admin nominate the same item
+    const items = await baseQuery.groupBy(mediaItems.id).limit(query.limit).offset(offset);
 
     // Count query — separate paths to keep Drizzle types clean
     const total = await getCandidateCount(db, baseCondition!, query, session.plexId);
@@ -167,12 +173,13 @@ export async function GET(request: NextRequest) {
         mediaType: i.mediaType,
         posterPath: i.posterPath,
         status: i.status,
+        tmdbId: i.tmdbId,
         imdbId: i.imdbId,
         requestedByUsername: i.requestedByUsername || "Unknown",
         requestedAt: i.requestedAt,
         seasonCount: i.seasonCount || null,
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
-        keepSeasons: i.keepSeasons || null,
+        keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus:
           i.watched !== null && i.watched !== undefined
             ? {
@@ -183,10 +190,10 @@ export async function GET(request: NextRequest) {
             : null,
         tally: {
           keepCount: Number(i.keepCount) || 0,
-          removeCount: Number(i.removeCount) || 0,
         },
         currentUserVote: i.currentUserVote || null,
-        isOwn: i.requestedByPlexId === session.plexId,
+        isRequestor: i.requestedByPlexId === session.plexId,
+        isNominator: !!i.isNominator,
       })),
       pagination: buildPagination(query.page, query.limit, total),
     });

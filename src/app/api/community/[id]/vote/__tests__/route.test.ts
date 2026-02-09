@@ -74,19 +74,30 @@ describe("POST /api/community/:id/vote", () => {
     expect(data.vote).toBe("keep");
   });
 
-  it("casts 'remove' vote successfully", async () => {
-    mockRequireAuth.mockResolvedValue(adminUser);
-    const req = createVoteRequest("5", "remove");
-    const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+  it("casts 'keep' vote without body (body optional)", async () => {
+    mockRequireAuth.mockResolvedValue(otherUser);
+    // POST without body — should default to "keep"
+    const req = createRequest(`http://localhost:3000/api/community/2/vote`, {
+      method: "POST",
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "2" }) });
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.vote).toBe("remove");
+    expect(data.vote).toBe("keep");
+  });
+
+  it("rejects 'remove' vote (no longer valid)", async () => {
+    mockRequireAuth.mockResolvedValue(adminUser);
+    const req = createVoteRequest("5", "remove");
+    const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+
+    expect(res.status).toBe(400);
   });
 
   it("updates existing vote (upsert)", async () => {
-    // plex-user-2 already voted 'remove' on item 2, change to 'keep'
+    // plex-user-2 already voted 'keep' on item 2, re-vote 'keep' (same value upsert)
     mockRequireAuth.mockResolvedValue(otherUser);
     const req = createVoteRequest("2", "keep");
     const res = await POST(req, { params: Promise.resolve({ id: "2" }) });
@@ -97,7 +108,7 @@ describe("POST /api/community/:id/vote", () => {
   });
 
   it("rejects vote on non-nominated item", async () => {
-    // Item 1 has a "keep" vote from requestor, not "delete"
+    // Item 1 has no nomination vote (no delete/trim) so community can't vote
     mockRequireAuth.mockResolvedValue(otherUser);
     const req = createVoteRequest("1", "keep");
     const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
@@ -108,7 +119,7 @@ describe("POST /api/community/:id/vote", () => {
   it("rejects vote on own item", async () => {
     // Item 2 is requested by plex-user-1 — they can't community-vote on it
     mockRequireAuth.mockResolvedValue(requestor);
-    const req = createVoteRequest("2", "remove");
+    const req = createVoteRequest("2", "keep");
     const res = await POST(req, { params: Promise.resolve({ id: "2" }) });
 
     expect(res.status).toBe(404);
@@ -117,13 +128,13 @@ describe("POST /api/community/:id/vote", () => {
   it("can community-vote on trim candidate", async () => {
     // Item 7 is "Big Brother" - requested by plex-user-1 who voted "trim" -> plex-user-2 can community vote
     mockRequireAuth.mockResolvedValue(otherUser);
-    const req = createVoteRequest("7", "remove");
+    const req = createVoteRequest("7", "keep");
     const res = await POST(req, { params: Promise.resolve({ id: "7" }) });
     const data = await res.json();
 
     expect(res.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.vote).toBe("remove");
+    expect(data.vote).toBe("keep");
   });
 
   it("rejects invalid vote value (400)", async () => {

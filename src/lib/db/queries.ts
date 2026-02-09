@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { mediaItems, userVotes, watchStatus, users } from "@/lib/db/schema";
+import { eq, and, count, or, inArray } from "drizzle-orm";
 
 const mediaItemColumns = {
   id: mediaItems.id,
   overseerrId: mediaItems.overseerrId,
   tmdbId: mediaItems.tmdbId,
+  imdbId: mediaItems.imdbId,
   mediaType: mediaItems.mediaType,
   title: mediaItems.title,
   posterPath: mediaItems.posterPath,
@@ -55,6 +56,7 @@ export function mapMediaItemRow(
     id: i.id,
     overseerrId: i.overseerrId,
     tmdbId: i.tmdbId,
+    imdbId: i.imdbId,
     mediaType: i.mediaType,
     title: i.title,
     posterPath: i.posterPath,
@@ -73,6 +75,25 @@ export function mapMediaItemRow(
           }
         : null,
   };
+}
+
+/**
+ * Shared condition for community nomination queries.
+ * An item is nominated if someone voted delete/trim AND
+ * the voter is the requestor OR the voter is an admin.
+ */
+export function getNominationCondition() {
+  return and(
+    eq(userVotes.mediaItemId, mediaItems.id),
+    inArray(userVotes.vote, ["delete", "trim"]),
+    or(
+      eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
+      inArray(
+        userVotes.userPlexId,
+        db.select({ plexId: users.plexId }).from(users).where(eq(users.isAdmin, true))
+      )
+    )
+  );
 }
 
 export function buildPagination(page: number, limit: number, total: number) {

@@ -17,7 +17,7 @@ export function CommunityGrid() {
   const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
     type: "all",
-    sort: "most_remove",
+    sort: "least_keep",
     unvoted: "",
   });
 
@@ -57,7 +57,7 @@ export function CommunityGrid() {
   const handleVoteChange = (
     itemId: number,
     _vote: CommunityVoteValue | null,
-    delta: { keep: number; remove: number }
+    delta: { keep: number }
   ) => {
     setItems((prev) =>
       prev.map((item) =>
@@ -67,7 +67,6 @@ export function CommunityGrid() {
               currentUserVote: _vote,
               tally: {
                 keepCount: item.tally.keepCount + delta.keep,
-                removeCount: item.tally.removeCount + delta.remove,
               },
             }
           : item
@@ -75,9 +74,9 @@ export function CommunityGrid() {
     );
   };
 
-  const handleSelfVoteChange = (itemId: number, vote: VoteValue) => {
-    if (vote === "keep") {
-      // User changed their nomination to "keep" — remove from community list
+  const handleSelfVoteChange = (itemId: number, vote: VoteValue | null) => {
+    if (vote === null) {
+      // User un-nominated — remove from community list
       setItems((prev) => prev.filter((item) => item.id !== itemId));
       setTotalItems((prev) => prev - 1);
     } else {

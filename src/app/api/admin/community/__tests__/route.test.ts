@@ -80,7 +80,7 @@ describe("GET /api/admin/community", () => {
 
     const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
     const otherVoter = item2.voters.find((v: any) => v.username === "otheruser");
-    expect(otherVoter.vote).toBe("remove");
+    expect(otherVoter.vote).toBe("keep");
 
     const adminVoter = item2.voters.find((v: any) => v.username === "adminuser");
     expect(adminVoter.vote).toBe("keep");
@@ -93,8 +93,40 @@ describe("GET /api/admin/community", () => {
     const data = await res.json();
 
     const item2 = data.items.find((i: any) => i.title === "Test Movie 2");
-    expect(item2.tally.keepCount).toBe(1);
-    expect(item2.tally.removeCount).toBe(1);
+    expect(item2.tally.keepCount).toBe(2);
+  });
+
+  it("does not duplicate items when both self and admin nominate", async () => {
+    // Item 2 already has plex-user-1 vote=delete (self-nomination)
+    // Admin also votes delete
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const item2Entries = data.items.filter((i: any) => i.title === "Test Movie 2");
+    expect(item2Entries.length).toBe(1);
+  });
+
+  it("shows admin-nominated items in admin community list", async () => {
+    // Admin nominates item 6 (belongs to plex-user-1) for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+    );
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    const titles = data.items.map((i: any) => i.title);
+    expect(titles).toContain("Another Movie");
   });
 
   it("returns 403 for non-admin", async () => {

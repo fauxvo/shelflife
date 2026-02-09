@@ -20,18 +20,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { vote } = parsed;
     const keepSeasons = vote === "trim" ? (parsed.keepSeasons ?? null) : null;
 
-    // Verify the media item belongs to this user
+    // Verify the media item exists (admins can vote on any item; non-admins only their own)
+    const itemConditions = [eq(mediaItems.id, mediaItemId)];
+    if (!session.isAdmin) {
+      itemConditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
+    }
     const item = await db
       .select()
       .from(mediaItems)
-      .where(and(eq(mediaItems.id, mediaItemId), eq(mediaItems.requestedByPlexId, session.plexId)))
+      .where(and(...itemConditions))
       .limit(1);
 
     if (item.length === 0) {
-      return NextResponse.json(
-        { error: "Media item not found or not your request" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Media item not found" }, { status: 404 });
     }
 
     // Trim-specific validations
@@ -76,6 +77,45 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error instanceof Error && error.name === "ZodError") {
       return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
     }
+    return handleAuthError(error);
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await requireAuth();
+    const { id } = await params;
+    const mediaItemId = Number(id);
+
+    if (isNaN(mediaItemId)) {
+      return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
+    }
+
+    // Verify the media item exists and user has permission (admins can un-nominate any; non-admins only their own)
+    const itemConditions = [eq(mediaItems.id, mediaItemId)];
+    if (!session.isAdmin) {
+      itemConditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
+    }
+    const item = await db
+      .select()
+      .from(mediaItems)
+      .where(and(...itemConditions))
+      .limit(1);
+
+    if (item.length === 0) {
+      return NextResponse.json({ error: "Media item not found" }, { status: 404 });
+    }
+
+    const result = await db
+      .delete(userVotes)
+      .where(and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId)))
+      .returning({ id: userVotes.id });
+
+    return NextResponse.json({ success: true, deleted: result.length > 0 });
+  } catch (error) {
     return handleAuthError(error);
   }
 }

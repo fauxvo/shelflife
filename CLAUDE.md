@@ -74,7 +74,9 @@ npm test -- --watch      # Run tests in watch mode
 
 - Users can ONLY see and vote on their OWN requests (filtered by `requestedByPlexId`)
 - Users cannot see other users' votes or requests
-- Admins see aggregate data but cannot modify votes
+- Admins can nominate (delete/trim) ANY user's content — this is an intentional privilege for curating the library
+- Admin nominations are shown separately in the UI ("Your nomination:" label) and included in community review alongside self-nominations
+- The shared `getNominationCondition()` helper in `lib/db/queries.ts` encapsulates the nomination visibility rule: self-nominations OR admin nominations
 - Vote/watched filtering happens in SQL WHERE clauses, not post-query in JS
 
 ## Code Conventions
