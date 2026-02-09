@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.2](https://github.com/fauxvo/shelflife/compare/v1.4.1...v1.4.2) (2026-02-09)
+
+
+### Bug Fixes
+
+* address code review feedback for nomination counts PR ([4160714](https://github.com/fauxvo/shelflife/commit/41607145d8798815e0bed503e30948a25d1ca942))
+* correct nomination counts for admin user stats and community page ([b8e9c00](https://github.com/fauxvo/shelflife/commit/b8e9c0011ed688af86ff8a26ebc88d1cacd9c84a))
+* correct nomination counts for admin user stats and community page ([abc651c](https://github.com/fauxvo/shelflife/commit/abc651c6fea98af228e119218ec30e4e2bfe74cb))
+
 ## [1.4.1](https://github.com/fauxvo/shelflife/compare/v1.4.0...v1.4.1) (2026-02-07)
 
 
