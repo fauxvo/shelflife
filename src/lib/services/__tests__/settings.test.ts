@@ -10,11 +10,6 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-// Mock the cron module to prevent actual scheduling
-vi.mock("@/lib/services/cron", () => ({
-  rescheduleSync: vi.fn(),
-}));
-
 const { getSyncScheduleSettings, updateSyncScheduleSettings } = await import("../settings");
 
 beforeEach(() => {
@@ -105,17 +100,5 @@ describe("updateSyncScheduleSettings", () => {
       schedule: "0 */12 * * *",
       syncType: "tautulli",
     });
-  });
-
-  it("calls rescheduleSync after updating", async () => {
-    const { rescheduleSync } = await import("@/lib/services/cron");
-
-    await updateSyncScheduleSettings({
-      enabled: true,
-      schedule: "0 0 * * *",
-      syncType: "full",
-    });
-
-    expect(rescheduleSync).toHaveBeenCalled();
   });
 });

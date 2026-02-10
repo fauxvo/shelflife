@@ -4,6 +4,9 @@ import { eq } from "drizzle-orm";
 import { runFullSync, syncOverseerr, syncTautulli } from "./sync";
 import type { SyncProgress } from "./sync";
 
+// In-process lock — valid because Shelflife runs as a single long-lived Node.js
+// process with SQLite (which is single-process by design). Not suitable for
+// serverless or multi-instance deployments.
 let isSyncing = false;
 
 export function isSyncInProgress(): boolean {

@@ -2,6 +2,9 @@ import cron, { type ScheduledTask } from "node-cron";
 import { dispatchSync, isSyncInProgress } from "@/lib/services/sync-dispatch";
 import { getSyncScheduleSettings } from "@/lib/services/settings";
 
+// Module-level state — valid because Shelflife runs as a single long-lived
+// Node.js process (Docker/self-hosted). Not suitable for serverless or
+// multi-instance deployments where each instance would run its own scheduler.
 let scheduledTask: ScheduledTask | null = null;
 let rescheduling: Promise<void> | null = null;
 

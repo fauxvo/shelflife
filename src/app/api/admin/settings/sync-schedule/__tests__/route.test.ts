@@ -129,7 +129,7 @@ describe("PUT /api/admin/settings/sync-schedule", () => {
     expect(data.error).toBe("Invalid cron expression");
   });
 
-  it("rejects invalid sync type", async () => {
+  it("rejects invalid sync type with validation error", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
     const req = createRequest("http://localhost:3000/api/admin/settings/sync-schedule", {
@@ -137,8 +137,10 @@ describe("PUT /api/admin/settings/sync-schedule", () => {
       body: { enabled: true, schedule: "0 0 * * *", syncType: "invalid" },
     });
     const res = await PUT(req);
+    const data = await res.json();
 
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
+    expect(data.error).toBeTruthy();
   });
 
   it("rejects non-admin users", async () => {
@@ -151,6 +153,19 @@ describe("PUT /api/admin/settings/sync-schedule", () => {
     const res = await PUT(req);
 
     expect(res.status).toBe(403);
+  });
+
+  it("calls rescheduleSync after saving", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const { rescheduleSync } = await import("@/lib/services/cron");
+
+    const req = createRequest("http://localhost:3000/api/admin/settings/sync-schedule", {
+      method: "PUT",
+      body: { enabled: true, schedule: "0 */12 * * *", syncType: "full" },
+    });
+    await PUT(req);
+
+    expect(rescheduleSync).toHaveBeenCalled();
   });
 
   it("persists settings across reads", async () => {

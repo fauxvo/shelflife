@@ -62,10 +62,5 @@ export async function updateSyncScheduleSettings(
       });
   }
 
-  // Notify the cron scheduler to pick up changes
-  // Dynamic import to avoid circular dependency and to keep this module testable
-  const { rescheduleSync } = await import("@/lib/services/cron");
-  await rescheduleSync();
-
   return settings;
 }
