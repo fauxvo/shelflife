@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
 import { eq, count, desc, inArray } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
+import { AutoSyncSettings } from "@/components/admin/AutoSyncSettings";
 import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
 import { AppVersion } from "@/components/ui/AppVersion";
+import { getSyncScheduleSettings } from "@/lib/services/settings";
 
 export default async function AdminPage() {
   const session = await getSession();
@@ -23,6 +25,9 @@ export default async function AdminPage() {
   const lastSyncResult = await db.select().from(syncLog).orderBy(desc(syncLog.startedAt)).limit(1);
 
   const lastSync = lastSyncResult[0] || null;
+
+  // Sync schedule settings
+  const syncScheduleSettings = await getSyncScheduleSettings();
 
   // Per-user stats
   const userStats = await db
@@ -79,6 +84,9 @@ export default async function AdminPage() {
 
         {/* Sync */}
         <SyncStatus lastSync={lastSync} />
+
+        {/* Auto Sync */}
+        <AutoSyncSettings initialSettings={syncScheduleSettings} />
 
         {/* Users breakdown */}
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">

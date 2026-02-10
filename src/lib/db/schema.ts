@@ -142,6 +142,14 @@ export const reviewActions = sqliteTable(
   ]
 );
 
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+});
+
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {
