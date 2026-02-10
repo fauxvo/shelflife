@@ -93,6 +93,12 @@ export function createTestDb() {
 
     CREATE UNIQUE INDEX review_actions_round_item_idx ON review_actions(review_round_id, media_item_id);
 
+    CREATE TABLE app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'full')),

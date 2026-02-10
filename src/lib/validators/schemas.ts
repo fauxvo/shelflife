@@ -56,6 +56,12 @@ export const reviewActionSchema = z.object({
   action: z.enum(["remove", "keep", "skip"]),
 });
 
+export const syncScheduleSchema = z.object({
+  enabled: z.boolean(),
+  schedule: z.string().min(1),
+  syncType: z.enum(["overseerr", "tautulli", "full"]).default("full"),
+});
+
 export type VoteInput = z.infer<typeof voteSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type MediaQuery = z.infer<typeof mediaQuerySchema>;
@@ -64,3 +70,4 @@ export type CommunityQuery = z.infer<typeof communityQuerySchema>;
 export type AdminUserRequestsQuery = z.infer<typeof adminUserRequestsQuerySchema>;
 export type ReviewRoundCreate = z.infer<typeof reviewRoundCreateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
+export type SyncScheduleInput = z.infer<typeof syncScheduleSchema>;
