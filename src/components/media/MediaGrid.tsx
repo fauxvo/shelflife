@@ -22,10 +22,11 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
   const [totalItems, setTotalItems] = useState(0);
   const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
+    scope: "all",
     type: "all",
     status: "all",
     vote: "all",
-    sort: "title_asc",
+    sort: "requested_newest",
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -51,6 +52,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
       const params = new URLSearchParams({
         page: String(page),
         limit: String(pageSize),
+        scope: filters.scope,
         type: filters.type,
         status: filters.status,
         vote: filters.vote,
@@ -92,6 +94,18 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
+        <select
+          value={filters.scope}
+          onChange={(e) => {
+            setFilters((f) => ({ ...f, scope: e.target.value }));
+            setPage(1);
+          }}
+          aria-label="Content scope"
+          className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
+        >
+          <option value="all">All Users</option>
+          <option value="personal">My Requests</option>
+        </select>
         <input
           type="text"
           placeholder="Search titles..."
@@ -177,7 +191,11 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
       ) : items.length === 0 ? (
         <div className="py-12 text-center text-gray-500">
           <p className="text-lg">No media items found</p>
-          <p className="mt-1 text-sm">Your requests will appear here after a sync</p>
+          <p className="mt-1 text-sm">
+            {filters.scope === "personal"
+              ? "Your requests will appear here after a sync"
+              : "Try adjusting your filters"}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
