@@ -16,6 +16,7 @@ export const syncRequestSchema = z.object({
 });
 
 export const mediaQuerySchema = z.object({
+  scope: z.enum(["personal", "all"]).default("all"),
   type: z.enum(["movie", "tv", "all"]).default("all"),
   status: z
     .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
@@ -23,7 +24,7 @@ export const mediaQuerySchema = z.object({
   vote: z.enum(["nominated", "none", "all"]).default("all"),
   search: z.string().max(200).optional(),
   watched: z.enum(["true", "false", ""]).optional(),
-  sort: z.enum(COMMON_SORTS).default("title_asc"),
+  sort: z.enum(COMMON_SORTS).default("requested_newest"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

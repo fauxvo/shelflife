@@ -57,12 +57,15 @@ export function Pagination({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+    <div className="flex flex-col items-center justify-between gap-4 pt-2 sm:flex-row">
       {/* Item count + page size */}
       <div className="flex items-center gap-3 text-sm text-gray-400">
         <span>
-          Showing <span className="text-gray-200 font-medium">{start}-{end}</span> of{" "}
-          <span className="text-gray-200 font-medium">{totalItems}</span>
+          Showing{" "}
+          <span className="font-medium text-gray-200">
+            {start}-{end}
+          </span>{" "}
+          of <span className="font-medium text-gray-200">{totalItems}</span>
         </span>
         <span className="text-gray-600">|</span>
         <label className="flex items-center gap-1.5">
@@ -70,7 +73,7 @@ export function Pagination({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200"
+            className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-200"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>
@@ -88,19 +91,35 @@ export function Pagination({
             onClick={() => handlePageChange(1)}
             disabled={page === 1}
             title="First page"
-            className="px-2 py-1.5 bg-gray-800 rounded text-sm disabled:opacity-30 hover:bg-gray-700 transition-colors"
+            className="rounded bg-gray-800 px-2 py-1.5 text-sm transition-colors hover:bg-gray-700 disabled:opacity-30"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11 19l-7-7 7-7M18 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <button
             onClick={() => handlePageChange(Math.max(1, page - 1))}
             disabled={page === 1}
             title="Previous page"
-            className="px-2 py-1.5 bg-gray-800 rounded text-sm disabled:opacity-30 hover:bg-gray-700 transition-colors"
+            className="rounded bg-gray-800 px-2 py-1.5 text-sm transition-colors hover:bg-gray-700 disabled:opacity-30"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -114,9 +133,9 @@ export function Pagination({
               <button
                 key={p}
                 onClick={() => handlePageChange(p)}
-                className={`min-w-[2.25rem] px-2 py-1.5 rounded text-sm transition-colors ${
+                className={`min-w-[2.25rem] rounded px-2 py-1.5 text-sm transition-colors ${
                   p === page
-                    ? "bg-[#e5a00d] text-black font-medium"
+                    ? "bg-[#e5a00d] font-medium text-black"
                     : "bg-gray-800 text-gray-300 hover:bg-gray-700"
                 }`}
               >
@@ -129,9 +148,15 @@ export function Pagination({
             onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
             disabled={page === totalPages}
             title="Next page"
-            className="px-2 py-1.5 bg-gray-800 rounded text-sm disabled:opacity-30 hover:bg-gray-700 transition-colors"
+            className="rounded bg-gray-800 px-2 py-1.5 text-sm transition-colors hover:bg-gray-700 disabled:opacity-30"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -139,9 +164,15 @@ export function Pagination({
             onClick={() => handlePageChange(totalPages)}
             disabled={page === totalPages}
             title="Last page"
-            className="px-2 py-1.5 bg-gray-800 rounded text-sm disabled:opacity-30 hover:bg-gray-700 transition-colors"
+            className="rounded bg-gray-800 px-2 py-1.5 text-sm transition-colors hover:bg-gray-700 disabled:opacity-30"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M6 5l7 7-7 7" />
             </svg>
           </button>

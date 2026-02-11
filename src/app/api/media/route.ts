@@ -21,9 +21,15 @@ export async function GET(request: NextRequest) {
     const offset = (query.page - 1) * query.limit;
 
     // Build conditions - all filtering happens in SQL
+    // SECURITY: scope=all (default) intentionally shows all library items to any authenticated user.
+    // Vote/watch data is still scoped to the current user via LEFT JOIN in mediaQueryWithJoins.
+    // Write endpoints (POST /api/media/[id]/vote) separately enforce ownership.
     // When status=all, hide removed items so they don't clutter the default view.
     // Users can explicitly select ?status=removed to see them.
-    const conditions: SQL[] = [eq(mediaItems.requestedByPlexId, session.plexId)];
+    const conditions: SQL[] = [];
+    if (query.scope === "personal") {
+      conditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
+    }
     if (query.status === "all") {
       conditions.push(ne(mediaItems.status, "removed"));
     }
@@ -49,7 +55,7 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(watchStatus.watched, true));
     }
 
-    const whereClause = and(...conditions)!;
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const orderExpr = getCommonSortOrder(query.sort) ?? DEFAULT_SORT_ORDER;
 

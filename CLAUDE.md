@@ -72,8 +72,9 @@ npm test -- --watch      # Run tests in watch mode
 
 ### Data Access
 
-- Users can ONLY see and vote on their OWN requests (filtered by `requestedByPlexId`)
-- Users cannot see other users' votes or requests
+- The media endpoint supports a `scope` param: `scope=all` (default) shows all users' library items; `scope=personal` filters to only the current user's requests
+- Vote and watch status data is always scoped to the current user via LEFT JOINs — users never see other users' votes
+- Write endpoints (`POST /api/media/[id]/vote`) enforce ownership — non-admins can only vote on their own items
 - Admins can nominate (delete/trim) ANY user's content — this is an intentional privilege for curating the library
 - Admin nominations are shown separately in the UI ("Your nomination:" label) and included in community review alongside self-nominations
 - The shared `getNominationCondition()` helper in `lib/db/queries.ts` encapsulates the nomination visibility rule: self-nominations OR admin nominations

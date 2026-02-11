@@ -92,13 +92,26 @@ describe("mediaQuerySchema", () => {
   it("applies all defaults for empty input", () => {
     const result = mediaQuerySchema.parse({});
     expect(result).toEqual({
+      scope: "all",
       type: "all",
       status: "all",
       vote: "all",
-      sort: "title_asc",
+      sort: "requested_newest",
       page: 1,
       limit: 20,
     });
+  });
+
+  it("accepts scope='all'", () => {
+    expect(mediaQuerySchema.parse({ scope: "all" }).scope).toBe("all");
+  });
+
+  it("accepts scope='personal'", () => {
+    expect(mediaQuerySchema.parse({ scope: "personal" }).scope).toBe("personal");
+  });
+
+  it("rejects invalid scope value", () => {
+    expect(() => mediaQuerySchema.parse({ scope: "invalid" })).toThrow();
   });
 
   it("coerces string page to number", () => {
