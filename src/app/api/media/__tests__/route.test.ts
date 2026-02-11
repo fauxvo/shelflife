@@ -48,14 +48,15 @@ const userSession = { userId: 1, plexId: "plex-user-1", username: "testuser", is
 const otherSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", isAdmin: false };
 
 describe("GET /api/media", () => {
-  it("defaults to scope=all, returning all users' items", async () => {
+  it("defaults to scope=personal, returning only user's own items", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/media");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.items.length).toBe(7);
+    expect(data.items.length).toBe(6);
+    expect(data.items.every((i: any) => i.id !== 5)).toBe(true);
   });
 
   it("scope=personal returns only user's own items", async () => {

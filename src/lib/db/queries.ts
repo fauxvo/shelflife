@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, or, inArray } from "drizzle-orm";
+import { eq, and, count, or, ne, inArray, type SQL } from "drizzle-orm";
 
 const mediaItemColumns = {
   id: mediaItems.id,
@@ -94,6 +94,54 @@ export function getNominationCondition() {
       )
     )
   );
+}
+
+/**
+ * Shared stats computation used by both the stats API endpoint
+ * and the dashboard page server-side rendering.
+ */
+export async function computeMediaStats(plexId: string, scope: "personal" | "all") {
+  const scopeCondition: SQL | undefined =
+    scope === "personal" ? eq(mediaItems.requestedByPlexId, plexId) : undefined;
+
+  const [totalResult] = await db
+    .select({ total: count() })
+    .from(mediaItems)
+    .where(and(ne(mediaItems.status, "removed"), scopeCondition));
+
+  const [nominatedResult] = await db
+    .select({ total: count() })
+    .from(mediaItems)
+    .innerJoin(
+      userVotes,
+      and(eq(userVotes.mediaItemId, mediaItems.id), eq(userVotes.userPlexId, plexId))
+    )
+    .where(
+      and(
+        ne(mediaItems.status, "removed"),
+        inArray(userVotes.vote, ["delete", "trim"]),
+        scopeCondition
+      )
+    );
+
+  const [watchedResult] = await db
+    .select({ total: count() })
+    .from(mediaItems)
+    .innerJoin(
+      watchStatus,
+      and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
+    )
+    .where(and(ne(mediaItems.status, "removed"), eq(watchStatus.watched, true), scopeCondition));
+
+  const total = totalResult?.total || 0;
+  const nominated = nominatedResult?.total || 0;
+
+  return {
+    total,
+    nominated,
+    notNominated: total - nominated,
+    watched: watchedResult?.total || 0,
+  };
 }
 
 export function buildPagination(page: number, limit: number, total: number) {

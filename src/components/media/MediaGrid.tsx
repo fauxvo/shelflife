@@ -11,18 +11,25 @@ interface MediaGridProps {
   initialItems?: MediaItemWithVote[];
   statsFilter?: string | null;
   onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
+  onScopeChange?: (scope: string) => void;
 }
 
-export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGridProps) {
+export function MediaGrid({
+  initialItems,
+  statsFilter,
+  onVoteChange,
+  onScopeChange,
+}: MediaGridProps) {
   const [items, setItems] = useState<MediaItemWithVote[]>(initialItems || []);
   const [loading, setLoading] = useState(!initialItems);
   const [page, setPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [pageSize, setPageSize] = useState(50);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [fetchError, setFetchError] = useState(false);
   const [filters, setFilters] = useState({
-    scope: "all",
+    scope: "personal",
     type: "all",
     status: "all",
     vote: "all",
@@ -84,11 +91,21 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters, statsFilter, debouncedSearch]);
+  }, [page, pageSize, filters, statsFilter, debouncedSearch, refreshKey]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
+
+  const handleVoteChange = useCallback(
+    (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => {
+      onVoteChange?.(itemId, oldVote, newVote);
+      if (statsFilter) {
+        setRefreshKey((k) => k + 1);
+      }
+    },
+    [onVoteChange, statsFilter]
+  );
 
   return (
     <div className="space-y-6">
@@ -97,8 +114,10 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
         <select
           value={filters.scope}
           onChange={(e) => {
-            setFilters((f) => ({ ...f, scope: e.target.value }));
+            const newScope = e.target.value;
+            setFilters((f) => ({ ...f, scope: newScope }));
             setPage(1);
+            onScopeChange?.(newScope);
           }}
           aria-label="Content scope"
           className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
@@ -200,7 +219,7 @@ export function MediaGrid({ initialItems, statsFilter, onVoteChange }: MediaGrid
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => (
-            <MediaCard key={item.id} item={item} onVoteChange={onVoteChange} />
+            <MediaCard key={item.id} item={item} onVoteChange={handleVoteChange} />
           ))}
         </div>
       )}

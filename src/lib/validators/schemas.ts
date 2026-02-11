@@ -11,12 +11,16 @@ export const voteSchema = z
     path: ["keepSeasons"],
   });
 
+export const statsQuerySchema = z.object({
+  scope: z.enum(["personal", "all"]).default("personal"),
+});
+
 export const syncRequestSchema = z.object({
   type: z.enum(["overseerr", "tautulli", "full"]).default("full"),
 });
 
 export const mediaQuerySchema = z.object({
-  scope: z.enum(["personal", "all"]).default("all"),
+  scope: z.enum(["personal", "all"]).default("personal"),
   type: z.enum(["movie", "tv", "all"]).default("all"),
   status: z
     .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
@@ -63,6 +67,7 @@ export const syncScheduleSchema = z.object({
   syncType: z.enum(["overseerr", "tautulli", "full"]).default("full"),
 });
 
+export type StatsQuery = z.infer<typeof statsQuerySchema>;
 export type VoteInput = z.infer<typeof voteSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;
 export type MediaQuery = z.infer<typeof mediaQuerySchema>;
