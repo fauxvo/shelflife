@@ -7,7 +7,12 @@ import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
 import { COMMUNITY_SORT_LABELS } from "@/lib/constants";
 import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
-export function CommunityGrid() {
+interface CommunityGridProps {
+  onCandidateRemoved?: () => void;
+  onCommunityVoteChange?: (delta: number) => void;
+}
+
+export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: CommunityGridProps) {
   const [items, setItems] = useState<CommunityCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -72,6 +77,7 @@ export function CommunityGrid() {
           : item
       )
     );
+    onCommunityVoteChange?.(delta.keep);
   };
 
   const handleSelfVoteChange = (itemId: number, vote: VoteValue | null) => {
@@ -79,6 +85,7 @@ export function CommunityGrid() {
       // User un-nominated — remove from community list
       setItems((prev) => prev.filter((item) => item.id !== itemId));
       setTotalItems((prev) => prev - 1);
+      onCandidateRemoved?.();
     } else {
       // Updated to delete/trim — update the nomination type in place
       setItems((prev) =>

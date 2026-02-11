@@ -92,7 +92,7 @@ describe("mediaQuerySchema", () => {
   it("applies all defaults for empty input", () => {
     const result = mediaQuerySchema.parse({});
     expect(result).toEqual({
-      scope: "all",
+      scope: "personal",
       type: "all",
       status: "all",
       vote: "all",

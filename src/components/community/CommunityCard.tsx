@@ -85,7 +85,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
         ) : (
           <>
             <VoteTallyBar keepCount={item.tally.keepCount} />
-            {item.isRequestor || item.isNominator ? (
+            {item.isNominator ? (
               <div className="space-y-1">
                 <p className="text-xs text-gray-500">Your nomination — change your vote:</p>
                 <VoteButton
@@ -95,6 +95,15 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
                   mediaType={item.mediaType}
                   currentKeepSeasons={item.keepSeasons}
                   onVoteChange={(newVote: VoteValue | null) => onSelfVoteChange?.(item.id, newVote)}
+                />
+              </div>
+            ) : item.isRequestor ? (
+              <div className="space-y-1">
+                <p className="text-xs text-amber-400">Admin nomination</p>
+                <CommunityVoteButton
+                  mediaItemId={item.id}
+                  currentVote={item.currentUserVote}
+                  onVoteChange={(vote, delta) => onVoteChange?.(item.id, vote, delta)}
                 />
               </div>
             ) : (
