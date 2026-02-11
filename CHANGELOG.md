@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0](https://github.com/fauxvo/shelflife/compare/v1.4.2...v1.5.0) (2026-02-11)
+
+
+### Features
+
+* add configurable auto-sync via cron job ([e8bf31c](https://github.com/fauxvo/shelflife/commit/e8bf31c1d79225f663e40d0ff7ae41f6592ea3c6))
+* add configurable auto-sync via cron job ([684d20e](https://github.com/fauxvo/shelflife/commit/684d20e5e68e7404587793d44e16ebb49ca3f83b))
+* add scope filter to browse all users' content ([9649684](https://github.com/fauxvo/shelflife/commit/9649684be872d10e9d2d9570bc97775c6ba9d136))
+* add scope filter to browse all users' content and default sort by newest ([672efc8](https://github.com/fauxvo/shelflife/commit/672efc889af63e4e26783ec2883507d91846e122))
+
+
+### Bug Fixes
+
+* address code review feedback for cron job PR ([c241068](https://github.com/fauxvo/shelflife/commit/c24106800b7adb64d821f47a444b853926500ec1))
+* **ci:** exclude migrate.js from ESLint ([6ed1d38](https://github.com/fauxvo/shelflife/commit/6ed1d389cdfad44cd60d6a3a922cb6fb145b1fe0))
+
 ## [1.4.2](https://github.com/fauxvo/shelflife/compare/v1.4.1...v1.4.2) (2026-02-09)
 
 
