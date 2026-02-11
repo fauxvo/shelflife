@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/fauxvo/shelflife/compare/v1.5.0...v1.5.1) (2026-02-11)
+
+
+### Bug Fixes
+
+* improve stats accuracy and real-time updates ([4d44f39](https://github.com/fauxvo/shelflife/commit/4d44f39b7abebb1344f6936488bf96dbd4458c29))
+* improve stats accuracy, real-time updates, and admin nomination handling ([e9f5484](https://github.com/fauxvo/shelflife/commit/e9f5484c0ba5afc5809e92e73f5601a3d8a12dee))
+
 ## [1.5.0](https://github.com/fauxvo/shelflife/compare/v1.4.2...v1.5.0) (2026-02-11)
 
 
