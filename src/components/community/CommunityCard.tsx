@@ -66,7 +66,11 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
             Trim: keep latest {item.keepSeasons} of {item.seasonCount} seasons
           </p>
         ) : item.seasonCount && item.seasonCount > 1 ? (
-          <p className="text-xs text-gray-500">{item.seasonCount} seasons</p>
+          <p className="text-xs text-gray-500">
+            {item.availableSeasonCount && item.availableSeasonCount !== item.seasonCount
+              ? `${item.availableSeasonCount} of ${item.seasonCount} seasons`
+              : `${item.seasonCount} seasons`}
+          </p>
         ) : null}
         <p className="text-xs text-gray-400">Requested by: {item.requestedByUsername}</p>
         {item.watchStatus && (

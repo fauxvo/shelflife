@@ -70,6 +70,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         status: mediaItems.status,
         requestedByUsername: users.username,
         seasonCount: mediaItems.seasonCount,
+        availableSeasonCount: mediaItems.availableSeasonCount,
         nominationType: selfPreferredVote,
         keepSeasons: selfPreferredKeepSeasons,
         keepCount: keepCountSub.cnt,
@@ -92,6 +93,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         status: c.status,
         requestedByUsername: c.requestedByUsername || "Unknown",
         seasonCount: c.seasonCount || null,
+        availableSeasonCount: c.availableSeasonCount || null,
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,
         tally: {

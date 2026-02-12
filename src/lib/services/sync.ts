@@ -74,6 +74,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
     let posterPath: string | null = null;
     let imdbId: string | null = null;
     let seasonCount: number | null = null;
+    let availableSeasonCount: number | null = null;
 
     // Try to fetch title from Overseerr
     if (tmdbId) {
@@ -85,6 +86,13 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         imdbId = details.imdbId || details.externalIds?.imdbId || null;
         if (mediaType === "tv") {
           seasonCount = details.numberOfSeasons || null;
+          // Overseerr season status: 4 = partially available, 5 = fully available
+          const SEASON_AVAILABLE_THRESHOLD = 4;
+          const seasons = details.mediaInfo?.seasons;
+          if (seasons && seasons.length > 0) {
+            availableSeasonCount =
+              seasons.filter((s) => s.status >= SEASON_AVAILABLE_THRESHOLD).length || null;
+          }
         }
       } catch {
         // Keep default title if fetch fails
@@ -125,6 +133,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         requestedAt: req.createdAt,
         ratingKey: req.media?.ratingKey || null,
         seasonCount,
+        availableSeasonCount,
         lastSyncedAt: new Date().toISOString(),
       })
       .onConflictDoUpdate({
@@ -136,6 +145,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
           status: mapMediaStatus(req.media?.status),
           ratingKey: req.media?.ratingKey || null,
           seasonCount,
+          availableSeasonCount,
           lastSyncedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
