@@ -150,6 +150,8 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
     } else if (query.sort === "least_keep") {
       baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`) as typeof baseQuery;
+    } else if (query.sort === "most_keep") {
+      baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) DESC`) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
         sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`

@@ -40,7 +40,9 @@ export const communityVoteSchema = z.object({
 export const communityQuerySchema = z.object({
   type: z.enum(["movie", "tv", "all"]).default("all"),
   unvoted: z.enum(["true", "false", ""]).optional(),
-  sort: z.enum(["least_keep", "oldest_unwatched", "newest", ...COMMON_SORTS]).default("least_keep"),
+  sort: z
+    .enum(["least_keep", "most_keep", "oldest_unwatched", "newest", ...COMMON_SORTS])
+    .default("least_keep"),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

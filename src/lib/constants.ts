@@ -29,6 +29,7 @@ export const SORT_LABELS: Record<string, string> = {
 
 export const COMMUNITY_SORT_LABELS: Record<string, string> = {
   least_keep: "Fewest Keep Votes",
+  most_keep: "Most Keep Votes",
   oldest_unwatched: "Oldest Unwatched",
   newest: "Recently Nominated",
   ...SORT_LABELS,
