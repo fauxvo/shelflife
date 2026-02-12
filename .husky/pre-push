@@ -1,0 +1,13 @@
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" = "main" ]; then
+  exit 0
+fi
+
+# Soft reminder: check for changeset files (excluding README.md)
+if ! ls .changeset/*.md 2>/dev/null | grep -qv README.md; then
+  echo ""
+  echo "  No changeset found. Run 'npx changeset' to add one before merging."
+  echo ""
+fi
+
+exit 0

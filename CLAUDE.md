@@ -144,7 +144,30 @@ When reviewing PRs, check for:
 - [ ] **Consistent UI**: Use `<MediaTypeBadge>`, `<MediaCardSkeleton>`, `<Pagination>` components
 - [ ] **Tests**: New features or bug fixes should include tests
 - [ ] **No secrets**: `.env` files, API keys, and tokens must not be committed
-- [ ] **Conventional Commits**: Commit messages follow `feat:`, `fix:`, `chore:`, `docs:` format for changelog generation
+- [ ] **Conventional Commits**: Commit messages follow `feat:`, `fix:`, `chore:`, `docs:` format
+- [ ] **Changeset**: Feature and fix PRs include a `.changeset/*.md` file describing the change
+
+## Changesets (Release Management)
+
+- **Tool**: `@changesets/cli` replaces Release Please for versioning and changelogs
+- **Workflow**: When making a `feat:` or `fix:` change, create a changeset file alongside the code changes
+- **Hook**: A `pre-push` Husky hook reminds if no changeset exists on the branch
+- **Claude Code**: When you (Claude) make feature or fix changes, always create a changeset file:
+  1. Create a file at `.changeset/<descriptive-name>.md` (e.g., `.changeset/header-redesign.md`)
+  2. Format: YAML frontmatter with package name and bump type, then a description
+  3. Example:
+
+     ```md
+     ---
+     "shelflife": minor
+     ---
+
+     Add brand accent stripe, split title hierarchy, and active page indicator to page headers
+     ```
+
+  4. Bump types: `patch` for fixes, `minor` for features, `major` for breaking changes
+
+- **Not needed for**: `chore:`, `docs:`, refactors, test-only changes, CI config
 
 ## Environment Variables
 
