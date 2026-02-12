@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/fauxvo/shelflife/compare/v1.5.1...v1.6.0) (2026-02-12)
+
+
+### Features
+
+* add sorting to admin round review panel ([f45ab29](https://github.com/fauxvo/shelflife/commit/f45ab2931bca0d044bc4ce3f10fc42277644db8a))
+
 ## [1.5.1](https://github.com/fauxvo/shelflife/compare/v1.5.0...v1.5.1) (2026-02-11)
 
 
