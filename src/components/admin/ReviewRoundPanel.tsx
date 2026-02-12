@@ -45,6 +45,7 @@ interface ActiveRound {
   name: string;
   status: string;
   startedAt: string;
+  endDate: string | null;
 }
 
 interface ReviewRoundPanelProps {
@@ -117,6 +118,7 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
           <h3 className="text-lg font-semibold">{round.name}</h3>
           <p className="text-sm text-gray-400">
             Started {new Date(round.startedAt).toLocaleDateString()}
+            {round.endDate && ` · Ends ${new Date(round.endDate).toLocaleDateString()}`}
           </p>
         </div>
         <button

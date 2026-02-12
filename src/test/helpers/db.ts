@@ -80,6 +80,7 @@ export function createTestDb() {
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'closed')),
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       closed_at TEXT,
+      end_date TEXT,
       created_by_plex_id TEXT NOT NULL REFERENCES users(plex_id)
     );
 

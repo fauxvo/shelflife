@@ -69,6 +69,38 @@ describe("POST /api/admin/review-rounds", () => {
     expect(data.round.status).toBe("active");
   });
 
+  it("creates a review round with endDate", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    const endDate = futureDate.toISOString().split("T")[0];
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Round with End Date", endDate },
+    });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.round.name).toBe("Round with End Date");
+    expect(data.round.endDate).toBe(endDate);
+  });
+
+  it("creates a review round without endDate", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Round without End Date" },
+    });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.round.name).toBe("Round without End Date");
+    expect(data.round.endDate).toBeNull();
+  });
+
   it("rejects creating second active round", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
@@ -129,6 +161,25 @@ describe("GET /api/admin/review-rounds", () => {
     expect(res.status).toBe(200);
     expect(data.rounds.length).toBe(1);
     expect(data.rounds[0].name).toBe("Test Round");
+  });
+
+  it("returns endDate in round list", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 14);
+    const endDate = futureDate.toISOString().split("T")[0];
+
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "End Date Round", endDate },
+    });
+    await POST(createReq);
+
+    const res = await GET();
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.rounds[0].endDate).toBe(endDate);
   });
 
   it("returns 403 for non-admin", async () => {

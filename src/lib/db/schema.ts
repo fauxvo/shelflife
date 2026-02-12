@@ -115,6 +115,7 @@ export const reviewRounds = sqliteTable("review_rounds", {
     .default(sql`(datetime('now'))`)
     .notNull(),
   closedAt: text("closed_at"),
+  endDate: text("end_date"),
   createdByPlexId: text("created_by_plex_id")
     .references(() => users.plexId)
     .notNull(),
