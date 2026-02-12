@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.0](https://github.com/fauxvo/shelflife/compare/v1.6.0...v1.7.0) (2026-02-12)
+
+
+### Features
+
+* add "Most Keep Votes" sort option to community page ([55a6aea](https://github.com/fauxvo/shelflife/commit/55a6aea75d6b21c390e3cfe2ca10fd488fcb3089))
+* enhance admin review panel and show available season counts ([cc8cb8f](https://github.com/fauxvo/shelflife/commit/cc8cb8f472e5d5d3f22c48d0cd86784824bd89a1))
+* show available season count from Overseerr on TV show cards ([5438154](https://github.com/fauxvo/shelflife/commit/54381542fc714f22c5ef9ebdfa90326b81f496cb))
+
+
+### Bug Fixes
+
+* use const tuple for community sort enum to preserve literal types ([9ec4674](https://github.com/fauxvo/shelflife/commit/9ec467483f6be0b29cc0563071d3a76b8e41b0c2))
+
 ## [1.6.0](https://github.com/fauxvo/shelflife/compare/v1.5.1...v1.6.0) (2026-02-12)
 
 
