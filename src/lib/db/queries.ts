@@ -210,6 +210,20 @@ export async function getCandidatesForRound(roundId: number) {
     MAX(${userVotes.keepSeasons})
   )`.as("keep_seasons_agg");
 
+  // Build a subquery to resolve nominator usernames
+  const nominatorUser = db
+    .select({
+      plexId: users.plexId,
+      username: users.username,
+    })
+    .from(users)
+    .as("nominator_user");
+
+  // Collect distinct nominator usernames (comma-separated if multiple)
+  const nominatedByUsernames = sql<string>`GROUP_CONCAT(DISTINCT ${nominatorUser.username})`.as(
+    "nominated_by_usernames"
+  );
+
   return db
     .select({
       id: mediaItems.id,
@@ -218,6 +232,7 @@ export async function getCandidatesForRound(roundId: number) {
       status: mediaItems.status,
       posterPath: mediaItems.posterPath,
       requestedByUsername: users.username,
+      nominatedByUsernames,
       seasonCount: mediaItems.seasonCount,
       availableSeasonCount: mediaItems.availableSeasonCount,
       nominationType: selfPreferredVote,
@@ -230,6 +245,7 @@ export async function getCandidatesForRound(roundId: number) {
     .from(mediaItems)
     .innerJoin(userVotes, baseCondition!)
     .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+    .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
     .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
     .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
     .leftJoin(actionByUser, eq(actionByUser.plexId, actionSubquery.actedByPlexId))
