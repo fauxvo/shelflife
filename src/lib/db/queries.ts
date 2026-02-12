@@ -1,6 +1,13 @@
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, watchStatus, users } from "@/lib/db/schema";
-import { eq, and, count, or, ne, inArray, type SQL } from "drizzle-orm";
+import {
+  mediaItems,
+  userVotes,
+  watchStatus,
+  users,
+  communityVotes,
+  reviewActions,
+} from "@/lib/db/schema";
+import { eq, and, count, or, ne, inArray, sql, type SQL } from "drizzle-orm";
 
 const mediaItemColumns = {
   id: mediaItems.id,
@@ -153,4 +160,79 @@ export function buildPagination(page: number, limit: number, total: number) {
     total,
     pages: Math.ceil(total / limit),
   };
+}
+
+/**
+ * Shared candidate query for review rounds.
+ * Returns nominated media items with community vote tallies, admin actions,
+ * and the acting admin's username.
+ */
+export async function getCandidatesForRound(roundId: number) {
+  const keepCountSub = db
+    .select({
+      mediaItemId: communityVotes.mediaItemId,
+      cnt: count().as("keep_count"),
+    })
+    .from(communityVotes)
+    .where(eq(communityVotes.vote, "keep"))
+    .groupBy(communityVotes.mediaItemId)
+    .as("keep_tally");
+
+  const actionSubquery = db
+    .select({
+      mediaItemId: reviewActions.mediaItemId,
+      action: reviewActions.action,
+      actedByPlexId: reviewActions.actedByPlexId,
+      actedAt: reviewActions.actedAt,
+    })
+    .from(reviewActions)
+    .where(eq(reviewActions.reviewRoundId, roundId))
+    .as("round_action");
+
+  const actionByUser = db
+    .select({
+      plexId: users.plexId,
+      username: users.username,
+    })
+    .from(users)
+    .as("action_by_user");
+
+  const baseCondition = getNominationCondition();
+
+  // Prefer self-nomination over admin nomination for type and keepSeasons
+  const selfPreferredVote = sql<string>`COALESCE(
+    MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
+    MAX(${userVotes.vote})
+  )`.as("nomination_type");
+
+  const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
+    MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
+    MAX(${userVotes.keepSeasons})
+  )`.as("keep_seasons_agg");
+
+  return db
+    .select({
+      id: mediaItems.id,
+      title: mediaItems.title,
+      mediaType: mediaItems.mediaType,
+      status: mediaItems.status,
+      posterPath: mediaItems.posterPath,
+      requestedByUsername: users.username,
+      seasonCount: mediaItems.seasonCount,
+      availableSeasonCount: mediaItems.availableSeasonCount,
+      nominationType: selfPreferredVote,
+      keepSeasons: selfPreferredKeepSeasons,
+      keepCount: keepCountSub.cnt,
+      action: actionSubquery.action,
+      actedAt: actionSubquery.actedAt,
+      actionByUsername: actionByUser.username,
+    })
+    .from(mediaItems)
+    .innerJoin(userVotes, baseCondition!)
+    .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+    .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
+    .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
+    .leftJoin(actionByUser, eq(actionByUser.plexId, actionSubquery.actedByPlexId))
+    .groupBy(mediaItems.id)
+    .orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`);
 }

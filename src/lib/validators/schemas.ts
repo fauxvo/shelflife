@@ -71,6 +71,29 @@ export const reviewRoundCreateSchema = z.object({
     ),
 });
 
+export const reviewRoundUpdateSchema = z
+  .object({
+    name: z.string().min(1).max(100).optional(),
+    endDate: z
+      .string()
+      .nullable()
+      .optional()
+      .refine(
+        (val) => {
+          if (val === null || val === undefined) return true;
+          const d = new Date(val);
+          if (isNaN(d.getTime())) return false;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return d >= today;
+        },
+        { message: "endDate must be a valid date that is not in the past" }
+      ),
+  })
+  .refine((data) => data.name !== undefined || data.endDate !== undefined, {
+    message: "At least one field (name or endDate) must be provided",
+  });
+
 export const reviewActionSchema = z.object({
   mediaItemId: z.coerce.number().int().positive(),
   action: z.enum(["remove", "keep", "skip"]),
@@ -90,5 +113,6 @@ export type CommunityVoteInput = z.infer<typeof communityVoteSchema>;
 export type CommunityQuery = z.infer<typeof communityQuerySchema>;
 export type AdminUserRequestsQuery = z.infer<typeof adminUserRequestsQuerySchema>;
 export type ReviewRoundCreate = z.infer<typeof reviewRoundCreateSchema>;
+export type ReviewRoundUpdate = z.infer<typeof reviewRoundUpdateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
 export type SyncScheduleInput = z.infer<typeof syncScheduleSchema>;
