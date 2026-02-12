@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "../community/VoteTallyBar";
+import { REVIEW_SORT_LABELS } from "@/lib/constants";
+import type { ReviewSort } from "@/lib/constants";
 import type { MediaStatus } from "@/types";
 
-interface RoundCandidate {
+export interface RoundCandidate {
   id: number;
   title: string;
   mediaType: "movie" | "tv";
@@ -16,6 +18,25 @@ interface RoundCandidate {
   keepSeasons: number | null;
   tally: { keepCount: number };
   action: "remove" | "keep" | "skip" | null;
+}
+
+export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): RoundCandidate[] {
+  return [...candidates].sort((a, b) => {
+    switch (sort) {
+      case "votes_asc":
+        return a.tally.keepCount - b.tally.keepCount;
+      case "votes_desc":
+        return b.tally.keepCount - a.tally.keepCount;
+      case "title_asc":
+        return a.title.localeCompare(b.title);
+      case "title_desc":
+        return b.title.localeCompare(a.title);
+      case "type_movie":
+        return a.mediaType.localeCompare(b.mediaType);
+      case "type_tv":
+        return b.mediaType.localeCompare(a.mediaType);
+    }
+  });
 }
 
 interface ActiveRound {
@@ -34,6 +55,7 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
   const [candidates, setCandidates] = useState<RoundCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
+  const [sort, setSort] = useState<ReviewSort>("votes_asc");
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -69,6 +91,8 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
     }
   };
 
+  const sortedCandidates = useMemo(() => sortCandidates(candidates, sort), [candidates, sort]);
+
   const handleClose = async () => {
     setClosing(true);
     try {
@@ -103,6 +127,22 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
         </button>
       </div>
 
+      {!loading && candidates.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-3">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ReviewSort)}
+            className="rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200"
+          >
+            {Object.entries(REVIEW_SORT_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -118,7 +158,7 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
         <p className="py-4 text-center text-gray-500">No candidates to review</p>
       ) : (
         <div className="space-y-3">
-          {candidates.map((c) => (
+          {sortedCandidates.map((c) => (
             <div
               key={c.id}
               className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4"
