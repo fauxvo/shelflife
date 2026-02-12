@@ -15,6 +15,7 @@ export interface RoundCandidate {
   status: MediaStatus;
   posterPath: string | null;
   requestedByUsername: string;
+  nominatedBy: string[];
   seasonCount: number | null;
   availableSeasonCount: number | null;
   nominationType: "delete" | "trim";
@@ -273,7 +274,15 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   <span className="truncate font-medium">{c.title}</span>
                   <MediaTypeBadge mediaType={c.mediaType} />
                 </div>
-                <p className="text-sm text-gray-400">by {c.requestedByUsername}</p>
+                <p className="text-xs text-gray-400">
+                  <span className="text-gray-500">Requested by</span> {c.requestedByUsername}
+                  {c.nominatedBy.length > 0 && (
+                    <>
+                      <span className="mx-1.5 text-gray-600">·</span>
+                      <span className="text-gray-500">Nominated by</span> {c.nominatedBy.join(", ")}
+                    </>
+                  )}
+                </p>
                 {c.nominationType === "trim" && c.keepSeasons && c.seasonCount ? (
                   <p className="text-xs text-amber-400">
                     Trim to latest {c.keepSeasons} of {c.seasonCount} seasons

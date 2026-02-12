@@ -33,6 +33,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         status: c.status,
         posterPath: c.posterPath || null,
         requestedByUsername: c.requestedByUsername || "Unknown",
+        nominatedBy: c.nominatedByUsernames ? c.nominatedByUsernames.split(",") : [],
         seasonCount: c.seasonCount || null,
         availableSeasonCount: c.availableSeasonCount || null,
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
