@@ -1,1 +1,124 @@
 @import "tailwindcss";
+
+@theme {
+  /* Typography — Manrope: geometric warmth, rounded terminals */
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Neutral-cool gray scale — subtle slate undertone without Tailwind's strong blue.
+     Feels like a well-calibrated dark mode: clean, slightly cool, cinematic. */
+  --color-gray-50: #f5f7f8;
+  --color-gray-100: #ebedf0;
+  --color-gray-200: #d7dbe0;
+  --color-gray-300: #bec3c8;
+  --color-gray-400: #949a9f;
+  --color-gray-500: #696e75;
+  --color-gray-600: #4d5157;
+  --color-gray-700: #36393e;
+  --color-gray-800: #232629;
+  --color-gray-900: #15171a;
+  --color-gray-950: #0b0c0e;
+
+  /* Brand — Plex gold */
+  --color-brand: #e5a00d;
+  --color-brand-hover: #cc8e0b;
+
+  /* TMDB — desaturated from #01b4e4 to sit quieter on dark backgrounds */
+  --color-tmdb: #4aaccc;
+
+  /* Muted red — velvet, not fire engine.
+     Desaturated ~30%, darkened to sit with the neutral palette. */
+  --color-red-50: #faf5f5;
+  --color-red-100: #f0e0df;
+  --color-red-200: #d9b5b4;
+  --color-red-300: #c99493;
+  --color-red-400: #c07e7b;
+  --color-red-500: #a85450;
+  --color-red-600: #943f3c;
+  --color-red-700: #7c3432;
+  --color-red-800: #5e2826;
+  --color-red-900: #3e1d1c;
+  --color-red-950: #2a1413;
+
+  /* Muted green — patina, not neon.
+     Desaturated ~35% so "available" badges don't overpower. */
+  --color-green-50: #f4f8f6;
+  --color-green-100: #dde9e2;
+  --color-green-200: #b3d0c2;
+  --color-green-300: #8cbba3;
+  --color-green-400: #6ba888;
+  --color-green-500: #549878;
+  --color-green-600: #458267;
+  --color-green-700: #386b55;
+  --color-green-800: #2a4a3a;
+  --color-green-900: #1f382c;
+  --color-green-950: #142520;
+
+  /* Softer blue — less electric. */
+  --color-blue-50: #f4f7fa;
+  --color-blue-100: #dce5f0;
+  --color-blue-200: #b4c8de;
+  --color-blue-300: #8cafd1;
+  --color-blue-400: #6a94be;
+  --color-blue-500: #4d78a6;
+  --color-blue-600: #3b6396;
+  --color-blue-700: #315280;
+  --color-blue-800: #273f62;
+  --color-blue-900: #1e2f48;
+  --color-blue-950: #141f30;
+
+  /* Softer purple — muted. */
+  --color-purple-50: #f7f5fa;
+  --color-purple-100: #e8e2f0;
+  --color-purple-200: #cec3de;
+  --color-purple-300: #b09ecc;
+  --color-purple-400: #9580b8;
+  --color-purple-500: #7b66a1;
+  --color-purple-600: #655289;
+  --color-purple-700: #524372;
+  --color-purple-800: #3e3358;
+  --color-purple-900: #2c2440;
+  --color-purple-950: #1c172b;
+
+  /* Warmer yellow — less acidic. */
+  --color-yellow-50: #faf8f2;
+  --color-yellow-100: #f0eadc;
+  --color-yellow-200: #ddd2b0;
+  --color-yellow-300: #ccb87a;
+  --color-yellow-400: #b8a050;
+  --color-yellow-500: #9c8838;
+  --color-yellow-600: #82722e;
+  --color-yellow-700: #685c26;
+  --color-yellow-800: #4e4520;
+  --color-yellow-900: #36301a;
+  --color-yellow-950: #221e12;
+
+  /* Softer orange. */
+  --color-orange-50: #faf7f4;
+  --color-orange-100: #f0e6dc;
+  --color-orange-200: #ddc8ae;
+  --color-orange-300: #cca87a;
+  --color-orange-400: #b88c52;
+  --color-orange-500: #9c7638;
+  --color-orange-600: #82632e;
+  --color-orange-700: #685126;
+  --color-orange-800: #4e3e20;
+  --color-orange-900: #362c1a;
+  --color-orange-950: #221c12;
+
+  /* Softer amber. */
+  --color-amber-50: #faf8f2;
+  --color-amber-100: #f0e8d6;
+  --color-amber-200: #ddd0a8;
+  --color-amber-300: #ccb474;
+  --color-amber-400: #b89a48;
+  --color-amber-500: #9c8332;
+  --color-amber-600: #826d28;
+  --color-amber-700: #685822;
+  --color-amber-800: #4e431c;
+  --color-amber-900: #363016;
+  --color-amber-950: #221e10;
+}
+
+::selection {
+  background-color: rgba(229, 160, 13, 0.3);
+}

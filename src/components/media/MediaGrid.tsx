@@ -188,7 +188,7 @@ export function MediaGrid({
           ))}
         </select>
         {statsFilter && (
-          <span className="flex items-center text-sm text-[#e5a00d]">
+          <span className="text-brand flex items-center text-sm">
             Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
           </span>
         )}

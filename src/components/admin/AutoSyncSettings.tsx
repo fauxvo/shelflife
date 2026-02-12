@@ -85,7 +85,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
           aria-checked={enabled}
           onClick={() => setEnabled(!enabled)}
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${
-            enabled ? "bg-[#e5a00d]" : "bg-gray-700"
+            enabled ? "bg-brand" : "bg-gray-700"
           }`}
         >
           <span
@@ -104,7 +104,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
             <select
               value={selectedPreset}
               onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:border-[#e5a00d] focus:outline-none"
+              className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
             >
               {SCHEDULE_PRESETS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -123,7 +123,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
                 value={schedule}
                 onChange={(e) => setSchedule(e.target.value)}
                 placeholder="0 */6 * * *"
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-200 focus:border-[#e5a00d] focus:outline-none"
+                className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-200 focus:outline-none"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Format: minute hour day-of-month month day-of-week
@@ -137,7 +137,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
             <select
               value={syncType}
               onChange={(e) => setSyncType(e.target.value as typeof syncType)}
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:border-[#e5a00d] focus:outline-none"
+              className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
             >
               {SYNC_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -157,7 +157,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="rounded-md bg-[#e5a00d] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#cc8e0b] disabled:opacity-50"
+        className="bg-brand hover:bg-brand-hover rounded-md px-4 py-2 text-sm font-medium text-black transition-colors disabled:opacity-50"
       >
         {saving ? "Saving..." : "Save"}
       </button>

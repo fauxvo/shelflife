@@ -27,7 +27,7 @@ export function ExternalLinks({ imdbId, tmdbId, mediaType }: ExternalLinksProps)
           href={`https://www.imdb.com/title/${imdbId}/`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[#e5a00d] hover:underline"
+          className="text-brand inline-flex items-center gap-1 text-xs hover:underline"
         >
           IMDB
           <ExternalLinkIcon />
@@ -38,7 +38,7 @@ export function ExternalLinks({ imdbId, tmdbId, mediaType }: ExternalLinksProps)
           href={`https://www.themoviedb.org/${tmdbType}/${tmdbId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-[#01b4e4] hover:underline"
+          className="text-tmdb inline-flex items-center gap-1 text-xs hover:underline"
         >
           TMDB
           <ExternalLinkIcon />
