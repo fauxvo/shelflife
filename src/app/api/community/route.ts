@@ -108,6 +108,7 @@ export async function GET(request: NextRequest) {
         requestedAt: mediaItems.requestedAt,
         requestedByUsername: users.username,
         seasonCount: mediaItems.seasonCount,
+        availableSeasonCount: mediaItems.availableSeasonCount,
         nominationType: selfPreferredVote,
         keepSeasons: selfPreferredKeepSeasons,
         watched: watchStatus.watched,
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
         requestedByUsername: i.requestedByUsername || "Unknown",
         requestedAt: i.requestedAt,
         seasonCount: i.seasonCount || null,
+        availableSeasonCount: i.availableSeasonCount || null,
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus:

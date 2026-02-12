@@ -221,6 +221,96 @@ describe("syncOverseerr", () => {
     expect(removed.length).toBe(6);
   });
 
+  it("syncs availableSeasonCount for TV shows", async () => {
+    mockGetAllRequests.mockResolvedValue([
+      {
+        id: 210,
+        status: 2,
+        createdAt: "2024-06-01",
+        updatedAt: "2024-06-02",
+        type: "tv",
+        media: { id: 310, tmdbId: 6000, status: 5, ratingKey: "rk-tv" },
+        requestedBy: { id: 1, plexId: 111, plexUsername: "tvuser" },
+      },
+    ]);
+    mockGetMediaDetails.mockResolvedValue({
+      id: 6000,
+      name: "Great Show",
+      numberOfSeasons: 5,
+      mediaInfo: {
+        seasons: [
+          { seasonNumber: 1, status: 5 },
+          { seasonNumber: 2, status: 5 },
+          { seasonNumber: 3, status: 4 },
+          { seasonNumber: 4, status: 3 },
+          { seasonNumber: 5, status: 2 },
+        ],
+      },
+    });
+
+    await syncOverseerr();
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 310)).all();
+    expect(items[0].seasonCount).toBe(5);
+    expect(items[0].availableSeasonCount).toBe(3);
+  });
+
+  it("sets availableSeasonCount to null when no seasons are available", async () => {
+    mockGetAllRequests.mockResolvedValue([
+      {
+        id: 211,
+        status: 2,
+        createdAt: "2024-06-01",
+        updatedAt: "2024-06-02",
+        type: "tv",
+        media: { id: 311, tmdbId: 6001, status: 3, ratingKey: "rk-tv2" },
+        requestedBy: { id: 1, plexId: 222, plexUsername: "tvuser2" },
+      },
+    ]);
+    mockGetMediaDetails.mockResolvedValue({
+      id: 6001,
+      name: "Pending Show",
+      numberOfSeasons: 3,
+      mediaInfo: {
+        seasons: [
+          { seasonNumber: 1, status: 2 },
+          { seasonNumber: 2, status: 2 },
+          { seasonNumber: 3, status: 1 },
+        ],
+      },
+    });
+
+    await syncOverseerr();
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 311)).all();
+    expect(items[0].seasonCount).toBe(3);
+    // 0 available seasons stored as null (falsy coercion is intentional)
+    expect(items[0].availableSeasonCount).toBeNull();
+  });
+
+  it("leaves availableSeasonCount null for movies", async () => {
+    mockGetAllRequests.mockResolvedValue([
+      {
+        id: 212,
+        status: 2,
+        createdAt: "2024-06-01",
+        updatedAt: "2024-06-02",
+        type: "movie",
+        media: { id: 312, tmdbId: 6002, status: 5, ratingKey: "rk-mov" },
+        requestedBy: { id: 1, plexId: 333, plexUsername: "movuser" },
+      },
+    ]);
+    mockGetMediaDetails.mockResolvedValue({
+      id: 6002,
+      title: "Some Movie",
+    });
+
+    await syncOverseerr();
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 312)).all();
+    expect(items[0].availableSeasonCount).toBeNull();
+  });
+
   it("does not re-process items already marked as 'removed'", async () => {
     // First, manually mark an item as removed
     const sqlite = (testDb.db as any).session.client;

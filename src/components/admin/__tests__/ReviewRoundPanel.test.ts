@@ -9,6 +9,7 @@ const candidate = (
   status: "available",
   requestedByUsername: "user",
   seasonCount: null,
+  availableSeasonCount: null,
   nominationType: "delete",
   keepSeasons: null,
   tally: { keepCount: 0 },

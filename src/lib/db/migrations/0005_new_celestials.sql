@@ -1,0 +1,1 @@
+ALTER TABLE `media_items` ADD `available_season_count` integer;

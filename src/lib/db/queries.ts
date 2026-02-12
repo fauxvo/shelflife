@@ -14,6 +14,7 @@ const mediaItemColumns = {
   requestedAt: mediaItems.requestedAt,
   ratingKey: mediaItems.ratingKey,
   seasonCount: mediaItems.seasonCount,
+  availableSeasonCount: mediaItems.availableSeasonCount,
   vote: userVotes.vote,
   keepSeasons: userVotes.keepSeasons,
   watched: watchStatus.watched,
@@ -64,6 +65,7 @@ export function mapMediaItemRow(
     requestedAt: i.requestedAt,
     ratingKey: i.ratingKey,
     seasonCount: i.seasonCount || null,
+    availableSeasonCount: i.availableSeasonCount || null,
     vote: i.vote || null,
     keepSeasons: i.keepSeasons || null,
     watchStatus:

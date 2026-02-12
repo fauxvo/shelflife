@@ -77,6 +77,18 @@ const overseerrMediaDetailSchema = z.object({
       imdbId: z.string().nullish(),
     })
     .nullish(),
+  mediaInfo: z
+    .object({
+      seasons: z
+        .array(
+          z.object({
+            seasonNumber: z.number(),
+            status: z.number(),
+          })
+        )
+        .nullish(),
+    })
+    .nullish(),
 });
 
 export type OverseerrRequest = z.infer<typeof overseerrRequestSchema>;

@@ -76,6 +76,7 @@ export interface CommunityCandidate {
   requestedByUsername: string;
   requestedAt: string | null;
   seasonCount: number | null;
+  availableSeasonCount: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   watchStatus: {

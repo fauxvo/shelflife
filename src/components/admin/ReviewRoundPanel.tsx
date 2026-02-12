@@ -14,6 +14,7 @@ export interface RoundCandidate {
   status: MediaStatus;
   requestedByUsername: string;
   seasonCount: number | null;
+  availableSeasonCount: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   tally: { keepCount: number };
@@ -169,11 +170,17 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
                   <MediaTypeBadge mediaType={c.mediaType} />
                 </div>
                 <p className="text-sm text-gray-400">by {c.requestedByUsername}</p>
-                {c.nominationType === "trim" && c.keepSeasons && c.seasonCount && (
+                {c.nominationType === "trim" && c.keepSeasons && c.seasonCount ? (
                   <p className="text-xs text-amber-400">
                     Trim to latest {c.keepSeasons} of {c.seasonCount} seasons
                   </p>
-                )}
+                ) : c.mediaType === "tv" && c.seasonCount && c.seasonCount > 1 ? (
+                  <p className="text-xs text-gray-500">
+                    {c.availableSeasonCount && c.availableSeasonCount !== c.seasonCount
+                      ? `${c.availableSeasonCount} of ${c.seasonCount} seasons`
+                      : `${c.seasonCount} seasons`}
+                  </p>
+                ) : null}
                 {c.status === "removed" ? (
                   <div className="mt-2 inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
                     Removed from library
