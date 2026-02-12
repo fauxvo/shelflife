@@ -6,7 +6,7 @@ import { CommunityGrid } from "./CommunityGrid";
 interface CommunityContentProps {
   totalCandidates: number;
   totalVotes: number;
-  activeRound: { name: string; startedAt: string } | null;
+  activeRound: { name: string; startedAt: string; endDate: string | null } | null;
 }
 
 export function CommunityContent({
@@ -38,7 +38,19 @@ export function CommunityContent({
             </p>
           </div>
           <p className="mt-1 text-xs text-gray-400">
-            An admin is currently reviewing community votes. Your votes count — make them now!
+            An admin is currently reviewing community votes.
+            {activeRound.endDate ? (
+              <>
+                {" "}
+                Ends{" "}
+                <span className="font-bold text-gray-200">
+                  {new Date(activeRound.endDate).toLocaleDateString()}
+                </span>{" "}
+                — vote before it closes!
+              </>
+            ) : (
+              " Your votes count — make them now!"
+            )}
           </p>
         </div>
       )}

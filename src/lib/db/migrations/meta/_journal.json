@@ -43,6 +43,13 @@
       "when": 1770914530730,
       "tag": "0005_new_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1770922212947,
+      "tag": "0006_mysterious_white_queen",
+      "breakpoints": true
     }
   ]
 }

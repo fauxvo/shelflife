@@ -25,6 +25,7 @@ export async function GET() {
         status: reviewRounds.status,
         startedAt: reviewRounds.startedAt,
         closedAt: reviewRounds.closedAt,
+        endDate: reviewRounds.endDate,
         createdByPlexId: reviewRounds.createdByPlexId,
         actionCount: actionCounts.actionCount,
       })
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     const session = await requireAdmin();
 
     const body = await request.json();
-    const { name } = reviewRoundCreateSchema.parse(body);
+    const { name, endDate } = reviewRoundCreateSchema.parse(body);
 
     // Atomic check + insert via synchronous better-sqlite3 transaction
     // prevents race condition where two concurrent requests both pass the check
@@ -59,8 +60,10 @@ export async function POST(request: NextRequest) {
       if (active) return null;
 
       return sqlite
-        .prepare("INSERT INTO review_rounds (name, created_by_plex_id) VALUES (?, ?) RETURNING *")
-        .get(name, session.plexId) as Record<string, unknown>;
+        .prepare(
+          "INSERT INTO review_rounds (name, end_date, created_by_plex_id) VALUES (?, ?, ?) RETURNING *"
+        )
+        .get(name, endDate ?? null, session.plexId) as Record<string, unknown>;
     });
 
     const row = createRound();
@@ -80,6 +83,7 @@ export async function POST(request: NextRequest) {
           status: row.status,
           startedAt: row.started_at,
           closedAt: row.closed_at,
+          endDate: row.end_date ?? null,
           createdByPlexId: row.created_by_plex_id,
         },
       },

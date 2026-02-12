@@ -55,6 +55,20 @@ export const adminUserRequestsQuerySchema = z.object({
 
 export const reviewRoundCreateSchema = z.object({
   name: z.string().min(1).max(100),
+  endDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return d >= today;
+      },
+      { message: "endDate must be a valid date that is not in the past" }
+    ),
 });
 
 export const reviewActionSchema = z.object({

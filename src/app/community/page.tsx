@@ -22,7 +22,11 @@ export default async function CommunityPage() {
 
   // Check for active review round
   const activeRoundResult = await db
-    .select({ name: reviewRounds.name, startedAt: reviewRounds.startedAt })
+    .select({
+      name: reviewRounds.name,
+      startedAt: reviewRounds.startedAt,
+      endDate: reviewRounds.endDate,
+    })
     .from(reviewRounds)
     .where(eq(reviewRounds.status, "active"))
     .limit(1);

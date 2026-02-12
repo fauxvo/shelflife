@@ -1,0 +1,1 @@
+ALTER TABLE `review_rounds` ADD `end_date` text;
