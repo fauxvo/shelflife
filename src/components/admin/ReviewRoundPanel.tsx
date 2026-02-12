@@ -7,7 +7,7 @@ import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
 import type { MediaStatus } from "@/types";
 
-interface RoundCandidate {
+export interface RoundCandidate {
   id: number;
   title: string;
   mediaType: "movie" | "tv";
@@ -18,6 +18,25 @@ interface RoundCandidate {
   keepSeasons: number | null;
   tally: { keepCount: number };
   action: "remove" | "keep" | "skip" | null;
+}
+
+export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): RoundCandidate[] {
+  return [...candidates].sort((a, b) => {
+    switch (sort) {
+      case "votes_asc":
+        return a.tally.keepCount - b.tally.keepCount;
+      case "votes_desc":
+        return b.tally.keepCount - a.tally.keepCount;
+      case "title_asc":
+        return a.title.localeCompare(b.title);
+      case "title_desc":
+        return b.title.localeCompare(a.title);
+      case "type_movie":
+        return a.mediaType.localeCompare(b.mediaType);
+      case "type_tv":
+        return b.mediaType.localeCompare(a.mediaType);
+    }
+  });
 }
 
 interface ActiveRound {
@@ -72,24 +91,7 @@ export function ReviewRoundPanel({ round, onClosed }: ReviewRoundPanelProps) {
     }
   };
 
-  const sortedCandidates = useMemo(() => {
-    return [...candidates].sort((a, b) => {
-      switch (sort) {
-        case "votes_asc":
-          return a.tally.keepCount - b.tally.keepCount;
-        case "votes_desc":
-          return b.tally.keepCount - a.tally.keepCount;
-        case "title_asc":
-          return a.title.localeCompare(b.title);
-        case "title_desc":
-          return b.title.localeCompare(a.title);
-        case "type_movie":
-          return a.mediaType.localeCompare(b.mediaType);
-        case "type_tv":
-          return b.mediaType.localeCompare(a.mediaType);
-      }
-    });
-  }, [candidates, sort]);
+  const sortedCandidates = useMemo(() => sortCandidates(candidates, sort), [candidates, sort]);
 
   const handleClose = async () => {
     setClosing(true);
