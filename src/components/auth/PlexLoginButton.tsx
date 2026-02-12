@@ -82,7 +82,7 @@ export function PlexLoginButton() {
       <button
         onClick={handleLogin}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#e5a00d] px-6 py-3 font-semibold text-black transition-colors hover:bg-[#cc8e0b] disabled:cursor-not-allowed disabled:opacity-50"
+        className="bg-brand hover:bg-brand-hover flex w-full items-center justify-center gap-3 rounded-lg px-6 py-3 font-semibold text-black transition-colors disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? (
           <>

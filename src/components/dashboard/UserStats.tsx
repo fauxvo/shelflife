@@ -34,7 +34,7 @@ export function UserStats({
             onClick={() => onFilterChange?.(isActive ? null : stat.filter)}
             className={`rounded-lg border bg-gray-900 p-4 text-left transition-colors ${
               isActive
-                ? "border-[#e5a00d] ring-1 ring-[#e5a00d]/50"
+                ? "border-brand ring-brand/50 ring-1"
                 : "border-gray-800 hover:border-gray-600"
             }`}
           >

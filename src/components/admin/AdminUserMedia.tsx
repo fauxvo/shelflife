@@ -91,7 +91,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
               onClick={() => setFilter(f)}
               className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                 filter === f
-                  ? "bg-[#e5a00d] font-medium text-black"
+                  ? "bg-brand font-medium text-black"
                   : "bg-gray-800 text-gray-300 hover:bg-gray-700"
               }`}
             >
@@ -99,7 +99,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
             </button>
           ))}
         {statsFilter && (
-          <span className="text-sm text-[#e5a00d]">
+          <span className="text-brand text-sm">
             Filtered by: {VOTE_LABELS[statsFilter] || statsFilter}
           </span>
         )}

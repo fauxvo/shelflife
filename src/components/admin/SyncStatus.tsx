@@ -167,7 +167,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
             <div className="space-y-1">
               <div className="h-2.5 w-full rounded-full bg-gray-800">
                 <div
-                  className="h-2.5 rounded-full bg-[#e5a00d] transition-all duration-300"
+                  className="bg-brand h-2.5 rounded-full transition-all duration-300"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -220,7 +220,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           <>
             <button
               onClick={() => triggerSync("full")}
-              className="rounded-md bg-[#e5a00d] px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-[#cc8e0b]"
+              className="bg-brand hover:bg-brand-hover rounded-md px-4 py-2 text-sm font-medium text-black transition-colors"
             >
               Full Sync
             </button>

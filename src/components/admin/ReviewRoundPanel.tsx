@@ -168,7 +168,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
             />
           ) : (
             <h3
-              className="cursor-pointer text-lg font-semibold hover:text-[#e5a00d]"
+              className="hover:text-brand cursor-pointer text-lg font-semibold"
               onClick={() => {
                 setEditName(round.name);
                 setEditingName(true);

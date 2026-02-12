@@ -158,7 +158,7 @@ export function ReviewRoundList() {
             <button
               onClick={handleCreate}
               disabled={creating || !newName.trim()}
-              className="rounded-md bg-[#e5a00d] px-4 py-2 text-sm font-medium text-black hover:bg-[#c88b0a] disabled:opacity-50"
+              className="bg-brand hover:bg-brand-hover rounded-md px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
             >
               {creating ? "Creating..." : "Start Round"}
             </button>
@@ -201,7 +201,7 @@ export function ReviewRoundList() {
                     <div className="ml-2 flex items-center gap-2">
                       <button
                         onClick={saveEditingRound}
-                        className="rounded-md bg-[#e5a00d] px-3 py-1 text-xs font-medium text-black hover:bg-[#c88b0a]"
+                        className="bg-brand hover:bg-brand-hover rounded-md px-3 py-1 text-xs font-medium text-black"
                       >
                         Save
                       </button>

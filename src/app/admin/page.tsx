@@ -43,26 +43,29 @@ export default async function AdminPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm">
+      <header className="border-t-brand sticky top-0 z-10 border-t-2 border-b border-b-gray-800 bg-gray-950/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div>
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-xl font-bold">Shelflife - Admin</h1>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xl font-extrabold tracking-tight">Shelflife</h1>
+              <span className="text-gray-600">/</span>
+              <span className="text-base font-medium text-gray-400">Admin</span>
               <AppVersion />
             </div>
-            <p className="text-sm text-gray-400">Library management overview</p>
+            <p className="text-sm text-gray-500">Library management overview</p>
           </div>
-          <div className="flex items-center gap-4">
+          <nav className="flex items-center gap-4">
             <a href="/dashboard" className="text-sm text-gray-400 hover:text-gray-200">
               Dashboard
             </a>
             <a href="/community" className="text-sm text-gray-400 hover:text-gray-200">
               Community
             </a>
+            <span className="text-brand text-sm font-medium">Admin</span>
             <form action="/api/auth/logout" method="POST">
               <button className="text-sm text-gray-400 hover:text-gray-200">Sign Out</button>
             </form>
-          </div>
+          </nav>
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
@@ -103,10 +106,7 @@ export default async function AdminPage() {
                 {userStats.map((u) => (
                   <tr key={u.plexId} className="text-gray-200">
                     <td className="py-3 pr-4">
-                      <a
-                        href={`/admin/users/${u.plexId}`}
-                        className="text-[#e5a00d] hover:underline"
-                      >
+                      <a href={`/admin/users/${u.plexId}`} className="text-brand hover:underline">
                         {u.username}
                       </a>
                     </td>
