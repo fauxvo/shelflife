@@ -1,16 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
-import { getNominationCondition } from "@/lib/db/queries";
-import {
-  reviewRounds,
-  reviewActions,
-  mediaItems,
-  userVotes,
-  communityVotes,
-  users,
-} from "@/lib/db/schema";
-import { eq, count, sql } from "drizzle-orm";
+import { getCandidatesForRound } from "@/lib/db/queries";
+import { reviewRounds } from "@/lib/db/schema";
+import { reviewRoundUpdateSchema } from "@/lib/validators/schemas";
+import { eq } from "drizzle-orm";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,61 +22,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Review round not found" }, { status: 404 });
     }
 
-    // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
-    const keepCountSub = db
-      .select({
-        mediaItemId: communityVotes.mediaItemId,
-        cnt: count().as("keep_count"),
-      })
-      .from(communityVotes)
-      .where(eq(communityVotes.vote, "keep"))
-      .groupBy(communityVotes.mediaItemId)
-      .as("keep_tally");
-
-    const actionSubquery = db
-      .select({
-        mediaItemId: reviewActions.mediaItemId,
-        action: reviewActions.action,
-      })
-      .from(reviewActions)
-      .where(eq(reviewActions.reviewRoundId, roundId))
-      .as("round_action");
-
-    const baseCondition = getNominationCondition();
-
-    // Use aggregates to resolve GROUP BY non-determinism:
-    // Prefer self-nomination over admin nomination for type and keepSeasons
-    const selfPreferredVote = sql<string>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
-      MAX(${userVotes.vote})
-    )`.as("nomination_type");
-
-    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
-      MAX(${userVotes.keepSeasons})
-    )`.as("keep_seasons_agg");
-
-    const candidates = await db
-      .select({
-        id: mediaItems.id,
-        title: mediaItems.title,
-        mediaType: mediaItems.mediaType,
-        status: mediaItems.status,
-        requestedByUsername: users.username,
-        seasonCount: mediaItems.seasonCount,
-        availableSeasonCount: mediaItems.availableSeasonCount,
-        nominationType: selfPreferredVote,
-        keepSeasons: selfPreferredKeepSeasons,
-        keepCount: keepCountSub.cnt,
-        action: actionSubquery.action,
-      })
-      .from(mediaItems)
-      .innerJoin(userVotes, baseCondition!)
-      .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
-      .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
-      .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
-      .groupBy(mediaItems.id)
-      .orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`);
+    const candidates = await getCandidatesForRound(roundId);
 
     return NextResponse.json({
       round: round[0],
@@ -91,17 +31,69 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         title: c.title,
         mediaType: c.mediaType,
         status: c.status,
+        posterPath: c.posterPath || null,
         requestedByUsername: c.requestedByUsername || "Unknown",
         seasonCount: c.seasonCount || null,
         availableSeasonCount: c.availableSeasonCount || null,
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,
         tally: {
-          keepCount: Number(c.keepCount) || 0,
+          keepCount: c.keepCount ?? 0,
         },
         action: c.action || null,
       })),
     });
+  } catch (error) {
+    return handleAuthError(error);
+  }
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const roundId = Number(id);
+
+    if (isNaN(roundId)) {
+      return NextResponse.json({ error: "Invalid round ID" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = reviewRoundUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const existing = await db
+      .select()
+      .from(reviewRounds)
+      .where(eq(reviewRounds.id, roundId))
+      .limit(1);
+
+    if (existing.length === 0) {
+      return NextResponse.json({ error: "Review round not found" }, { status: 404 });
+    }
+
+    const updates: Partial<{ name: string; endDate: string | null }> = {};
+    if (parsed.data.name !== undefined) {
+      updates.name = parsed.data.name;
+    }
+    if (parsed.data.endDate !== undefined) {
+      updates.endDate = parsed.data.endDate;
+    }
+
+    await db.update(reviewRounds).set(updates).where(eq(reviewRounds.id, roundId));
+
+    const updated = await db
+      .select()
+      .from(reviewRounds)
+      .where(eq(reviewRounds.id, roundId))
+      .limit(1);
+
+    return NextResponse.json({ round: updated[0] });
   } catch (error) {
     return handleAuthError(error);
   }

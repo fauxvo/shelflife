@@ -19,6 +19,9 @@ export function ReviewRoundList() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
+  const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
+  const [editRoundName, setEditRoundName] = useState("");
+  const [editRoundEndDate, setEditRoundEndDate] = useState("");
 
   const fetchRounds = useCallback(async () => {
     setLoading(true);
@@ -63,13 +66,72 @@ export function ReviewRoundList() {
     }
   };
 
+  const handleRoundUpdated = (updated: { id: number; name: string; endDate: string | null }) => {
+    setRounds((prev) =>
+      prev.map((r) =>
+        r.id === updated.id ? { ...r, name: updated.name, endDate: updated.endDate } : r
+      )
+    );
+  };
+
+  const startEditingRound = (r: ReviewRound) => {
+    setEditingRoundId(r.id);
+    setEditRoundName(r.name);
+    setEditRoundEndDate(r.endDate ?? "");
+  };
+
+  const cancelEditingRound = () => {
+    setEditingRoundId(null);
+    setEditRoundName("");
+    setEditRoundEndDate("");
+  };
+
+  const saveEditingRound = async () => {
+    if (editingRoundId === null) return;
+    const current = rounds.find((r) => r.id === editingRoundId);
+    if (!current) return;
+
+    const updates: { name?: string; endDate?: string | null } = {};
+    const trimmedName = editRoundName.trim();
+    if (trimmedName && trimmedName !== current.name) updates.name = trimmedName;
+    if (editRoundEndDate !== (current.endDate ?? "")) {
+      updates.endDate = editRoundEndDate || null;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      cancelEditingRound();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/review-rounds/${editingRoundId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        handleRoundUpdated(data.round);
+      }
+    } catch (error) {
+      console.error("Failed to update review round:", error);
+    }
+    cancelEditingRound();
+  };
+
   const activeRound = rounds.find((r) => r.status === "active");
   const closedRounds = rounds.filter((r) => r.status === "closed");
 
   return (
     <div className="space-y-6">
       {/* Active round */}
-      {activeRound && <ReviewRoundPanel round={activeRound} onClosed={fetchRounds} />}
+      {activeRound && (
+        <ReviewRoundPanel
+          round={activeRound}
+          onClosed={fetchRounds}
+          onUpdated={handleRoundUpdated}
+        />
+      )}
 
       {/* Start new round */}
       {!activeRound && (
@@ -114,15 +176,71 @@ export function ReviewRoundList() {
                 key={r.id}
                 className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-800/50 p-3"
               >
-                <div>
-                  <p className="font-medium">{r.name}</p>
-                  <p className="text-xs text-gray-400">
-                    {new Date(r.startedAt).toLocaleDateString()} -{" "}
-                    {r.closedAt ? new Date(r.closedAt).toLocaleDateString() : "Open"}
-                    {r.endDate && ` (target: ${new Date(r.endDate).toLocaleDateString()})`}
-                  </p>
-                </div>
-                <span className="text-sm text-gray-400">{r.actionCount} actions</span>
+                {editingRoundId === r.id ? (
+                  <>
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        value={editRoundName}
+                        onChange={(e) => setEditRoundName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEditingRound();
+                          if (e.key === "Escape") cancelEditingRound();
+                        }}
+                        className="min-w-0 flex-1 rounded border border-gray-600 bg-gray-800 px-2 py-1 text-sm text-gray-200"
+                        maxLength={100}
+                        autoFocus
+                      />
+                      <input
+                        type="date"
+                        value={editRoundEndDate}
+                        onChange={(e) => setEditRoundEndDate(e.target.value)}
+                        className="rounded border border-gray-600 bg-gray-800 px-2 py-1 text-sm text-gray-200"
+                      />
+                    </div>
+                    <div className="ml-2 flex items-center gap-2">
+                      <button
+                        onClick={saveEditingRound}
+                        className="rounded-md bg-[#e5a00d] px-3 py-1 text-xs font-medium text-black hover:bg-[#c88b0a]"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEditingRound}
+                        className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-300 hover:bg-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p className="font-medium">{r.name}</p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(r.startedAt).toLocaleDateString()} -{" "}
+                        {r.closedAt ? new Date(r.closedAt).toLocaleDateString() : "Open"}
+                        {r.endDate && ` (target: ${new Date(r.endDate).toLocaleDateString()})`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400">{r.actionCount} actions</span>
+                      <button
+                        onClick={() => startEditingRound(r)}
+                        className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-300 hover:bg-gray-600"
+                      >
+                        Edit
+                      </button>
+                      <a
+                        href={`/api/admin/review-rounds/${r.id}/export`}
+                        download
+                        className="rounded-md bg-gray-700 px-3 py-1 text-xs font-medium text-gray-300 hover:bg-gray-600"
+                      >
+                        Export
+                      </a>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

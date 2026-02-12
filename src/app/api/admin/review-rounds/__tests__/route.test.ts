@@ -43,8 +43,10 @@ const routeModule = await import("../route");
 const { GET, POST } = routeModule;
 
 const roundDetailModule = await import("@/app/api/admin/review-rounds/[id]/route");
+const { PATCH } = roundDetailModule;
 const actionModule = await import("@/app/api/admin/review-rounds/[id]/action/route");
 const closeModule = await import("@/app/api/admin/review-rounds/[id]/close/route");
+const exportModule = await import("@/app/api/admin/review-rounds/[id]/export/route");
 
 beforeEach(() => {
   testDb = createTestDb();
@@ -363,6 +365,292 @@ describe("POST /api/admin/review-rounds/:id/close", () => {
       method: "POST",
     });
     const res = await closeModule.POST(closeReq, {
+      params: Promise.resolve({ id: "1" }),
+    });
+
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("GET /api/admin/review-rounds/:id/export", () => {
+  it("returns CSV content-type and correct headers row", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    // Create round
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Export Round" },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}/export`);
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+
+    expect(res.headers.get("Content-Type")).toBe("text/csv");
+    expect(res.headers.get("Content-Disposition")).toContain("Export Round.csv");
+
+    const csv = await res.text();
+    const headerLine = csv.split("\n")[0];
+    expect(headerLine).toBe(
+      "Title,Type,Status,Requested By,Nomination,Keep Seasons,Season Count,Community Keep Votes,Admin Action,Action By,Action Date"
+    );
+  });
+
+  it("includes candidate data rows", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    // Create round
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Data Round" },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}/export`);
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+
+    const csv = await res.text();
+    const lines = csv.split("\n");
+
+    // Seed data has 3 nominated items: item 2 (Test Movie 2), item 5 (Other Movie), item 7 (Big Brother trim)
+    expect(lines.length).toBeGreaterThanOrEqual(4); // header + at least 3 data rows
+    expect(csv).toContain("Test Movie 2");
+    expect(csv).toContain("Other Movie");
+    expect(csv).toContain("Big Brother");
+  });
+
+  it("requires admin auth (403)", async () => {
+    mockRequireAdmin.mockRejectedValue(new AuthError("Admin access required", 403));
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/1/export");
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: "1" }),
+    });
+
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 404 for non-existent round", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/999/export");
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: "999" }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for invalid round ID", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/abc/export");
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: "abc" }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns headers only when round has no candidates", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    // Clear all votes so there are no candidates
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec("DELETE FROM user_votes");
+
+    // Create round
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Empty Round" },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}/export`);
+    const res = await exportModule.GET(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+
+    const csv = await res.text();
+    const lines = csv.split("\n").filter((l) => l.length > 0);
+    expect(lines.length).toBe(1); // header only
+  });
+});
+
+describe("PATCH /api/admin/review-rounds/:id", () => {
+  async function createRound(name = "Editable Round") {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name },
+    });
+    const res = await POST(req);
+    const data = await res.json();
+    return data.round;
+  }
+
+  it("updates name only", async () => {
+    const round = await createRound();
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: { name: "Renamed Round" },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.round.name).toBe("Renamed Round");
+  });
+
+  it("updates endDate only", async () => {
+    const round = await createRound();
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 10);
+    const endDate = futureDate.toISOString().split("T")[0];
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: { endDate },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.round.endDate).toBe(endDate);
+  });
+
+  it("updates both name and endDate", async () => {
+    const round = await createRound();
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 14);
+    const endDate = futureDate.toISOString().split("T")[0];
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: { name: "Both Updated", endDate },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.round.name).toBe("Both Updated");
+    expect(data.round.endDate).toBe(endDate);
+  });
+
+  it("clears endDate by sending null", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+    const endDate = futureDate.toISOString().split("T")[0];
+
+    // Create round with endDate
+    const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
+      method: "POST",
+      body: { name: "Has End Date", endDate },
+    });
+    const createRes = await POST(createReq);
+    const { round } = await createRes.json();
+
+    // Clear endDate
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: { endDate: null },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.round.endDate).toBeNull();
+  });
+
+  it("rejects empty body (no fields)", async () => {
+    const round = await createRound();
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: {},
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects empty name string", async () => {
+    const round = await createRound();
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`, {
+      method: "PATCH",
+      body: { name: "" },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: String(round.id) }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 for non-existent round", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/999", {
+      method: "PATCH",
+      body: { name: "Nope" },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: "999" }),
+    });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for invalid round ID", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/abc", {
+      method: "PATCH",
+      body: { name: "Bad ID" },
+    });
+    const res = await PATCH(req, {
+      params: Promise.resolve({ id: "abc" }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 403 for non-admin", async () => {
+    mockRequireAdmin.mockRejectedValue(new AuthError("Admin access required", 403));
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/1", {
+      method: "PATCH",
+      body: { name: "Unauthorized" },
+    });
+    const res = await PATCH(req, {
       params: Promise.resolve({ id: "1" }),
     });
 
