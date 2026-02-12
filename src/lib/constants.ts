@@ -33,3 +33,22 @@ export const COMMUNITY_SORT_LABELS: Record<string, string> = {
   newest: "Recently Nominated",
   ...SORT_LABELS,
 };
+
+export const REVIEW_SORTS = [
+  "votes_asc",
+  "votes_desc",
+  "title_asc",
+  "title_desc",
+  "type_movie",
+  "type_tv",
+] as const;
+export type ReviewSort = (typeof REVIEW_SORTS)[number];
+
+export const REVIEW_SORT_LABELS: Record<ReviewSort, string> = {
+  votes_asc: "Keep Votes (Fewest)",
+  votes_desc: "Keep Votes (Most)",
+  title_asc: "Title (A-Z)",
+  title_desc: "Title (Z-A)",
+  type_movie: "Type (Movies First)",
+  type_tv: "Type (TV First)",
+};
