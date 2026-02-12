@@ -1,3 +1,5 @@
+import { COMMON_SORTS, type CommonSort } from "@/lib/db/sorting";
+
 export const STATUS_COLORS: Record<string, string> = {
   available: "bg-green-900/50 text-green-300",
   partial: "bg-yellow-900/50 text-yellow-300",
@@ -20,15 +22,25 @@ export const VOTE_LABELS: Record<string, string> = {
   watched: "Watched",
 };
 
-export const SORT_LABELS: Record<string, string> = {
+export const SORT_LABELS: Record<CommonSort, string> = {
   title_asc: "Title (A-Z)",
   title_desc: "Title (Z-A)",
   requested_newest: "Date Requested (Newest)",
   requested_oldest: "Date Requested (Oldest)",
 };
 
-export const COMMUNITY_SORT_LABELS: Record<string, string> = {
+export const COMMUNITY_SORTS = [
+  "least_keep",
+  "most_keep",
+  "oldest_unwatched",
+  "newest",
+  ...COMMON_SORTS,
+] as const;
+export type CommunitySort = (typeof COMMUNITY_SORTS)[number];
+
+export const COMMUNITY_SORT_LABELS: Record<CommunitySort, string> = {
   least_keep: "Fewest Keep Votes",
+  most_keep: "Most Keep Votes",
   oldest_unwatched: "Oldest Unwatched",
   newest: "Recently Nominated",
   ...SORT_LABELS,
