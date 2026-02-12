@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
@@ -21,8 +22,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const body = await request.json();
       communityVoteSchema.parse(body);
     } catch (error) {
-      // Zod validation error means an invalid vote value was sent
-      if (error instanceof Error && error.name === "ZodError") {
+      if (error instanceof ZodError) {
         return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
       }
       // JSON parse error (empty body) is fine — vote defaults to "keep"

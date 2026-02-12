@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { reviewRoundCreateSchema } from "@/lib/validators/schemas";
-import { db, sqlite } from "@/lib/db";
+import { db } from "@/lib/db";
 import { reviewRounds, reviewActions } from "@/lib/db/schema";
 import { eq, desc, count } from "drizzle-orm";
 
@@ -51,22 +52,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, endDate } = reviewRoundCreateSchema.parse(body);
 
-    // Atomic check + insert via synchronous better-sqlite3 transaction
-    // prevents race condition where two concurrent requests both pass the check
-    const createRound = sqlite.transaction(() => {
-      const active = sqlite
-        .prepare("SELECT id FROM review_rounds WHERE status = 'active' LIMIT 1")
+    // Atomic check + insert via transaction prevents race condition
+    // where two concurrent requests both pass the active-round check
+    const row = db.transaction((tx) => {
+      const active = tx
+        .select({ id: reviewRounds.id })
+        .from(reviewRounds)
+        .where(eq(reviewRounds.status, "active"))
+        .limit(1)
         .get();
       if (active) return null;
 
-      return sqlite
-        .prepare(
-          "INSERT INTO review_rounds (name, end_date, created_by_plex_id) VALUES (?, ?, ?) RETURNING *"
-        )
-        .get(name, endDate ?? null, session.plexId) as Record<string, unknown>;
+      return tx
+        .insert(reviewRounds)
+        .values({
+          name,
+          endDate: endDate ?? null,
+          createdByPlexId: session.plexId,
+        })
+        .returning()
+        .get();
     });
-
-    const row = createRound();
 
     if (!row) {
       return NextResponse.json(
@@ -81,17 +87,17 @@ export async function POST(request: NextRequest) {
           id: row.id,
           name: row.name,
           status: row.status,
-          startedAt: row.started_at,
-          closedAt: row.closed_at,
-          endDate: row.end_date ?? null,
-          createdByPlexId: row.created_by_plex_id,
+          startedAt: row.startedAt,
+          closedAt: row.closedAt,
+          endDate: row.endDate ?? null,
+          createdByPlexId: row.createdByPlexId,
         },
       },
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ error: "Invalid round name" }, { status: 400 });
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
     }
     return handleAuthError(error);
   }

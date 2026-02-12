@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { reviewActionSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, action });
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json({ error: "Invalid action data" }, { status: 400 });
     }
     return handleAuthError(error);

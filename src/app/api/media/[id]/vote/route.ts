@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ success: true, vote, keepSeasons });
   } catch (error) {
-    if (error instanceof Error && error.name === "ZodError") {
+    if (error instanceof ZodError) {
       return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
     }
     return handleAuthError(error);
