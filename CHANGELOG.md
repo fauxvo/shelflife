@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.0](https://github.com/fauxvo/shelflife/compare/v1.7.0...v1.8.0) (2026-02-12)
+
+
+### Features
+
+* add design system tokens, Manrope font, and header redesign ([39aa9c4](https://github.com/fauxvo/shelflife/commit/39aa9c4fb075d5c4431501c71eae66eb0d66e29e))
+* add optional end date to review rounds ([6c8dd8c](https://github.com/fauxvo/shelflife/commit/6c8dd8cef2f477a1b9a6cf014ed0934fdc4e1f41))
+* add optional end date to review rounds ([d3453ce](https://github.com/fauxvo/shelflife/commit/d3453ce297b476abc2e56869c0e324f5a2f219f0))
+* add review round editing, CSV export, and candidate poster thumbnails ([d01655e](https://github.com/fauxvo/shelflife/commit/d01655e1f7ed0ae542fae5aef485c71cfe364d74))
+* admin review round editing, export, and enhanced candidate cards ([d58fcde](https://github.com/fauxvo/shelflife/commit/d58fcde7caa048a9eca2a1e72c71c955fd8441db))
+* design system tokens, Manrope font, and header redesign ([1601c5e](https://github.com/fauxvo/shelflife/commit/1601c5ec9b5dfd581649e23529ec9da30944f8ad))
+* show nominator on review round candidate cards ([1cf75d9](https://github.com/fauxvo/shelflife/commit/1cf75d912e4f91ee9ee3fa7491cebefb42ffabe3))
+* show nominator on review round candidate cards ([c1752fb](https://github.com/fauxvo/shelflife/commit/c1752fb007252747c0a2ffd4200cf054db861df3))
+
+
+### Bug Fixes
+
+* replace raw SQL with Drizzle and fix ZodError handling ([91dabaa](https://github.com/fauxvo/shelflife/commit/91dabaa54d240b24e4d24bc583edc757a2c0f1bd))
+
 ## [1.7.0](https://github.com/fauxvo/shelflife/compare/v1.6.0...v1.7.0) (2026-02-12)
 
 
