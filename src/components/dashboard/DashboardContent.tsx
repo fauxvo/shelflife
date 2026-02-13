@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { UserStats } from "./UserStats";
 import { MediaGrid } from "../media/MediaGrid";
+import { ReviewStatusBanner } from "../ui/ReviewStatusBanner";
 import type { VoteValue } from "@/types";
 
 interface DashboardContentProps {
@@ -90,6 +91,7 @@ export function DashboardContent({
 
   return (
     <>
+      <ReviewStatusBanner mode="nominating" />
       <UserStats
         totalRequests={stats.total}
         nominatedCount={stats.nominated}

@@ -7,6 +7,7 @@ import type {
   communityVotes,
   reviewRounds,
   reviewActions,
+  userReviewStatuses,
 } from "@/lib/db/schema";
 
 export type User = typeof users.$inferSelect;
@@ -32,6 +33,9 @@ export type NewReviewRound = typeof reviewRounds.$inferInsert;
 
 export type ReviewAction = typeof reviewActions.$inferSelect;
 export type NewReviewAction = typeof reviewActions.$inferInsert;
+
+export type UserReviewStatus = typeof userReviewStatuses.$inferSelect;
+export type NewUserReviewStatus = typeof userReviewStatuses.$inferInsert;
 
 export type VoteValue = "delete" | "trim";
 export type CommunityVoteValue = "keep";
@@ -63,6 +67,19 @@ export interface MediaItemWithVote extends MediaItem {
     playCount: number;
     lastWatchedAt: string | null;
   } | null;
+}
+
+export interface ReviewCompletionSummary {
+  totalParticipants: number;
+  nominationsComplete: number;
+  votingComplete: number;
+  users: {
+    username: string;
+    nominationsComplete: boolean;
+    votingComplete: boolean;
+    nominationsCompletedAt: string | null;
+    votingCompletedAt: string | null;
+  }[];
 }
 
 export interface CommunityCandidate {

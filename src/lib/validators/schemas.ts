@@ -99,6 +99,11 @@ export const reviewActionSchema = z.object({
   action: z.enum(["remove", "keep", "skip"]),
 });
 
+export const reviewStatusToggleSchema = z.object({
+  field: z.enum(["nominations_complete", "voting_complete"]),
+  value: z.boolean(),
+});
+
 export const syncScheduleSchema = z.object({
   enabled: z.boolean(),
   schedule: z.string().min(1),
@@ -115,4 +120,5 @@ export type AdminUserRequestsQuery = z.infer<typeof adminUserRequestsQuerySchema
 export type ReviewRoundCreate = z.infer<typeof reviewRoundCreateSchema>;
 export type ReviewRoundUpdate = z.infer<typeof reviewRoundUpdateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
+export type ReviewStatusToggle = z.infer<typeof reviewStatusToggleSchema>;
 export type SyncScheduleInput = z.infer<typeof syncScheduleSchema>;

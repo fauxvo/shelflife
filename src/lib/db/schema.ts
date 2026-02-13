@@ -152,6 +152,31 @@ export const appSettings = sqliteTable("app_settings", {
     .notNull(),
 });
 
+export const userReviewStatuses = sqliteTable(
+  "user_review_statuses",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id)
+      .notNull(),
+    userPlexId: text("user_plex_id")
+      .references(() => users.plexId)
+      .notNull(),
+    nominationsComplete: integer("nominations_complete", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    votingComplete: integer("voting_complete", { mode: "boolean" }).default(false).notNull(),
+    nominationsCompletedAt: text("nominations_completed_at"),
+    votingCompletedAt: text("voting_completed_at"),
+    updatedAt: text("updated_at")
+      .default(sql`(datetime('now'))`)
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_review_statuses_round_user_idx").on(table.reviewRoundId, table.userPlexId),
+  ]
+);
+
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {

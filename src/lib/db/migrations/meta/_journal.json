@@ -50,6 +50,13 @@
       "when": 1770922212947,
       "tag": "0006_mysterious_white_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1771024864647,
+      "tag": "0007_tidy_mordo",
+      "breakpoints": true
     }
   ]
 }
