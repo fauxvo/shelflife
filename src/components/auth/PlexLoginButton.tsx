@@ -3,8 +3,19 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 const POLL_INTERVAL_MS = 2000;
+const POPUP_CHECK_MS = 1000;
 const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
 const STORAGE_KEY = "shelflife-plex-pinId";
+const MAX_CONSECUTIVE_ERRORS = 5;
+
+function isPopupClosed(popup: Window): boolean {
+  try {
+    return popup.closed;
+  } catch {
+    // Cross-origin access can throw; treat as closed
+    return true;
+  }
+}
 
 export function PlexLoginButton() {
   const [loading, setLoading] = useState(false);
@@ -31,18 +42,15 @@ export function PlexLoginButton() {
   const startPolling = useCallback(
     (pinId: string, popup?: Window | null) => {
       setLoading(true);
+      let consecutiveErrors = 0;
 
-      pollIntervalRef.current = setInterval(async () => {
+      // Assign to local variables first, then store in refs.
+      // This ensures refs are set before any async callback can call cleanup().
+      const pollInterval = setInterval(async () => {
         try {
           const callbackRes = await fetch(`/api/auth/plex/callback?pinId=${pinId}`);
           const data = await callbackRes.json();
-
-          console.log("[shelflife] Poll response:", {
-            status: callbackRes.status,
-            ok: callbackRes.ok,
-            authenticated: data.authenticated,
-            error: data.error,
-          });
+          consecutiveErrors = 0;
 
           if (!callbackRes.ok) {
             console.error("[shelflife] Callback error:", data.error);
@@ -59,35 +67,48 @@ export function PlexLoginButton() {
             window.location.href = data.user.isAdmin ? "/admin" : "/dashboard";
           }
         } catch (err) {
+          consecutiveErrors++;
           console.error("[shelflife] Poll network error:", err);
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            cleanup();
+            setError("Network error. Please check your connection and try again.");
+            setLoading(false);
+            popup?.close();
+          }
         }
       }, POLL_INTERVAL_MS);
+      pollIntervalRef.current = pollInterval;
 
-      // Stop polling after 5 minutes
-      timeoutRef.current = setTimeout(() => {
+      const authTimeout = setTimeout(() => {
         cleanup();
         setLoading(false);
         setError("Authentication timed out. Please try again.");
         popup?.close();
       }, AUTH_TIMEOUT_MS);
+      timeoutRef.current = authTimeout;
 
       // Stop polling if popup closed (desktop flow only)
       if (popup) {
-        popupCheckRef.current = setInterval(() => {
-          if (popup.closed) {
+        const popupCheck = setInterval(() => {
+          if (isPopupClosed(popup)) {
             cleanup();
             setLoading(false);
           }
-        }, 1000);
+        }, POPUP_CHECK_MS);
+        popupCheckRef.current = popupCheck;
       }
     },
     [cleanup]
   );
 
-  // On mount, check for pending auth from redirect flow (mobile)
+  // On mount, check for pending auth from redirect flow (mobile).
+  // Use a ref to guard against React strict mode double-mounting.
+  const resumedRef = useRef(false);
   useEffect(() => {
+    if (resumedRef.current) return;
     const pendingPinId = sessionStorage.getItem(STORAGE_KEY);
     if (pendingPinId) {
+      resumedRef.current = true;
       sessionStorage.removeItem(STORAGE_KEY);
       console.log("[shelflife] Resuming auth after redirect, pinId:", pendingPinId);
       startPolling(pendingPinId);
@@ -113,7 +134,7 @@ export function PlexLoginButton() {
       }
       const { pinId, authUrl } = await pinRes.json();
 
-      if (popup && !popup.closed) {
+      if (popup && !isPopupClosed(popup)) {
         // Desktop: navigate the pre-opened popup to Plex auth
         popup.location.href = authUrl;
         console.log("[shelflife] PIN created, polling for auth...", { pinId });
@@ -123,7 +144,7 @@ export function PlexLoginButton() {
         // Store pinId so we can resume polling when user returns.
         sessionStorage.setItem(STORAGE_KEY, pinId);
         console.log("[shelflife] Popup blocked, redirecting to Plex auth...", { pinId });
-        const returnUrl = window.location.href;
+        const returnUrl = window.location.origin + window.location.pathname;
         window.location.href = `${authUrl}&forwardUrl=${encodeURIComponent(returnUrl)}`;
       }
     } catch (err) {
