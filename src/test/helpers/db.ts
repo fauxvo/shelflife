@@ -114,6 +114,19 @@ export function createTestDb() {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE deletion_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      media_item_id INTEGER NOT NULL REFERENCES media_items(id),
+      review_round_id INTEGER REFERENCES review_rounds(id),
+      deleted_by_plex_id TEXT NOT NULL REFERENCES users(plex_id),
+      delete_files INTEGER NOT NULL DEFAULT 0,
+      sonarr_success INTEGER,
+      radarr_success INTEGER,
+      overseerr_success INTEGER,
+      errors TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'full')),

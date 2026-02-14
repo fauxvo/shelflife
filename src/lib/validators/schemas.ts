@@ -104,6 +104,11 @@ export const reviewStatusToggleSchema = z.object({
   value: z.boolean(),
 });
 
+export const deletionRequestSchema = z.object({
+  mediaItemId: z.coerce.number().int().positive(),
+  deleteFiles: z.boolean().default(false),
+});
+
 export const syncScheduleSchema = z.object({
   enabled: z.boolean(),
   schedule: z.string().min(1),
@@ -121,4 +126,5 @@ export type ReviewRoundCreate = z.infer<typeof reviewRoundCreateSchema>;
 export type ReviewRoundUpdate = z.infer<typeof reviewRoundUpdateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
 export type ReviewStatusToggle = z.infer<typeof reviewStatusToggleSchema>;
+export type DeletionRequest = z.infer<typeof deletionRequestSchema>;
 export type SyncScheduleInput = z.infer<typeof syncScheduleSchema>;

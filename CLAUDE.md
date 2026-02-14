@@ -102,7 +102,7 @@ npm test -- --watch      # Run tests in watch mode
 
 - Use Drizzle ORM query builder -- never raw SQL strings (prevents SQL injection)
 - Use `upsertUser()` from `src/lib/services/user-upsert.ts` for user creation/updates
-- Schema defined in `src/lib/db/schema.ts` with 5 tables: users, media_items, watch_status, user_votes, sync_log
+- Schema defined in `src/lib/db/schema.ts` — 11 tables (users, media_items, watch_status, user_votes, community_votes, review_rounds, review_actions, user_review_statuses, app_settings, deletion_log, sync_log)
 - All timestamps are ISO strings stored as TEXT
 
 ### TypeScript
