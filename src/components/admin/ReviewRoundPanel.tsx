@@ -6,6 +6,7 @@ import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "../community/VoteTallyBar";
 import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
 import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
+import { MediaDetailModal } from "./MediaDetailModal";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
 import type { DeletionServiceStatus, MediaStatus } from "@/types";
@@ -27,6 +28,7 @@ export interface RoundCandidate {
   tmdbId: number | null;
   tvdbId: number | null;
   overseerrId: number | null;
+  imdbId: string | null;
 }
 
 export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): RoundCandidate[] {
@@ -72,6 +74,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
   const [serviceStatus, setServiceStatus] = useState<DeletionServiceStatus | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -295,7 +298,11 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
           {sortedCandidates.map((c) => (
             <div key={c.id}>
               <div className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4">
-                <div className="relative h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-gray-700">
+                <button
+                  onClick={() => setDetailId(c.id)}
+                  className="relative h-16 w-11 flex-shrink-0 cursor-pointer overflow-hidden rounded bg-gray-700 transition-opacity hover:opacity-80"
+                  title={`View details for ${c.title}`}
+                >
                   {c.posterPath ? (
                     <Image
                       src={`https://image.tmdb.org/t/p/w92${c.posterPath}`}
@@ -321,7 +328,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                       </svg>
                     </div>
                   )}
-                </div>
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{c.title}</span>
@@ -398,6 +405,22 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
                   onCancel={() => setConfirmDeleteId(null)}
                   isDeleting={deletingId === c.id}
+                />
+              )}
+              {detailId === c.id && (
+                <MediaDetailModal
+                  title={c.title}
+                  mediaType={c.mediaType}
+                  posterPath={c.posterPath}
+                  seasonCount={c.seasonCount}
+                  availableSeasonCount={c.availableSeasonCount}
+                  requestedByUsername={c.requestedByUsername}
+                  nominatedBy={c.nominatedBy}
+                  tmdbId={c.tmdbId}
+                  tvdbId={c.tvdbId}
+                  imdbId={c.imdbId}
+                  overseerrId={c.overseerrId}
+                  onClose={() => setDetailId(null)}
                 />
               )}
             </div>

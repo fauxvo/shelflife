@@ -35,6 +35,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         tmdbId: c.tmdbId ?? null,
         tvdbId: c.tvdbId ?? null,
         overseerrId: c.overseerrId ?? null,
+        imdbId: c.imdbId ?? null,
         requestedByUsername: c.requestedByUsername || "Unknown",
         nominatedBy: c.nominatedByUsernames ? c.nominatedByUsernames.split(",") : [],
         seasonCount: c.seasonCount || null,
