@@ -57,6 +57,13 @@
       "when": 1771028779810,
       "tag": "0007_unique_eddie_brock",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1771103389757,
+      "tag": "0008_tricky_machine_man",
+      "breakpoints": true
     }
   ]
 }

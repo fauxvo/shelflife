@@ -119,6 +119,12 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
   const handleExecuteDeletion = async (mediaItemId: number, deleteFiles: boolean) => {
     setDeletingId(mediaItemId);
     try {
+      // Ensure "remove" action is recorded before executing deletion
+      const candidate = candidates.find((c) => c.id === mediaItemId);
+      if (candidate && candidate.action !== "remove") {
+        await handleAction(mediaItemId, "remove");
+      }
+
       const res = await fetch(`/api/admin/review-rounds/${round.id}/delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -353,63 +359,45 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   )}
                 </div>
                 {c.status !== "removed" && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAction(c.id, "remove")}
-                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                          c.action === "remove"
-                            ? "bg-red-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        Remove
-                      </button>
-                      <button
-                        onClick={() => handleAction(c.id, "keep")}
-                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                          c.action === "keep"
-                            ? "bg-green-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        Keep
-                      </button>
-                      <button
-                        onClick={() => handleAction(c.id, "skip")}
-                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                          c.action === "skip"
-                            ? "bg-yellow-600 text-white"
-                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                        }`}
-                      >
-                        Skip
-                      </button>
-                    </div>
-                    {c.action === "remove" && serviceStatus && (
-                      <div className="ml-2 border-l border-gray-700 pl-2">
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={c.action ?? "remove"}
+                      onChange={(e) =>
+                        handleAction(c.id, e.target.value as "remove" | "keep" | "skip")
+                      }
+                      className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-200"
+                    >
+                      <option value="remove">Remove</option>
+                      <option value="keep">Keep</option>
+                      <option value="skip">Skip</option>
+                    </select>
+                    {serviceStatus &&
+                      ((c.mediaType === "movie" && serviceStatus.radarr) ||
+                        (c.mediaType === "tv" && serviceStatus.sonarr)) && (
                         <button
-                          onClick={() => setConfirmDeleteId(c.id)}
-                          className="rounded-md bg-red-900/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-red-400 hover:bg-red-900/70"
+                          onClick={() => setConfirmDeleteId(confirmDeleteId === c.id ? null : c.id)}
+                          disabled={deletingId === c.id}
+                          className="rounded-md bg-red-900/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-red-400 hover:bg-red-900/70 disabled:opacity-50"
                         >
-                          Execute Deletion
+                          {deletingId === c.id
+                            ? "Deleting..."
+                            : c.mediaType === "tv"
+                              ? "Delete from Sonarr"
+                              : "Delete from Radarr"}
                         </button>
-                      </div>
-                    )}
+                      )}
                   </div>
                 )}
               </div>
               {confirmDeleteId === c.id && serviceStatus && (
-                <div className="mt-2">
-                  <DeletionConfirmDialog
-                    title={c.title}
-                    mediaType={c.mediaType}
-                    serviceStatus={serviceStatus}
-                    onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
-                    onCancel={() => setConfirmDeleteId(null)}
-                    isDeleting={deletingId === c.id}
-                  />
-                </div>
+                <DeletionConfirmDialog
+                  title={c.title}
+                  mediaType={c.mediaType}
+                  serviceStatus={serviceStatus}
+                  onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  isDeleting={deletingId === c.id}
+                />
               )}
             </div>
           ))}

@@ -14,6 +14,22 @@ export function getDeletionServiceStatus(): DeletionServiceStatus {
   };
 }
 
+/**
+ * Orchestrates media deletion across Sonarr/Radarr and Overseerr.
+ *
+ * Race condition strategy: Before making any external API calls, this function
+ * claims the media item by atomically updating its status to "removed" with a
+ * conditional WHERE clause (`status != 'removed'`). If a concurrent call already
+ * claimed the item, `claimed.changes` will be 0 and we throw early. This narrows
+ * the race window to the DB write rather than the full external-API round trip.
+ *
+ * Deletion order: Sonarr/Radarr first (actual media files), then Overseerr
+ * (request tracking). Each service call is independently try/caught so partial
+ * failures don't prevent other services from being cleaned up.
+ *
+ * All results — including per-service success/failure and error messages — are
+ * written to the `deletion_log` table for audit purposes.
+ */
 export async function executeMediaDeletion(params: {
   mediaItemId: number;
   deleteFiles: boolean;
@@ -59,9 +75,7 @@ export async function executeMediaDeletion(params: {
       const client = getSonarrClient();
       const series = await client.lookupByTvdbId(mediaItem.tvdbId);
       if (series) {
-        const seriesId = Number(series.id);
-        if (!seriesId) throw new Error(`Invalid Sonarr series ID for tvdbId ${mediaItem.tvdbId}`);
-        await client.deleteSeries(seriesId, deleteFiles);
+        await client.deleteSeries(series.id, deleteFiles);
       }
       // If lookup returns null, the series is already gone -- treat as success
       result.sonarr.success = true;
@@ -78,9 +92,7 @@ export async function executeMediaDeletion(params: {
       const client = getRadarrClient();
       const movie = await client.lookupByTmdbId(mediaItem.tmdbId);
       if (movie) {
-        const movieId = Number(movie.id);
-        if (!movieId) throw new Error(`Invalid Radarr movie ID for tmdbId ${mediaItem.tmdbId}`);
-        await client.deleteMovie(movieId, deleteFiles);
+        await client.deleteMovie(movie.id, deleteFiles);
       }
       // If lookup returns null, the movie is already gone -- treat as success
       result.radarr.success = true;
