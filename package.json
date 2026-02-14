@@ -16,6 +16,9 @@
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
     "test:watch": "vitest",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset tag",
     "prepare": "husky"
   },
   "lint-staged": {
