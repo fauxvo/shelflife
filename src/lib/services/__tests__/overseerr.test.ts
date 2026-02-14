@@ -78,6 +78,7 @@ describe("OverseerrClient", () => {
   it("getRequests returns parsed page with pagination", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 1, pageSize: 20, results: 1, page: 1 },
@@ -105,6 +106,7 @@ describe("OverseerrClient", () => {
   it("getAllRequests handles single page", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 1, pageSize: 50, results: 2, page: 1 },
@@ -124,6 +126,7 @@ describe("OverseerrClient", () => {
     // Page 1: 50 results out of 75 total
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 2, pageSize: 50, results: 75, page: 1 },
@@ -139,6 +142,7 @@ describe("OverseerrClient", () => {
     // Page 2: remaining 25
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 2, pageSize: 50, results: 75, page: 2 },
@@ -160,6 +164,7 @@ describe("OverseerrClient", () => {
   it("getMediaDetails uses correct path for movie", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           id: 100,
@@ -180,6 +185,7 @@ describe("OverseerrClient", () => {
   it("getMediaDetails uses correct path for tv", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           id: 200,
@@ -199,6 +205,7 @@ describe("OverseerrClient", () => {
   it("getMediaDetails parses numberOfSeasons for TV shows", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           id: 300,
@@ -215,6 +222,7 @@ describe("OverseerrClient", () => {
   it("getUsers paginates through multiple pages", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 2, pageSize: 50, results: 75, page: 1 },
@@ -226,6 +234,7 @@ describe("OverseerrClient", () => {
     });
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 2, pageSize: 50, results: 75, page: 2 },
@@ -255,6 +264,7 @@ describe("OverseerrClient", () => {
   it("throws on Zod validation failure", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
+      headers: { get: () => "application/json" },
       json: () => Promise.resolve({ totally: "wrong" }),
     });
 

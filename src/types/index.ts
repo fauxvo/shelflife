@@ -8,6 +8,7 @@ import type {
   reviewRounds,
   reviewActions,
   userReviewStatuses,
+  deletionLog,
 } from "@/lib/db/schema";
 
 export type User = typeof users.$inferSelect;
@@ -37,6 +38,9 @@ export type NewReviewAction = typeof reviewActions.$inferInsert;
 export type UserReviewStatus = typeof userReviewStatuses.$inferSelect;
 export type NewUserReviewStatus = typeof userReviewStatuses.$inferInsert;
 
+export type DeletionLogEntry = typeof deletionLog.$inferSelect;
+export type NewDeletionLogEntry = typeof deletionLog.$inferInsert;
+
 export type VoteValue = "delete" | "trim";
 export type CommunityVoteValue = "keep";
 export type MediaType = "movie" | "tv";
@@ -49,6 +53,19 @@ export type MediaStatus =
   | "removed";
 export type SyncType = "overseerr" | "tautulli" | "full";
 export type SyncStatus = "running" | "completed" | "failed";
+
+export interface DeletionResult {
+  mediaItemId: number;
+  sonarr: { attempted: boolean; success: boolean | null; error?: string };
+  radarr: { attempted: boolean; success: boolean | null; error?: string };
+  overseerr: { attempted: boolean; success: boolean | null; error?: string };
+}
+
+export interface DeletionServiceStatus {
+  sonarr: boolean;
+  radarr: boolean;
+  overseerr: boolean;
+}
 
 export interface SessionPayload {
   userId: number;

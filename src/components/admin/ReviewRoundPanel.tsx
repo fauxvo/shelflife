@@ -5,9 +5,10 @@ import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "../community/VoteTallyBar";
 import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
+import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
-import type { MediaStatus } from "@/types";
+import type { DeletionServiceStatus, MediaStatus } from "@/types";
 
 export interface RoundCandidate {
   id: number;
@@ -23,6 +24,9 @@ export interface RoundCandidate {
   keepSeasons: number | null;
   tally: { keepCount: number };
   action: "remove" | "keep" | "skip" | null;
+  tmdbId: number | null;
+  tvdbId: number | null;
+  overseerrId: number | null;
 }
 
 export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): RoundCandidate[] {
@@ -65,6 +69,9 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
   const [sort, setSort] = useState<ReviewSort>("votes_asc");
   const [editingName, setEditingName] = useState(false);
   const [editName, setEditName] = useState(round.name);
+  const [serviceStatus, setServiceStatus] = useState<DeletionServiceStatus | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -85,6 +92,15 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
     fetchCandidates();
   }, [fetchCandidates]);
 
+  useEffect(() => {
+    fetch("/api/admin/services/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setServiceStatus(data);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleAction = async (mediaItemId: number, action: "remove" | "keep" | "skip") => {
     try {
       const res = await fetch(`/api/admin/review-rounds/${round.id}/action`, {
@@ -97,6 +113,31 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
       }
     } catch (error) {
       console.error("Failed to record review action:", error);
+    }
+  };
+
+  const handleExecuteDeletion = async (mediaItemId: number, deleteFiles: boolean) => {
+    setDeletingId(mediaItemId);
+    try {
+      const res = await fetch(`/api/admin/review-rounds/${round.id}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaItemId, deleteFiles }),
+      });
+      if (res.ok) {
+        setCandidates((prev) =>
+          prev.map((c) => (c.id === mediaItemId ? { ...c, status: "removed" as const } : c))
+        );
+        setConfirmDeleteId(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Deletion failed");
+      }
+    } catch (error) {
+      console.error("Failed to execute deletion:", error);
+      alert("Deletion failed — check console for details");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -246,99 +287,128 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
       ) : (
         <div className="space-y-3">
           {sortedCandidates.map((c) => (
-            <div
-              key={c.id}
-              className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4"
-            >
-              <div className="relative h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-gray-700">
-                {c.posterPath ? (
-                  <Image
-                    src={`https://image.tmdb.org/t/p/w92${c.posterPath}`}
-                    alt={c.title}
-                    fill
-                    className="object-cover"
-                    sizes="44px"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-gray-500">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1}
-                        d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-medium">{c.title}</span>
-                  <MediaTypeBadge mediaType={c.mediaType} />
-                </div>
-                <p className="text-xs text-gray-400">
-                  <span className="text-gray-500">Requested by</span> {c.requestedByUsername}
-                  {c.nominatedBy.length > 0 && (
-                    <>
-                      <span className="mx-1.5 text-gray-600">·</span>
-                      <span className="text-gray-500">Nominated by</span> {c.nominatedBy.join(", ")}
-                    </>
+            <div key={c.id}>
+              <div className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4">
+                <div className="relative h-16 w-11 flex-shrink-0 overflow-hidden rounded bg-gray-700">
+                  {c.posterPath ? (
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w92${c.posterPath}`}
+                      alt={c.title}
+                      fill
+                      className="object-cover"
+                      sizes="44px"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-500">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1}
+                          d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
+                        />
+                      </svg>
+                    </div>
                   )}
-                </p>
-                {c.nominationType === "trim" && c.keepSeasons && c.seasonCount ? (
-                  <p className="text-xs text-amber-400">
-                    Trim to latest {c.keepSeasons} of {c.seasonCount} seasons
-                  </p>
-                ) : c.mediaType === "tv" && c.seasonCount && c.seasonCount > 1 ? (
-                  <p className="text-xs text-gray-500">
-                    {c.availableSeasonCount && c.availableSeasonCount !== c.seasonCount
-                      ? `${c.availableSeasonCount} of ${c.seasonCount} seasons`
-                      : `${c.seasonCount} seasons`}
-                  </p>
-                ) : null}
-                {c.status === "removed" ? (
-                  <div className="mt-2 inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
-                    Removed from library
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-medium">{c.title}</span>
+                    <MediaTypeBadge mediaType={c.mediaType} />
                   </div>
-                ) : (
-                  <div className="mt-2 text-left">
-                    <VoteTallyBar keepCount={c.tally.keepCount} />
+                  <p className="text-xs text-gray-400">
+                    <span className="text-gray-500">Requested by</span> {c.requestedByUsername}
+                    {c.nominatedBy.length > 0 && (
+                      <>
+                        <span className="mx-1.5 text-gray-600">·</span>
+                        <span className="text-gray-500">Nominated by</span>{" "}
+                        {c.nominatedBy.join(", ")}
+                      </>
+                    )}
+                  </p>
+                  {c.nominationType === "trim" && c.keepSeasons && c.seasonCount ? (
+                    <p className="text-xs text-amber-400">
+                      Trim to latest {c.keepSeasons} of {c.seasonCount} seasons
+                    </p>
+                  ) : c.mediaType === "tv" && c.seasonCount && c.seasonCount > 1 ? (
+                    <p className="text-xs text-gray-500">
+                      {c.availableSeasonCount && c.availableSeasonCount !== c.seasonCount
+                        ? `${c.availableSeasonCount} of ${c.seasonCount} seasons`
+                        : `${c.seasonCount} seasons`}
+                    </p>
+                  ) : null}
+                  {c.status === "removed" ? (
+                    <div className="mt-2 inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
+                      Removed from library
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-left">
+                      <VoteTallyBar keepCount={c.tally.keepCount} />
+                    </div>
+                  )}
+                </div>
+                {c.status !== "removed" && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAction(c.id, "remove")}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          c.action === "remove"
+                            ? "bg-red-600 text-white"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        Remove
+                      </button>
+                      <button
+                        onClick={() => handleAction(c.id, "keep")}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          c.action === "keep"
+                            ? "bg-green-600 text-white"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        Keep
+                      </button>
+                      <button
+                        onClick={() => handleAction(c.id, "skip")}
+                        className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                          c.action === "skip"
+                            ? "bg-yellow-600 text-white"
+                            : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        }`}
+                      >
+                        Skip
+                      </button>
+                    </div>
+                    {c.action === "remove" && serviceStatus && (
+                      <div className="ml-2 border-l border-gray-700 pl-2">
+                        <button
+                          onClick={() => setConfirmDeleteId(c.id)}
+                          className="rounded-md bg-red-900/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-red-400 hover:bg-red-900/70"
+                        >
+                          Execute Deletion
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-              {c.status !== "removed" && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAction(c.id, "remove")}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      c.action === "remove"
-                        ? "bg-red-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    Remove
-                  </button>
-                  <button
-                    onClick={() => handleAction(c.id, "keep")}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      c.action === "keep"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    Keep
-                  </button>
-                  <button
-                    onClick={() => handleAction(c.id, "skip")}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      c.action === "skip"
-                        ? "bg-yellow-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    Skip
-                  </button>
+              {confirmDeleteId === c.id && serviceStatus && (
+                <div className="mt-2">
+                  <DeletionConfirmDialog
+                    title={c.title}
+                    mediaType={c.mediaType}
+                    serviceStatus={serviceStatus}
+                    onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
+                    onCancel={() => setConfirmDeleteId(null)}
+                    isDeleting={deletingId === c.id}
+                  />
                 </div>
               )}
             </div>

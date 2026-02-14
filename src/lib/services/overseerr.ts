@@ -122,17 +122,27 @@ class OverseerrClient {
     this.apiKey = key;
   }
 
-  private async fetch(path: string) {
+  private async fetch(path: string, options?: RequestInit) {
     const res = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
       headers: {
         "X-Api-Key": this.apiKey,
         Accept: "application/json",
+        ...options?.headers,
       },
     });
     if (!res.ok) {
       throw new Error(`Overseerr API error: ${res.status} ${res.statusText}`);
     }
-    return res.json();
+    const contentType = res.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
+      return res.json();
+    }
+    return null;
+  }
+
+  async deleteMedia(overseerrMediaId: number): Promise<void> {
+    await this.fetch(`/api/v1/media/${overseerrMediaId}`, { method: "DELETE" });
   }
 
   async getRequests(take = 20, skip = 0): Promise<z.infer<typeof overseerrPageSchema>> {

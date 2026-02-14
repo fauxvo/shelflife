@@ -177,6 +177,25 @@ export const userReviewStatuses = sqliteTable(
   ]
 );
 
+export const deletionLog = sqliteTable("deletion_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  mediaItemId: integer("media_item_id")
+    .references(() => mediaItems.id)
+    .notNull(),
+  reviewRoundId: integer("review_round_id").references(() => reviewRounds.id),
+  deletedByPlexId: text("deleted_by_plex_id")
+    .references(() => users.plexId)
+    .notNull(),
+  deleteFiles: integer("delete_files", { mode: "boolean" }).default(false).notNull(),
+  sonarrSuccess: integer("sonarr_success", { mode: "boolean" }),
+  radarrSuccess: integer("radarr_success", { mode: "boolean" }),
+  overseerrSuccess: integer("overseerr_success", { mode: "boolean" }),
+  errors: text("errors"),
+  createdAt: text("created_at")
+    .default(sql`(datetime('now'))`)
+    .notNull(),
+});
+
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {
