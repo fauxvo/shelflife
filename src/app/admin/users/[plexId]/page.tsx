@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { users, mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
-import { eq, and, count, countDistinct, inArray } from "drizzle-orm";
+import { eq, and, count, countDistinct, inArray, ne } from "drizzle-orm";
 import { AdminUserContent } from "@/components/admin/AdminUserContent";
 
 export default async function AdminUserPage({ params }: { params: Promise<{ plexId: string }> }) {
@@ -22,6 +22,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .from(mediaItems)
     .where(eq(mediaItems.requestedByPlexId, plexId));
 
+  const [activeResult] = await db
+    .select({ total: count() })
+    .from(mediaItems)
+    .where(and(eq(mediaItems.requestedByPlexId, plexId), ne(mediaItems.status, "removed")));
+
   const [nominatedResult] = await db
     .select({ total: countDistinct(userVotes.mediaItemId) })
     .from(userVotes)
@@ -36,8 +41,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .where(and(eq(watchStatus.userPlexId, plexId), eq(watchStatus.watched, true)));
 
   const totalRequests = totalResult?.total || 0;
+  const activeRequests = activeResult?.total || 0;
   const nominatedCount = nominatedResult?.total || 0;
-  const notNominatedCount = totalRequests - nominatedCount;
+  const notNominatedCount = activeRequests - nominatedCount;
   const watchedCount = watchedResult?.total || 0;
 
   return (
@@ -79,6 +85,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
         <AdminUserContent
           plexId={plexId}
           totalRequests={totalRequests}
+          activeRequests={activeRequests}
           nominatedCount={nominatedCount}
           notNominatedCount={notNominatedCount}
           watchedCount={watchedCount}
