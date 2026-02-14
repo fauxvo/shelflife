@@ -390,16 +390,14 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                 )}
               </div>
               {confirmDeleteId === c.id && serviceStatus && (
-                <div className="mt-2">
-                  <DeletionConfirmDialog
-                    title={c.title}
-                    mediaType={c.mediaType}
-                    serviceStatus={serviceStatus}
-                    onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
-                    onCancel={() => setConfirmDeleteId(null)}
-                    isDeleting={deletingId === c.id}
-                  />
-                </div>
+                <DeletionConfirmDialog
+                  title={c.title}
+                  mediaType={c.mediaType}
+                  serviceStatus={serviceStatus}
+                  onConfirm={(deleteFiles) => handleExecuteDeletion(c.id, deleteFiles)}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  isDeleting={deletingId === c.id}
+                />
               )}
             </div>
           ))}
