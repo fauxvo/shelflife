@@ -371,7 +371,8 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                       <option value="keep">Keep</option>
                       <option value="skip">Skip</option>
                     </select>
-                    {serviceStatus &&
+                    {c.action !== "keep" &&
+                      serviceStatus &&
                       ((c.mediaType === "movie" && serviceStatus.radarr) ||
                         (c.mediaType === "tv" && serviceStatus.sonarr)) && (
                         <button
