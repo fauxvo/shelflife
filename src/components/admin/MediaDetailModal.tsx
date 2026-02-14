@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
@@ -47,6 +47,8 @@ export function MediaDetailModal({
 }: MediaDetailModalProps) {
   const tmdbType = mediaType === "tv" ? "tv" : "movie";
   const overseerrUrl = process.env.NEXT_PUBLIC_OVERSEERR_URL;
+  const [overview, setOverview] = useState<string | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(!!tmdbId);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,6 +64,18 @@ export function MediaDetailModal({
       document.body.style.overflow = "";
     };
   }, []);
+
+  // Fetch overview from Overseerr (via TMDB) on mount
+  useEffect(() => {
+    if (!tmdbId) return;
+    fetch(`/api/admin/media/${tmdbId}/details?type=${tmdbType}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.overview) setOverview(data.overview);
+      })
+      .catch(() => {})
+      .finally(() => setOverviewLoading(false));
+  }, [tmdbId, tmdbType]);
 
   return createPortal(
     <div
@@ -130,6 +144,17 @@ export function MediaDetailModal({
                 : `${seasonCount} season${seasonCount > 1 ? "s" : ""}`}
             </p>
           )}
+
+          {/* Overview */}
+          {overviewLoading ? (
+            <div className="mt-3 space-y-2">
+              <div className="h-3 w-full animate-pulse rounded bg-gray-700" />
+              <div className="h-3 w-4/5 animate-pulse rounded bg-gray-700" />
+              <div className="h-3 w-3/5 animate-pulse rounded bg-gray-700" />
+            </div>
+          ) : overview ? (
+            <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-gray-400">{overview}</p>
+          ) : null}
 
           {/* Requested by */}
           <div className="mt-4 space-y-2 text-sm">
