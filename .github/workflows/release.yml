@@ -53,8 +53,7 @@ jobs:
       - name: Create GitHub Release
         if: steps.changesets.outputs.published == 'true'
         run: |
-          for tag in $(echo '${{ steps.changesets.outputs.publishedPackages }}' | jq -r '.[].version'); do
-            gh release create "v${tag}" --target ${{ github.sha }} --title "v${tag}" --generate-notes
-          done
+          TAG="v${{ fromJson(steps.changesets.outputs.publishedPackages)[0].version }}"
+          gh release create "$TAG" --target ${{ github.sha }} --title "$TAG" --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

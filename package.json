@@ -18,7 +18,7 @@
     "test:watch": "vitest",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "changeset tag",
+    "tag": "changeset tag",
     "prepare": "husky"
   },
   "lint-staged": {
