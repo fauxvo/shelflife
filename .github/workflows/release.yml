@@ -40,11 +40,20 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Create Release Pull Request or Publish
+        id: changesets
         uses: changesets/action@v1
         with:
           version: npx changeset version
           publish: npx changeset tag
           commit: "chore: version packages"
           title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          TAG="v${{ fromJson(steps.changesets.outputs.publishedPackages)[0].version }}"
+          gh release create "$TAG" --target ${{ github.sha }} --title "$TAG" --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
