@@ -73,30 +73,15 @@ export async function POST(request: NextRequest) {
     const isNominations = field === "nominations_complete";
     const timestampValue = value ? now : null;
 
-    // Fetch existing row so we preserve the other field's state on insert
-    const existing = await db
-      .select()
-      .from(userReviewStatuses)
-      .where(
-        and(
-          eq(userReviewStatuses.reviewRoundId, activeRound.id),
-          eq(userReviewStatuses.userPlexId, session.plexId)
-        )
-      )
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
-
     await db
       .insert(userReviewStatuses)
       .values({
         reviewRoundId: activeRound.id,
         userPlexId: session.plexId,
-        nominationsComplete: isNominations ? value : (existing?.nominationsComplete ?? false),
-        votingComplete: isNominations ? (existing?.votingComplete ?? false) : value,
-        nominationsCompletedAt: isNominations
-          ? timestampValue
-          : (existing?.nominationsCompletedAt ?? null),
-        votingCompletedAt: isNominations ? (existing?.votingCompletedAt ?? null) : timestampValue,
+        nominationsComplete: isNominations ? value : false,
+        votingComplete: isNominations ? false : value,
+        nominationsCompletedAt: isNominations ? timestampValue : null,
+        votingCompletedAt: isNominations ? null : timestampValue,
         updatedAt: now,
       })
       .onConflictDoUpdate({
