@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+
+### Minor Changes
+
+- [#46](https://github.com/fauxvo/shelflife/pull/46) [`69710f0`](https://github.com/fauxvo/shelflife/commit/69710f080d9e813c9f49c7a1def9f20114025f54) Thanks [@fauxvo](https://github.com/fauxvo)! - Add per-user review status tracking with nominating/voting completion toggles and admin completion dashboard
+
+### Patch Changes
+
+- [#44](https://github.com/fauxvo/shelflife/pull/44) [`45fab2d`](https://github.com/fauxvo/shelflife/commit/45fab2dd7f22a7b67367f049fbd79971ce66acfe) Thanks [@fauxvo](https://github.com/fauxvo)! - Fix Plex login on mobile Safari by pre-opening popup synchronously and falling back to same-window redirect
+
 ## 1.8.0
 
 ### Minor Changes
