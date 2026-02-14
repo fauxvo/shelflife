@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
-import { eq, count, desc, inArray } from "drizzle-orm";
+import { eq, count, desc, inArray, ne, sql, and } from "drizzle-orm";
 import { SyncStatus } from "@/components/admin/SyncStatus";
 import { AutoSyncSettings } from "@/components/admin/AutoSyncSettings";
 import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
@@ -34,7 +34,8 @@ export default async function AdminPage() {
     .select({
       username: users.username,
       plexId: users.plexId,
-      requestCount: count(mediaItems.id),
+      totalRequests: count(mediaItems.id),
+      activeRequests: sql<number>`count(case when ${mediaItems.status} != 'removed' then 1 end)`,
     })
     .from(users)
     .leftJoin(mediaItems, eq(mediaItems.requestedByPlexId, users.plexId))
@@ -99,7 +100,8 @@ export default async function AdminPage() {
               <thead>
                 <tr className="border-b border-gray-800 text-left text-gray-400">
                   <th className="pr-4 pb-3">Username</th>
-                  <th className="pb-3">Requests</th>
+                  <th className="pr-4 pb-3">Active</th>
+                  <th className="pb-3">Total</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
@@ -110,7 +112,8 @@ export default async function AdminPage() {
                         {u.username}
                       </a>
                     </td>
-                    <td className="py-3">{u.requestCount}</td>
+                    <td className="py-3 pr-4">{u.activeRequests}</td>
+                    <td className="py-3 text-gray-500">{u.totalRequests}</td>
                   </tr>
                 ))}
               </tbody>

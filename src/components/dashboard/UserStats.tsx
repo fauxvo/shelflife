@@ -2,6 +2,7 @@
 
 interface UserStatsProps {
   totalRequests: number;
+  activeRequests?: number;
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
@@ -11,21 +12,28 @@ interface UserStatsProps {
 
 export function UserStats({
   totalRequests,
+  activeRequests,
   nominatedCount,
   notNominatedCount,
   watchedCount,
   activeFilter,
   onFilterChange,
 }: UserStatsProps) {
+  const showActive = activeRequests !== undefined && activeRequests !== totalRequests;
   const stats = [
-    { label: "Total Requests", value: totalRequests, color: "text-gray-100", filter: null },
+    ...(showActive
+      ? [
+          { label: "Active Requests", value: activeRequests, color: "text-gray-100", filter: null },
+          { label: "Total Requests", value: totalRequests, color: "text-gray-400", filter: null },
+        ]
+      : [{ label: "Total Requests", value: totalRequests, color: "text-gray-100", filter: null }]),
     { label: "Nominated", value: nominatedCount, color: "text-red-400", filter: "nominated" },
     { label: "Not Nominated", value: notNominatedCount, color: "text-green-400", filter: "none" },
     { label: "Watched", value: watchedCount, color: "text-purple-400", filter: "watched" },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className={`grid grid-cols-2 gap-4 ${showActive ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
       {stats.map((stat) => {
         const isActive = activeFilter === stat.filter;
         return (

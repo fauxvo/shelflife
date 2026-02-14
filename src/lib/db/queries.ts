@@ -241,6 +241,7 @@ export async function getCandidatesForRound(roundId: number) {
       action: actionSubquery.action,
       actedAt: actionSubquery.actedAt,
       actionByUsername: actionByUser.username,
+      updatedAt: mediaItems.updatedAt,
     })
     .from(mediaItems)
     .innerJoin(userVotes, baseCondition!)
@@ -250,5 +251,10 @@ export async function getCandidatesForRound(roundId: number) {
     .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
     .leftJoin(actionByUser, eq(actionByUser.plexId, actionSubquery.actedByPlexId))
     .groupBy(mediaItems.id)
-    .orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`);
+    .orderBy(
+      sql`CASE WHEN ${mediaItems.status} = 'removed' THEN 1 ELSE 0 END ASC`,
+      sql`COALESCE(${keepCountSub.cnt}, 0) DESC`,
+      mediaItems.mediaType,
+      mediaItems.title
+    );
 }

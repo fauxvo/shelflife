@@ -395,7 +395,7 @@ describe("GET /api/admin/review-rounds/:id/export", () => {
     const csv = await res.text();
     const headerLine = csv.split("\n")[0];
     expect(headerLine).toBe(
-      "Title,Type,Status,Requested By,Nomination,Keep Seasons,Season Count,Community Keep Votes,Admin Action,Action By,Action Date"
+      "Title,Type,Status,Removed Date,Requested By,Nomination,Keep Seasons,Season Count,Community Keep Votes,Admin Action,Action By,Action Date"
     );
   });
 
