@@ -9,7 +9,7 @@ Manage your Plex library storage. Shelflife connects to [Overseerr](https://over
 3. Each user sees their own requests and marks them as **Keep** or **Can Delete**
 4. Admins see an aggregate view of what users have flagged for deletion
 
-Shelflife is read-only against your external services -- it never deletes anything. It just helps you figure out what's safe to remove.
+By default Shelflife is read-only -- it syncs data but never modifies your external services. Optionally, admins can connect [Sonarr](https://sonarr.tv/) and [Radarr](https://radarr.video/) to execute deletions directly from the admin review dashboard.
 
 ## Requirements
 
@@ -26,6 +26,10 @@ Shelflife is read-only against your external services -- it never deletes anythi
 | `TAUTULLI_URL`      | Yes      | URL of your Tautulli instance (e.g. `http://192.168.1.100:8181`)                       |
 | `TAUTULLI_API_KEY`  | Yes      | Found in Tautulli under Settings > Web Interface                                       |
 | `SESSION_SECRET`    | Yes      | Random string for signing sessions (minimum 32 characters)                             |
+| `SONARR_URL`        | No       | URL of your Sonarr instance -- enables TV show deletion from admin                     |
+| `SONARR_API_KEY`    | No       | Found in Sonarr under Settings > General                                               |
+| `RADARR_URL`        | No       | URL of your Radarr instance -- enables movie deletion from admin                       |
+| `RADARR_API_KEY`    | No       | Found in Radarr under Settings > General                                               |
 | `PLEX_CLIENT_ID`    | No       | Identifier for Plex auth (defaults to `shelflife`)                                     |
 | `ADMIN_PLEX_ID`     | No       | Force a specific Plex user as admin. If unset, the first user to sign in becomes admin |
 | `DATABASE_PATH`     | No       | Path to SQLite database (defaults to `/app/data/shelflife.db` in Docker)               |
@@ -48,6 +52,11 @@ services:
       - TAUTULLI_URL=http://your-ip:8181
       - TAUTULLI_API_KEY=your-key
       - SESSION_SECRET=your-random-32-char-secret
+      # Optional: enable admin deletion from Sonarr/Radarr
+      # - SONARR_URL=http://your-ip:8989
+      # - SONARR_API_KEY=your-key
+      # - RADARR_URL=http://your-ip:7878
+      # - RADARR_API_KEY=your-key
     volumes:
       - shelflife-data:/app/data
 
@@ -104,6 +113,11 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
          - TAUTULLI_URL=http://YOUR_UNRAID_IP:8181
          - TAUTULLI_API_KEY=your-tautulli-api-key
          - SESSION_SECRET=your-generated-secret-from-above
+         # Optional: enable admin deletion from Sonarr/Radarr
+         # - SONARR_URL=http://YOUR_UNRAID_IP:8989
+         # - SONARR_API_KEY=your-sonarr-api-key
+         # - RADARR_URL=http://YOUR_UNRAID_IP:7878
+         # - RADARR_API_KEY=your-radarr-api-key
          # - DEBUG=true  # Uncomment for verbose logging
        volumes:
          - /mnt/user/appdata/shelflife:/app/data
@@ -144,14 +158,18 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
 
    **Environment variables** (add one at a time):
 
-   | Config Type | Name              | Key                 | Value                        |
-   | ----------- | ----------------- | ------------------- | ---------------------------- |
-   | Variable    | Overseerr URL     | `OVERSEERR_URL`     | `http://YOUR_UNRAID_IP:5055` |
-   | Variable    | Overseerr API Key | `OVERSEERR_API_KEY` | Your Overseerr API key       |
-   | Variable    | Tautulli URL      | `TAUTULLI_URL`      | `http://YOUR_UNRAID_IP:8181` |
-   | Variable    | Tautulli API Key  | `TAUTULLI_API_KEY`  | Your Tautulli API key        |
-   | Variable    | Session Secret    | `SESSION_SECRET`    | Your generated secret        |
-   | Variable    | Debug Logging     | `DEBUG`             | `true` (optional)            |
+   | Config Type | Name              | Key                 | Value                                   |
+   | ----------- | ----------------- | ------------------- | --------------------------------------- |
+   | Variable    | Overseerr URL     | `OVERSEERR_URL`     | `http://YOUR_UNRAID_IP:5055`            |
+   | Variable    | Overseerr API Key | `OVERSEERR_API_KEY` | Your Overseerr API key                  |
+   | Variable    | Tautulli URL      | `TAUTULLI_URL`      | `http://YOUR_UNRAID_IP:8181`            |
+   | Variable    | Tautulli API Key  | `TAUTULLI_API_KEY`  | Your Tautulli API key                   |
+   | Variable    | Session Secret    | `SESSION_SECRET`    | Your generated secret                   |
+   | Variable    | Sonarr URL        | `SONARR_URL`        | `http://YOUR_UNRAID_IP:8989` (optional) |
+   | Variable    | Sonarr API Key    | `SONARR_API_KEY`    | Your Sonarr API key (optional)          |
+   | Variable    | Radarr URL        | `RADARR_URL`        | `http://YOUR_UNRAID_IP:7878` (optional) |
+   | Variable    | Radarr API Key    | `RADARR_API_KEY`    | Your Radarr API key (optional)          |
+   | Variable    | Debug Logging     | `DEBUG`             | `true` (optional)                       |
 
 6. Click **Apply**
 
