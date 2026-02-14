@@ -169,6 +169,32 @@ describe("POST /api/media/review-status", () => {
     expect(data.value).toBe(false);
   });
 
+  it("toggling one field does not clobber the other", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    createActiveRound();
+
+    // Complete nominations first
+    const nomReq = createRequest("http://localhost:3000/api/media/review-status", {
+      method: "POST",
+      body: { field: "nominations_complete", value: true },
+    });
+    await POST(nomReq);
+
+    // Now complete voting — nominations must remain true
+    const voteReq = createRequest("http://localhost:3000/api/media/review-status", {
+      method: "POST",
+      body: { field: "voting_complete", value: true },
+    });
+    await POST(voteReq);
+
+    // Verify both are true
+    const res = await GET();
+    const data = await res.json();
+
+    expect(data.status.nominationsComplete).toBe(true);
+    expect(data.status.votingComplete).toBe(true);
+  });
+
   it("GET reflects toggled state after POST", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     createActiveRound();

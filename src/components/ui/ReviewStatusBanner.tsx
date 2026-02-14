@@ -21,8 +21,9 @@ export function ReviewStatusBanner({ mode, initialActiveRound }: ReviewStatusBan
 
   const field = mode === "nominating" ? "nominations_complete" : "voting_complete";
 
-  // Always fetch on mount to get the user's toggle state, even when
-  // initialActiveRound provides round metadata from the server.
+  // Fetch user's toggle state on mount. When initialActiveRound is provided
+  // (server-rendered), we already have round metadata but still need the
+  // user's completion status from the client.
   useEffect(() => {
     async function fetchStatus() {
       try {
@@ -30,7 +31,10 @@ export function ReviewStatusBanner({ mode, initialActiveRound }: ReviewStatusBan
         if (res.ok) {
           const data = await res.json();
           if (data.activeRound) {
-            setActiveRound(data.activeRound);
+            // Only update round info if we didn't get it from the server
+            if (!initialActiveRound) {
+              setActiveRound(data.activeRound);
+            }
             setComplete(
               mode === "nominating" ? data.status.nominationsComplete : data.status.votingComplete
             );
@@ -46,7 +50,7 @@ export function ReviewStatusBanner({ mode, initialActiveRound }: ReviewStatusBan
     }
 
     fetchStatus();
-  }, [mode]);
+  }, [mode, initialActiveRound]);
 
   const handleToggle = async () => {
     const newValue = !complete;

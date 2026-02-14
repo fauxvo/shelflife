@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { reviewRounds, users, userReviewStatuses } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,51 +26,46 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Review round not found" }, { status: 404 });
     }
 
-    // All non-admin users are eligible participants
-    const participants = await db
+    // All non-admin users with their completion status in a single query
+    const rows = await db
       .select({
-        plexId: users.plexId,
         username: users.username,
-      })
-      .from(users)
-      .where(eq(users.isAdmin, false));
-
-    // Get statuses for this round
-    const statuses = await db
-      .select({
-        userPlexId: userReviewStatuses.userPlexId,
         nominationsComplete: userReviewStatuses.nominationsComplete,
         votingComplete: userReviewStatuses.votingComplete,
         nominationsCompletedAt: userReviewStatuses.nominationsCompletedAt,
         votingCompletedAt: userReviewStatuses.votingCompletedAt,
       })
-      .from(userReviewStatuses)
-      .where(eq(userReviewStatuses.reviewRoundId, roundId));
-
-    const statusMap = new Map(statuses.map((s) => [s.userPlexId, s]));
+      .from(users)
+      .leftJoin(
+        userReviewStatuses,
+        and(
+          eq(userReviewStatuses.userPlexId, users.plexId),
+          eq(userReviewStatuses.reviewRoundId, roundId)
+        )
+      )
+      .where(eq(users.isAdmin, false));
 
     let nominationsCompleteCount = 0;
     let votingCompleteCount = 0;
 
-    const userList = participants.map((p) => {
-      const status = statusMap.get(p.plexId);
-      const nominationsComplete = status?.nominationsComplete ?? false;
-      const votingComplete = status?.votingComplete ?? false;
+    const userList = rows.map((r) => {
+      const nominationsComplete = r.nominationsComplete ?? false;
+      const votingComplete = r.votingComplete ?? false;
 
       if (nominationsComplete) nominationsCompleteCount++;
       if (votingComplete) votingCompleteCount++;
 
       return {
-        username: p.username,
+        username: r.username,
         nominationsComplete,
         votingComplete,
-        nominationsCompletedAt: status?.nominationsCompletedAt ?? null,
-        votingCompletedAt: status?.votingCompletedAt ?? null,
+        nominationsCompletedAt: r.nominationsCompletedAt ?? null,
+        votingCompletedAt: r.votingCompletedAt ?? null,
       };
     });
 
     return NextResponse.json({
-      totalParticipants: participants.length,
+      totalParticipants: rows.length,
       nominationsComplete: nominationsCompleteCount,
       votingComplete: votingCompleteCount,
       users: userList,

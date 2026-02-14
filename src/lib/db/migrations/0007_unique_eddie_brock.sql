@@ -7,8 +7,8 @@ CREATE TABLE `user_review_statuses` (
 	`nominations_completed_at` text,
 	`voting_completed_at` text,
 	`updated_at` text DEFAULT (datetime('now')) NOT NULL,
-	FOREIGN KEY (`review_round_id`) REFERENCES `review_rounds`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`user_plex_id`) REFERENCES `users`(`plex_id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`review_round_id`) REFERENCES `review_rounds`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`user_plex_id`) REFERENCES `users`(`plex_id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `user_review_statuses_round_user_idx` ON `user_review_statuses` (`review_round_id`,`user_plex_id`);

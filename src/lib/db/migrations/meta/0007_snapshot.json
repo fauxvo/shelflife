@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "adb34050-cbf1-42bf-9e0a-9821866cd3ad",
+  "id": "0c2362e0-e630-458f-8610-9223359d340b",
   "prevId": "1629e770-9865-483e-af48-d454a707796e",
   "tables": {
     "app_settings": {
@@ -609,7 +609,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "user_review_statuses_user_plex_id_users_plex_id_fk": {
@@ -622,7 +622,7 @@
           "columnsTo": [
             "plex_id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

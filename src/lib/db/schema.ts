@@ -157,10 +157,10 @@ export const userReviewStatuses = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     reviewRoundId: integer("review_round_id")
-      .references(() => reviewRounds.id)
+      .references(() => reviewRounds.id, { onDelete: "cascade" })
       .notNull(),
     userPlexId: text("user_plex_id")
-      .references(() => users.plexId)
+      .references(() => users.plexId, { onDelete: "cascade" })
       .notNull(),
     nominationsComplete: integer("nominations_complete", { mode: "boolean" })
       .default(false)

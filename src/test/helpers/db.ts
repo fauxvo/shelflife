@@ -97,8 +97,8 @@ export function createTestDb() {
 
     CREATE TABLE user_review_statuses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id),
-      user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
+      user_plex_id TEXT NOT NULL REFERENCES users(plex_id) ON DELETE CASCADE,
       nominations_complete INTEGER NOT NULL DEFAULT 0,
       voting_complete INTEGER NOT NULL DEFAULT 0,
       nominations_completed_at TEXT,
