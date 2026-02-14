@@ -23,7 +23,11 @@ export function DeletionConfirmDialog({
   const [deleteFiles, setDeleteFiles] = useState(false);
 
   const serviceName = mediaType === "tv" ? "Sonarr" : "Radarr";
-  const services = [serviceName, serviceStatus.overseerr && "Overseerr"].filter(Boolean);
+  const serviceConfigured = mediaType === "tv" ? serviceStatus.sonarr : serviceStatus.radarr;
+  const services = [
+    serviceConfigured && serviceName,
+    serviceStatus.overseerr && "Overseerr",
+  ].filter(Boolean);
 
   // Close on Escape key
   useEffect(() => {
@@ -89,10 +93,12 @@ export function DeletionConfirmDialog({
 
           {/* Service badges */}
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-900/30 px-3 py-1 text-xs font-medium text-red-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-              {serviceName}
-            </span>
+            {serviceConfigured && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-900/30 px-3 py-1 text-xs font-medium text-red-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                {serviceName}
+              </span>
+            )}
             {serviceStatus.overseerr && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-red-900/30 px-3 py-1 text-xs font-medium text-red-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400" />

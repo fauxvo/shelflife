@@ -3,13 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { Toast, type ToastData } from "../ui/Toast";
 import { VoteTallyBar } from "../community/VoteTallyBar";
 import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
 import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
 import { MediaDetailModal } from "./MediaDetailModal";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
-import type { DeletionServiceStatus, MediaStatus } from "@/types";
+import type { DeletionResult, DeletionServiceStatus, MediaStatus } from "@/types";
 
 export interface RoundCandidate {
   id: number;
@@ -75,6 +76,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -134,17 +136,30 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
         body: JSON.stringify({ mediaItemId, deleteFiles }),
       });
       if (res.ok) {
+        const result: DeletionResult = await res.json();
         setCandidates((prev) =>
           prev.map((c) => (c.id === mediaItemId ? { ...c, status: "removed" as const } : c))
         );
         setConfirmDeleteId(null);
+
+        // Surface partial failures so the admin knows what didn't clean up
+        const failures = [result.sonarr, result.radarr, result.overseerr].filter(
+          (s) => s.attempted && !s.success
+        );
+        if (failures.length > 0) {
+          setToast({
+            type: "error",
+            message:
+              "Removed from library, but some services had errors. Check deletion log for details.",
+          });
+        }
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "Deletion failed");
+        setToast({ type: "error", message: data.error || "Deletion failed" });
       }
     } catch (error) {
       console.error("Failed to execute deletion:", error);
-      alert("Deletion failed — check console for details");
+      setToast({ type: "error", message: "Deletion failed — check console for details" });
     } finally {
       setDeletingId(null);
     }
@@ -198,6 +213,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
 
   return (
     <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
+      {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
       <div className="mb-4 flex items-center justify-between">
         <div>
           {editingName ? (
@@ -331,7 +347,13 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                 </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate font-medium">{c.title}</span>
+                    <button
+                      onClick={() => setDetailId(c.id)}
+                      className="truncate text-left font-medium transition-colors hover:text-white"
+                      title={`View details for ${c.title}`}
+                    >
+                      {c.title}
+                    </button>
                     <MediaTypeBadge mediaType={c.mediaType} />
                   </div>
                   <p className="text-xs text-gray-400">
