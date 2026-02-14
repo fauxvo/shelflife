@@ -1,3 +1,9 @@
+interface SonarrSeries {
+  id: number;
+  title: string;
+  [key: string]: unknown;
+}
+
 class SonarrClient {
   private baseUrl: string;
   private apiKey: string;
@@ -31,9 +37,9 @@ class SonarrClient {
     return null;
   }
 
-  async lookupByTvdbId(tvdbId: number): Promise<Record<string, unknown> | null> {
+  async lookupByTvdbId(tvdbId: number): Promise<SonarrSeries | null> {
     const data = await this.fetch(`/api/v3/series?tvdbId=${tvdbId}`);
-    const results = data as Record<string, unknown>[];
+    const results = data as SonarrSeries[];
     return results[0] ?? null;
   }
 

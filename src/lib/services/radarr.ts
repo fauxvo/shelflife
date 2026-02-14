@@ -1,3 +1,9 @@
+interface RadarrMovie {
+  id: number;
+  title: string;
+  [key: string]: unknown;
+}
+
 class RadarrClient {
   private baseUrl: string;
   private apiKey: string;
@@ -31,9 +37,9 @@ class RadarrClient {
     return null;
   }
 
-  async lookupByTmdbId(tmdbId: number): Promise<Record<string, unknown> | null> {
+  async lookupByTmdbId(tmdbId: number): Promise<RadarrMovie | null> {
     const data = await this.fetch(`/api/v3/movie?tmdbId=${tmdbId}`);
-    const results = data as Record<string, unknown>[];
+    const results = data as RadarrMovie[];
     return results[0] ?? null;
   }
 
