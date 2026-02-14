@@ -95,6 +95,19 @@ export function createTestDb() {
 
     CREATE UNIQUE INDEX review_actions_round_item_idx ON review_actions(review_round_id, media_item_id);
 
+    CREATE TABLE user_review_statuses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
+      user_plex_id TEXT NOT NULL REFERENCES users(plex_id) ON DELETE CASCADE,
+      nominations_complete INTEGER NOT NULL DEFAULT 0,
+      voting_complete INTEGER NOT NULL DEFAULT 0,
+      nominations_completed_at TEXT,
+      voting_completed_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE UNIQUE INDEX user_review_statuses_round_user_idx ON user_review_statuses(review_round_id, user_plex_id);
+
     CREATE TABLE app_settings (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL,

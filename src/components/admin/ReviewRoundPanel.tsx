@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { VoteTallyBar } from "../community/VoteTallyBar";
+import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
 import type { MediaStatus } from "@/types";
@@ -210,6 +211,8 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
           </button>
         </div>
       </div>
+
+      <ReviewCompletionPanel roundId={round.id} />
 
       {!loading && candidates.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-3">
