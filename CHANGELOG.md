@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.10.0
+
+### Minor Changes
+
+- [#50](https://github.com/fauxvo/shelflife/pull/50) [`2a26797`](https://github.com/fauxvo/shelflife/commit/2a267974ba405eb471d8adb3b5f1533c3279e46d) Thanks [@fauxvo](https://github.com/fauxvo)! - Add optional Sonarr/Radarr/Overseerr deletion from admin review rounds
+
+  Admins can now execute real deletions directly from the review round panel. New features:
+  - **Service clients**: Radarr and Sonarr clients with configurable API keys (optional env vars)
+  - **Deletion orchestration**: ID mapping (tmdbId to Radarr, tvdbId to Sonarr, overseerrId to Overseerr), independent error handling per service, and race condition protection
+  - **Admin UI**: Action dropdown (Remove/Keep/Skip) with "Delete from Sonarr" or "Delete from Radarr" button, and a styled confirmation modal with optional file deletion
+  - **Audit trail**: New `deletion_log` table tracking per-service success/failure and error details
+  - **Configuration**: New optional env vars `SONARR_URL`, `SONARR_API_KEY`, `RADARR_URL`, `RADARR_API_KEY` — if not set, deletion buttons don't appear
+
+- [#48](https://github.com/fauxvo/shelflife/pull/48) [`1b76a71`](https://github.com/fauxvo/shelflife/commit/1b76a718d6b3baeada2d1faaabc28c79faf61ce7) Thanks [@fauxvo](https://github.com/fauxvo)! - Split admin user request counts into Active and Total columns, add Removed Date to CSV export, and sort export by presence then community votes
+
 ## 1.9.0
 
 ### Minor Changes
