@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0
+
+### Minor Changes
+
+- [#61](https://github.com/fauxvo/shelflife/pull/61) [`f4a30b5`](https://github.com/fauxvo/shelflife/commit/f4a30b5ba4ac4c138a1dedfb80b4a0baca4e4e49) Thanks [@fauxvo](https://github.com/fauxvo)! - Show voter names on click in admin review round vote tally, extract useDeletion hook from ReviewRoundPanel, and apply CSS grid layout for consistent vote tally positioning
+
+### Patch Changes
+
+- [#59](https://github.com/fauxvo/shelflife/pull/59) [`634941b`](https://github.com/fauxvo/shelflife/commit/634941b993d1f15a70e74396a70f68cde13877c4) Thanks [@fauxvo](https://github.com/fauxvo)! - Fix release workflow to create GitHub releases for non-npm project
+
 ## 1.11.0
 
 ### Minor Changes
