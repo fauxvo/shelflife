@@ -150,6 +150,30 @@ describe("POST /api/admin/review-rounds/:id/delete", () => {
     expect(data.error).toBe("No remove action found for this media item in this round");
   });
 
+  it("returns 400 when action is 'keep' (blocks deletion)", async () => {
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const sqlite = (testDb.db as any).session.client;
+
+    // Create active round with a "keep" action — deletion should be blocked
+    sqlite.exec(
+      `INSERT INTO review_rounds (id, name, status, created_by_plex_id) VALUES (1, 'Test Round', 'active', 'plex-admin')`
+    );
+    sqlite.exec(
+      `INSERT INTO review_actions (review_round_id, media_item_id, action, acted_by_plex_id) VALUES (1, 1, 'keep', 'plex-admin')`
+    );
+
+    const req = createRequest("http://localhost:3000/api/admin/review-rounds/1/delete", {
+      method: "POST",
+      body: { mediaItemId: 1, deleteFiles: false },
+    });
+    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe("No remove action found for this media item in this round");
+    expect(executeMediaDeletion).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when media item already removed", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const sqlite = (testDb.db as any).session.client;
