@@ -47,6 +47,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           keepVoters: c.keepVoterUsernames ? c.keepVoterUsernames.split(",") : [],
         },
         action: c.action || null,
+        fileSize: c.fileSize ?? null,
       })),
     });
   } catch (error) {

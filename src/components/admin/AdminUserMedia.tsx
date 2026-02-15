@@ -193,6 +193,7 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
                   seasonCount={item.seasonCount}
                   availableSeasonCount={item.availableSeasonCount}
                   playCount={item.watchStatus?.playCount}
+                  fileSize={item.fileSize}
                   tmdbId={item.tmdbId}
                   tvdbId={item.tvdbId}
                   imdbId={item.imdbId}

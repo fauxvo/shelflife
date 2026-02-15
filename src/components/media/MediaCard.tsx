@@ -7,6 +7,7 @@ import { ExternalLinks } from "../ui/ExternalLinks";
 import { ClickablePoster } from "../ui/ClickablePoster";
 import { MediaDetailModal } from "../ui/MediaDetailModal";
 import { STATUS_COLORS } from "@/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface MediaCardProps {
@@ -56,11 +57,17 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
             Keeping latest {item.keepSeasons} of {item.seasonCount} seasons
           </p>
         )}
-        {item.watchStatus && item.watchStatus.playCount > 0 && (
-          <p className="text-xs text-gray-500">
-            Played {item.watchStatus.playCount} time{item.watchStatus.playCount !== 1 ? "s" : ""}
-          </p>
-        )}
+        {item.watchStatus?.playCount || item.fileSize ? (
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            {item.watchStatus && item.watchStatus.playCount > 0 && (
+              <span>
+                Played {item.watchStatus.playCount} time
+                {item.watchStatus.playCount !== 1 ? "s" : ""}
+              </span>
+            )}
+            {item.fileSize ? <span>{formatFileSize(item.fileSize)}</span> : null}
+          </div>
+        ) : null}
         <ExternalLinks imdbId={item.imdbId} tmdbId={item.tmdbId} mediaType={item.mediaType} />
         <VoteButton
           mediaItemId={item.id}
@@ -82,6 +89,7 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
           seasonCount={item.seasonCount}
           availableSeasonCount={item.availableSeasonCount}
           playCount={item.watchStatus?.playCount}
+          fileSize={item.fileSize}
           tmdbId={item.tmdbId}
           tvdbId={item.tvdbId}
           imdbId={item.imdbId}

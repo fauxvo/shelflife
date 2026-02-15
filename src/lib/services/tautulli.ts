@@ -30,6 +30,16 @@ const tautulliUserSchema = z.object({
   thumb: z.string().nullish(),
 });
 
+const tautulliLibrarySchema = z.object({
+  section_id: z.union([z.string(), z.number()]),
+  section_name: z.string().nullish(),
+  section_type: z.string().nullish(),
+});
+
+const tautulliServerInfoSchema = z.object({
+  pms_url: z.string(),
+});
+
 const tautulliLibraryMediaSchema = z.object({
   rating_key: z.string().nullish(),
   title: z.string().nullish(),
@@ -136,13 +146,41 @@ class TautulliClient {
     return z.array(tautulliUserSchema).parse(data);
   }
 
-  async getLibraryMediaInfo(sectionId: string, length = 1000) {
-    const data = await this.fetch("get_library_media_info", {
-      section_id: sectionId,
-      length: String(length),
-    });
-    if (!data?.data) return [];
-    return z.array(tautulliLibraryMediaSchema).parse(data.data);
+  async getLibraryMediaInfo(sectionId: string) {
+    const PAGE_SIZE = 1000;
+    const allItems: z.infer<typeof tautulliLibraryMediaSchema>[] = [];
+    let start = 0;
+
+     
+    while (true) {
+      const data = await this.fetch("get_library_media_info", {
+        section_id: sectionId,
+        length: String(PAGE_SIZE),
+        start: String(start),
+      });
+      if (!data?.data) break;
+
+      const items = z.array(tautulliLibraryMediaSchema).parse(data.data);
+      allItems.push(...items);
+
+      const total = Number(data.recordsTotal ?? data.recordsFiltered ?? 0);
+      if (allItems.length >= total || items.length < PAGE_SIZE) break;
+      start += PAGE_SIZE;
+    }
+
+    return allItems;
+  }
+
+  async getLibraries() {
+    const data = await this.fetch("get_libraries");
+    if (!Array.isArray(data)) return [];
+    return z.array(tautulliLibrarySchema).parse(data);
+  }
+
+  async getServerInfo(): Promise<{ pmsUrl: string }> {
+    const data = await this.fetch("get_server_info");
+    const parsed = tautulliServerInfoSchema.parse(data);
+    return { pmsUrl: parsed.pms_url };
   }
 
   async getMetadata(ratingKey: string) {

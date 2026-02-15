@@ -36,6 +36,7 @@ export function createTestDb() {
       rating_key TEXT,
       season_count INTEGER,
       available_season_count INTEGER,
+      file_size INTEGER,
       last_synced_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))

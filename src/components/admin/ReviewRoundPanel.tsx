@@ -10,6 +10,7 @@ import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
 import { MediaDetailModal } from "../ui/MediaDetailModal";
 import { useDeletion } from "./useDeletion";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import type { ReviewSort } from "@/lib/constants";
 import type { MediaStatus } from "@/types";
 
@@ -31,6 +32,7 @@ export interface RoundCandidate {
   tvdbId: number | null;
   overseerrId: number | null;
   imdbId: string | null;
+  fileSize: number | null;
 }
 
 export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): RoundCandidate[] {
@@ -48,6 +50,10 @@ export function sortCandidates(candidates: RoundCandidate[], sort: ReviewSort): 
         return a.mediaType.localeCompare(b.mediaType);
       case "type_tv":
         return b.mediaType.localeCompare(a.mediaType);
+      case "size_asc":
+        return (a.fileSize ?? 0) - (b.fileSize ?? 0);
+      case "size_desc":
+        return (b.fileSize ?? 0) - (a.fileSize ?? 0);
     }
   });
 }
@@ -317,6 +323,9 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                         : `${c.seasonCount} seasons`}
                     </p>
                   ) : null}
+                  {c.fileSize ? (
+                    <p className="text-xs text-gray-500">{formatFileSize(c.fileSize)}</p>
+                  ) : null}
                 </div>
                 {/* Col 3: Vote tally / status */}
                 <div className="w-28 text-center">
@@ -389,6 +398,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   tvdbId={c.tvdbId}
                   imdbId={c.imdbId}
                   overseerrId={c.overseerrId}
+                  fileSize={c.fileSize}
                   onClose={() => setDetailId(null)}
                 />
               )}

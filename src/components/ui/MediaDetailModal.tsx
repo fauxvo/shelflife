@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { STATUS_COLORS } from "@/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import type { MediaStatus } from "@/types";
 
 interface MediaDetailModalProps {
@@ -17,6 +18,7 @@ interface MediaDetailModalProps {
   requestedByUsername?: string;
   nominatedBy?: string[];
   playCount?: number | null;
+  fileSize?: number | null;
   tmdbId: number | null;
   tvdbId: number | null;
   imdbId: string | null;
@@ -45,6 +47,7 @@ export function MediaDetailModal({
   requestedByUsername,
   nominatedBy,
   playCount,
+  fileSize,
   tmdbId,
   tvdbId,
   imdbId,
@@ -167,6 +170,11 @@ export function MediaDetailModal({
             <p className="mt-1 text-sm text-purple-400">
               Played {playCount} time{playCount !== 1 ? "s" : ""}
             </p>
+          )}
+
+          {/* File size */}
+          {fileSize != null && fileSize > 0 && (
+            <p className="mt-1 text-sm text-gray-400">{formatFileSize(fileSize)}</p>
           )}
 
           {/* Overview */}

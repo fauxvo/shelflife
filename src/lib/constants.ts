@@ -53,6 +53,8 @@ export const REVIEW_SORTS = [
   "title_desc",
   "type_movie",
   "type_tv",
+  "size_asc",
+  "size_desc",
 ] as const;
 export type ReviewSort = (typeof REVIEW_SORTS)[number];
 
@@ -63,4 +65,6 @@ export const REVIEW_SORT_LABELS: Record<ReviewSort, string> = {
   title_desc: "Title (Z-A)",
   type_movie: "Type (Movies First)",
   type_tv: "Type (TV First)",
+  size_asc: "File Size (Smallest)",
+  size_desc: "File Size (Largest)",
 };

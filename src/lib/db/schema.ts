@@ -37,6 +37,7 @@ export const mediaItems = sqliteTable("media_items", {
   ratingKey: text("rating_key"),
   seasonCount: integer("season_count"),
   availableSeasonCount: integer("available_season_count"),
+  fileSize: integer("file_size"),
   lastSyncedAt: text("last_synced_at"),
   createdAt: text("created_at")
     .default(sql`(datetime('now'))`)

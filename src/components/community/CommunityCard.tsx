@@ -9,6 +9,7 @@ import { VoteTallyBar } from "./VoteTallyBar";
 import { CommunityVoteButton } from "./CommunityVoteButton";
 import { VoteButton } from "../media/VoteButton";
 import { STATUS_COLORS } from "@/lib/constants";
+import { formatFileSize } from "@/lib/format";
 import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
 interface CommunityCardProps {
@@ -59,14 +60,19 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
           </p>
         ) : null}
         <p className="text-xs text-gray-400">Requested by: {item.requestedByUsername}</p>
-        {item.watchStatus && (
-          <p className="text-xs text-gray-500">
-            Plays: {item.watchStatus.playCount}
-            {item.watchStatus.lastWatchedAt && (
-              <> | Last: {new Date(item.watchStatus.lastWatchedAt).toLocaleDateString()}</>
+        {item.watchStatus || item.fileSize ? (
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            {item.watchStatus && (
+              <span>
+                Plays: {item.watchStatus.playCount}
+                {item.watchStatus.lastWatchedAt && (
+                  <> | Last: {new Date(item.watchStatus.lastWatchedAt).toLocaleDateString()}</>
+                )}
+              </span>
             )}
-          </p>
-        )}
+            {item.fileSize ? <span>{formatFileSize(item.fileSize)}</span> : null}
+          </div>
+        ) : null}
         <ExternalLinks imdbId={item.imdbId} tmdbId={item.tmdbId} mediaType={item.mediaType} />
         {item.status === "removed" ? (
           <div className="rounded bg-red-900/30 px-2 py-2 text-center text-sm font-medium text-red-400">
@@ -116,6 +122,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
           availableSeasonCount={item.availableSeasonCount}
           requestedByUsername={item.requestedByUsername}
           playCount={item.watchStatus?.playCount}
+          fileSize={item.fileSize}
           tmdbId={item.tmdbId}
           tvdbId={item.tvdbId}
           imdbId={item.imdbId}

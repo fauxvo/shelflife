@@ -17,6 +17,20 @@ By default Shelflife is read-only -- it syncs data but never modifies your exter
 - [Tautulli](https://tautulli.com/) -- for watch history
 - A Plex account
 
+### Tautulli setup for file size display
+
+Shelflife shows file sizes alongside media items in the admin review panel to help prioritize deletions by storage impact. For **movies**, file sizes are pulled automatically from Tautulli. For **TV shows**, Tautulli does not calculate total file sizes by default, so Shelflife falls back to querying the Plex server directly using the admin user's Plex token.
+
+To enable Tautulli-native file size calculation for TV shows (recommended for faster syncs):
+
+1. Open Tautulli > **Settings** > **General**
+2. Click **Show Advanced** at the top
+3. Enable **Calculate Total File Sizes**
+4. Save and restart Tautulli
+5. Open each TV library's **Media Info** tab in Tautulli at least once to trigger the initial calculation
+
+After this, Tautulli will return TV show file sizes in its API, and Shelflife will use those values. If the setting is not enabled, Shelflife will fall back to querying the Plex server API for TV episode sizes and aggregating them per show. This fallback works automatically but adds extra API calls during sync.
+
 ## Configuration
 
 | Variable            | Required | Description                                                                            |
