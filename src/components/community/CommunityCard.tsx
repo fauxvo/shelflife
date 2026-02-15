@@ -110,10 +110,12 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
         <MediaDetailModal
           title={item.title}
           mediaType={item.mediaType}
+          status={item.status}
           posterPath={item.posterPath}
           seasonCount={item.seasonCount}
           availableSeasonCount={item.availableSeasonCount}
           requestedByUsername={item.requestedByUsername}
+          playCount={item.watchStatus?.playCount}
           tmdbId={item.tmdbId}
           tvdbId={item.tvdbId}
           imdbId={item.imdbId}
