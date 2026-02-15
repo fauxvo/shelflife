@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { getOverseerrClient } from "@/lib/services/overseerr";
+import { mediaDetailsQuerySchema } from "@/lib/validators/schemas";
 
 export async function GET(
   request: NextRequest,
@@ -16,9 +17,11 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url);
-    const mediaType = searchParams.get("type");
+    const parsed = mediaDetailsQuerySchema.safeParse({
+      type: searchParams.get("type"),
+    });
 
-    if (mediaType !== "movie" && mediaType !== "tv") {
+    if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid type — must be 'movie' or 'tv'" },
         { status: 400 }
@@ -26,7 +29,7 @@ export async function GET(
     }
 
     const client = getOverseerrClient();
-    const details = await client.getMediaDetails(id, mediaType);
+    const details = await client.getMediaDetails(id, parsed.data.type);
 
     return NextResponse.json({
       overview: details.overview ?? null,

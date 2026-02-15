@@ -109,6 +109,10 @@ export const deletionRequestSchema = z.object({
   deleteFiles: z.boolean().default(false),
 });
 
+export const mediaDetailsQuerySchema = z.object({
+  type: z.enum(["movie", "tv"]),
+});
+
 export const syncScheduleSchema = z.object({
   enabled: z.boolean(),
   schedule: z.string().min(1),
@@ -127,4 +131,5 @@ export type ReviewRoundUpdate = z.infer<typeof reviewRoundUpdateSchema>;
 export type ReviewActionInput = z.infer<typeof reviewActionSchema>;
 export type ReviewStatusToggle = z.infer<typeof reviewStatusToggleSchema>;
 export type DeletionRequest = z.infer<typeof deletionRequestSchema>;
+export type MediaDetailsQuery = z.infer<typeof mediaDetailsQuerySchema>;
 export type SyncScheduleInput = z.infer<typeof syncScheduleSchema>;
