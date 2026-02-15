@@ -57,8 +57,13 @@ jobs:
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping release"
           else
-            echo "Creating release $TAG"
-            gh release create "$TAG" --target ${{ github.sha }} --title "$TAG" --generate-notes
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            echo "Creating release $TAG (notes since ${PREV_TAG:-initial commit})"
+            if [ -n "$PREV_TAG" ]; then
+              gh release create "$TAG" --target ${{ github.sha }} --title "$TAG" --generate-notes --notes-start-tag "$PREV_TAG"
+            else
+              gh release create "$TAG" --target ${{ github.sha }} --title "$TAG" --generate-notes
+            fi
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
