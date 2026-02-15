@@ -92,7 +92,7 @@ export function MediaDetailModal({
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl shadow-black/50 sm:flex-row">
+      <div className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl shadow-black/50 sm:flex-row">
         {/* Close button */}
         <button
           onClick={onClose}
