@@ -11,7 +11,7 @@ export function MediaCardSkeleton({ count = 10 }: MediaCardSkeletonProps) {
           className="animate-pulse overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
         >
           <div className="aspect-[2/3] bg-gray-800" />
-          <div className="space-y-3 p-3">
+          <div className="space-y-2 p-3">
             <div className="h-4 rounded bg-gray-800" />
             <div className="h-8 rounded bg-gray-800" />
           </div>
