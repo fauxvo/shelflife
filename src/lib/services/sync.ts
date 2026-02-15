@@ -228,6 +228,12 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
     try {
       const history = await client.getHistory(item.ratingKey);
 
+      // Aggregate history records by user before upserting
+      const byUser = new Map<
+        string,
+        { watched: boolean; playCount: number; lastWatchedAt: string | null }
+      >();
+
       for (const record of history) {
         if (!record.user_id) continue;
 
@@ -245,23 +251,39 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
 
         const userPlexId = localUser[0].plexId;
 
-        // Upsert watch status
+        const existing = byUser.get(userPlexId) || {
+          watched: false,
+          playCount: 0,
+          lastWatchedAt: null,
+        };
+
+        existing.playCount += 1;
+        if (record.watched_status === 1) existing.watched = true;
+        if (record.stopped) {
+          const date = new Date(record.stopped * 1000).toISOString();
+          if (!existing.lastWatchedAt || date > existing.lastWatchedAt) {
+            existing.lastWatchedAt = date;
+          }
+        }
+
+        byUser.set(userPlexId, existing);
+      }
+
+      // Upsert aggregated watch status per user
+      for (const [userPlexId, agg] of byUser) {
         const existing = await db
           .select()
           .from(watchStatus)
           .where(and(eq(watchStatus.mediaItemId, item.id), eq(watchStatus.userPlexId, userPlexId)))
           .limit(1);
 
-        const watched = record.watched_status === 1;
-        const lastWatchedAt = record.stopped ? new Date(record.stopped * 1000).toISOString() : null;
-
         if (existing.length > 0) {
           await db
             .update(watchStatus)
             .set({
-              watched: watched || existing[0].watched,
-              playCount: existing[0].playCount + 1,
-              lastWatchedAt: lastWatchedAt || existing[0].lastWatchedAt,
+              watched: agg.watched || existing[0].watched,
+              playCount: agg.playCount,
+              lastWatchedAt: agg.lastWatchedAt || existing[0].lastWatchedAt,
               syncedAt: new Date().toISOString(),
             })
             .where(eq(watchStatus.id, existing[0].id));
@@ -269,9 +291,9 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
           await db.insert(watchStatus).values({
             mediaItemId: item.id,
             userPlexId,
-            watched,
-            playCount: 1,
-            lastWatchedAt,
+            watched: agg.watched,
+            playCount: agg.playCount,
+            lastWatchedAt: agg.lastWatchedAt,
           });
         }
 
