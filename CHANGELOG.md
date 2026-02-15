@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.12.0
+
+### Minor Changes
+
+- [#61](https://github.com/fauxvo/shelflife/pull/61) [`f4a30b5`](https://github.com/fauxvo/shelflife/commit/f4a30b5ba4ac4c138a1dedfb80b4a0baca4e4e49) Thanks [@fauxvo](https://github.com/fauxvo)! - Show voter names on click in admin review round vote tally, extract useDeletion hook from ReviewRoundPanel, and apply CSS grid layout for consistent vote tally positioning
+
+- [#64](https://github.com/fauxvo/shelflife/pull/64) [`c1e1317`](https://github.com/fauxvo/shelflife/commit/c1e13171e56092bd7aa870b2cb029f8f086462f7) Thanks [@fauxvo](https://github.com/fauxvo)! - Extract shared BaseMediaCard component to DRY up MediaCard, CommunityCard, and AdminUserMedia card rendering
+
+- [#63](https://github.com/fauxvo/shelflife/pull/63) [`5d7c6ac`](https://github.com/fauxvo/shelflife/commit/5d7c6ac7fa08901379a0607e75ce4d67f0095924) Thanks [@fauxvo](https://github.com/fauxvo)! - Show file size info in admin review panel and CSV export, synced from Tautulli library media info
+
+### Patch Changes
+
+- [#59](https://github.com/fauxvo/shelflife/pull/59) [`634941b`](https://github.com/fauxvo/shelflife/commit/634941b993d1f15a70e74396a70f68cde13877c4) Thanks [@fauxvo](https://github.com/fauxvo)! - Fix release workflow to create GitHub releases for non-npm project
+
 ## 1.11.0
 
 ### Minor Changes
