@@ -113,6 +113,7 @@ export interface CommunityCandidate {
   requestedAt: string | null;
   seasonCount: number | null;
   availableSeasonCount: number | null;
+  fileSize: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   watchStatus: {

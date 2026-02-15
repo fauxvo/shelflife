@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { getCandidatesForRound } from "@/lib/db/queries";
+import { formatFileSize } from "@/lib/format";
 import { reviewRounds } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -20,6 +21,7 @@ const CSV_HEADERS = [
   "Title",
   "Type",
   "Status",
+  "File Size",
   "Removed Date",
   "Requested By",
   "Nomination",
@@ -54,6 +56,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         c.title,
         c.mediaType,
         c.status,
+        formatFileSize(c.fileSize),
         c.status === "removed" ? c.updatedAt || "" : "",
         c.requestedByUsername || "Unknown",
         c.nominationType === "trim" ? "trim" : "delete",

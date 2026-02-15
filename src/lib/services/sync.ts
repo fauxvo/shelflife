@@ -6,6 +6,8 @@ import { upsertUser } from "./user-upsert";
 import { eq, and, ne, count, isNotNull, notInArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
+type TautulliClientType = ReturnType<typeof getTautulliClient>;
+
 export interface SyncProgress {
   phase: "overseerr" | "tautulli";
   step: string;
@@ -195,6 +197,58 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
   return synced;
 }
 
+/**
+ * Fetch TV show file sizes by querying the Plex server for all episodes
+ * and aggregating by show (grandparentRatingKey).
+ *
+ * Tautulli's get_library_media_info does not return file sizes for TV shows,
+ * so we query the Plex server directly via its API. The Plex server URL comes
+ * from Tautulli's get_server_info and the token from the admin user in our DB.
+ */
+async function fetchPlexTvFileSizes(
+  client: TautulliClientType,
+  sectionIds: string[]
+): Promise<Map<string, number>> {
+  const fileSizeMap = new Map<string, number>();
+
+  // Get Plex server URL from Tautulli
+  const { pmsUrl } = await client.getServerInfo();
+
+  // Get admin Plex token from our DB
+  const admin = await db.select().from(users).where(eq(users.isAdmin, true)).limit(1);
+  const plexToken = admin[0]?.plexToken;
+  if (!plexToken) return fileSizeMap;
+
+  for (const sectionId of sectionIds) {
+    // type=4 = episodes; this returns all episodes in one call
+    const url = `${pmsUrl}/library/sections/${sectionId}/all?type=4`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", "X-Plex-Token": plexToken },
+    });
+    if (!res.ok) continue;
+
+    const json = await res.json();
+    const episodes = json?.MediaContainer?.Metadata;
+    if (!Array.isArray(episodes)) continue;
+
+    for (const ep of episodes) {
+      const showRatingKey = ep.grandparentRatingKey;
+      if (!showRatingKey) continue;
+      const key = String(showRatingKey);
+
+      for (const media of ep.Media ?? []) {
+        for (const part of media.Part ?? []) {
+          if (part.size && Number(part.size) > 0) {
+            fileSizeMap.set(key, (fileSizeMap.get(key) || 0) + Number(part.size));
+          }
+        }
+      }
+    }
+  }
+
+  return fileSizeMap;
+}
+
 export async function syncTautulli(onProgress?: ProgressCallback): Promise<number> {
   const client = getTautulliClient();
   let synced = 0;
@@ -312,6 +366,78 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
         detail: item.title,
       });
     }
+  }
+
+  // Sync file sizes: Tautulli first, Plex API as fallback for missing items
+  try {
+    onProgress?.({
+      phase: "tautulli",
+      step: "Syncing file sizes...",
+      current: processed,
+      total,
+    });
+
+    const fileSizeMap = new Map<string, number>();
+
+    // Primary: Tautulli's get_library_media_info returns file sizes for all
+    // library types. Works reliably for movies; for TV shows, requires the
+    // "Calculate Total File Sizes" setting enabled in Tautulli.
+    const libraries = await client.getLibraries();
+    for (const lib of libraries) {
+      const sectionId = String(lib.section_id);
+      const mediaInfo = await client.getLibraryMediaInfo(sectionId);
+      for (const item of mediaInfo) {
+        if (item.rating_key && item.file_size) {
+          const size = Number(item.file_size);
+          if (size > 0) {
+            const key = String(item.rating_key);
+            fileSizeMap.set(key, (fileSizeMap.get(key) || 0) + size);
+          }
+        }
+      }
+    }
+
+    // Plex fallback: for any items where Tautulli returned no file sizes
+    // (typically TV show libraries), query the Plex server directly.
+    const hasMissing = items.some((i) => i.ratingKey && !fileSizeMap.has(i.ratingKey));
+
+    if (hasMissing) {
+      // Identify which library sections have missing items
+      const sectionsToFetch = libraries
+        .filter((l) => l.section_type === "show")
+        .map((l) => String(l.section_id));
+
+      if (sectionsToFetch.length > 0) {
+        const plexSizes = await fetchPlexTvFileSizes(client, sectionsToFetch);
+        for (const [rk, size] of plexSizes) {
+          if (!fileSizeMap.has(rk)) {
+            fileSizeMap.set(rk, size);
+          }
+        }
+      }
+    }
+
+    // Update media items with file sizes
+    const now = new Date().toISOString();
+    for (const item of items) {
+      if (!item.ratingKey) continue;
+      const size = fileSizeMap.get(item.ratingKey);
+      if (size !== undefined) {
+        await db
+          .update(mediaItems)
+          .set({ fileSize: size, updatedAt: now })
+          .where(eq(mediaItems.id, item.id));
+      }
+    }
+
+    onProgress?.({
+      phase: "tautulli",
+      step: `Updated file sizes for ${fileSizeMap.size} items`,
+      current: total,
+      total,
+    });
+  } catch (err) {
+    console.error("Failed to sync file sizes:", err);
   }
 
   return synced;

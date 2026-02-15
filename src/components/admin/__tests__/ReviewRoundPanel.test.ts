@@ -20,6 +20,7 @@ const candidate = (
   tvdbId: null,
   overseerrId: null,
   imdbId: null,
+  fileSize: null,
   ...overrides,
 });
 
@@ -60,5 +61,22 @@ describe("sortCandidates", () => {
     const original = [...candidates];
     sortCandidates(candidates, "title_asc");
     expect(candidates).toEqual(original);
+  });
+
+  describe("file size sorting", () => {
+    const sizedCandidates: RoundCandidate[] = [
+      candidate({ id: 10, title: "Small", fileSize: 500_000_000 }),
+      candidate({ id: 11, title: "Large", fileSize: 5_000_000_000 }),
+      candidate({ id: 12, title: "Medium", fileSize: 2_000_000_000 }),
+      candidate({ id: 13, title: "Unknown", fileSize: null }),
+    ];
+
+    it("sorts by file size ascending (null treated as 0)", () => {
+      expect(ids(sortCandidates(sizedCandidates, "size_asc"))).toEqual([13, 10, 12, 11]);
+    });
+
+    it("sorts by file size descending (null treated as 0)", () => {
+      expect(ids(sortCandidates(sizedCandidates, "size_desc"))).toEqual([11, 12, 10, 13]);
+    });
   });
 });

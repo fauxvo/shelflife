@@ -1,0 +1,1 @@
+ALTER TABLE `media_items` ADD `file_size` integer;
