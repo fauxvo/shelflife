@@ -3,13 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Pagination } from "../ui/Pagination";
-import { MediaTypeBadge } from "../ui/MediaTypeBadge";
-import { ExternalLinks } from "../ui/ExternalLinks";
-import { ClickablePoster } from "../ui/ClickablePoster";
-import { MediaDetailModal } from "../ui/MediaDetailModal";
 import { MediaCardSkeleton } from "../ui/MediaCardSkeleton";
+import { BaseMediaCard } from "../ui/BaseMediaCard";
 import { VoteButton } from "../media/VoteButton";
-import { STATUS_COLORS, VOTE_COLORS, VOTE_LABELS } from "@/lib/constants";
+import { VOTE_COLORS, VOTE_LABELS } from "@/lib/constants";
 import type { MediaItemWithVote, VoteValue } from "@/types";
 
 interface AdminUserMediaProps {
@@ -26,7 +23,6 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [filter, setFilter] = useState("all");
-  const [detailId, setDetailId] = useState<number | null>(null);
 
   // Reset page when statsFilter changes
   useEffect(() => {
@@ -114,94 +110,49 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {filtered.map((item) => (
-            <div
+            <BaseMediaCard
               key={item.id}
-              className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
+              title={item.title}
+              mediaType={item.mediaType}
+              posterPath={item.posterPath}
+              status={item.status}
+              tmdbId={item.tmdbId}
+              tvdbId={item.tvdbId}
+              imdbId={item.imdbId}
+              overseerrId={item.overseerrId}
+              seasonCount={item.seasonCount}
+              availableSeasonCount={item.availableSeasonCount}
+              watchStatus={item.watchStatus}
+              fileSize={item.fileSize}
             >
-              <ClickablePoster
-                posterPath={item.posterPath}
-                title={item.title}
-                onClick={() => setDetailId(item.id)}
-              >
-                <div className="absolute top-2 left-2 flex gap-1">
-                  <MediaTypeBadge mediaType={item.mediaType} />
-                </div>
-                {item.watchStatus?.watched && (
-                  <div className="absolute top-2 right-2">
-                    <span className="rounded bg-purple-900/80 px-2 py-0.5 text-xs text-purple-300">
-                      Watched
-                    </span>
-                  </div>
-                )}
-              </ClickablePoster>
-              <div className="space-y-2 p-3">
-                <h3 className="truncate text-sm font-medium" title={item.title}>
-                  {item.title}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[item.status] || STATUS_COLORS.unknown}`}
-                  >
-                    {item.status}
-                  </span>
-                  {item.vote ? (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs ${VOTE_COLORS[item.vote] || "bg-red-900/50 text-red-300"}`}
-                    >
-                      User: {VOTE_LABELS[item.vote] || "Nominated"}
-                    </span>
-                  ) : (
-                    <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-500">
-                      User: Not nominated
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1">
-                  <p className="mb-1 text-xs text-gray-500">Your nomination:</p>
-                  <VoteButton
-                    mediaItemId={item.id}
-                    currentVote={item.adminVote ?? null}
-                    seasonCount={item.seasonCount}
-                    mediaType={item.mediaType}
-                    currentKeepSeasons={item.adminKeepSeasons ?? null}
-                    onVoteChange={(newVote: VoteValue | null) => {
-                      setItems((prev) =>
-                        prev.map((i) => (i.id === item.id ? { ...i, adminVote: newVote } : i))
-                      );
-                      router.refresh();
-                    }}
-                  />
-                </div>
-                {item.watchStatus && item.watchStatus.playCount > 0 && (
-                  <p className="text-xs text-gray-500">
-                    {item.watchStatus.playCount} play
-                    {item.watchStatus.playCount !== 1 ? "s" : ""}
-                  </p>
-                )}
-                <ExternalLinks
-                  imdbId={item.imdbId}
-                  tmdbId={item.tmdbId}
+              {item.vote ? (
+                <span
+                  className={`rounded px-2 py-0.5 text-xs ${VOTE_COLORS[item.vote] || "bg-red-900/50 text-red-300"}`}
+                >
+                  User: {VOTE_LABELS[item.vote] || "Nominated"}
+                </span>
+              ) : (
+                <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-500">
+                  User: Not nominated
+                </span>
+              )}
+              <div className="mt-1">
+                <p className="mb-1 text-xs text-gray-500">Your nomination:</p>
+                <VoteButton
+                  mediaItemId={item.id}
+                  currentVote={item.adminVote ?? null}
+                  seasonCount={item.seasonCount}
                   mediaType={item.mediaType}
+                  currentKeepSeasons={item.adminKeepSeasons ?? null}
+                  onVoteChange={(newVote: VoteValue | null) => {
+                    setItems((prev) =>
+                      prev.map((i) => (i.id === item.id ? { ...i, adminVote: newVote } : i))
+                    );
+                    router.refresh();
+                  }}
                 />
               </div>
-              {detailId === item.id && (
-                <MediaDetailModal
-                  title={item.title}
-                  mediaType={item.mediaType}
-                  status={item.status}
-                  posterPath={item.posterPath}
-                  seasonCount={item.seasonCount}
-                  availableSeasonCount={item.availableSeasonCount}
-                  playCount={item.watchStatus?.playCount}
-                  fileSize={item.fileSize}
-                  tmdbId={item.tmdbId}
-                  tvdbId={item.tvdbId}
-                  imdbId={item.imdbId}
-                  overseerrId={item.overseerrId}
-                  onClose={() => setDetailId(null)}
-                />
-              )}
-            </div>
+            </BaseMediaCard>
           ))}
         </div>
       )}

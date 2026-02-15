@@ -74,16 +74,18 @@ export interface SessionPayload {
   isAdmin: boolean;
 }
 
+export interface WatchStatusSummary {
+  watched: boolean;
+  playCount: number;
+  lastWatchedAt: string | null;
+}
+
 export interface MediaItemWithVote extends MediaItem {
   vote: VoteValue | null;
   keepSeasons: number | null;
   adminVote?: VoteValue | null;
   adminKeepSeasons?: number | null;
-  watchStatus: {
-    watched: boolean;
-    playCount: number;
-    lastWatchedAt: string | null;
-  } | null;
+  watchStatus: WatchStatusSummary | null;
 }
 
 export interface ReviewCompletionSummary {
@@ -116,11 +118,7 @@ export interface CommunityCandidate {
   fileSize: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
-  watchStatus: {
-    watched: boolean;
-    playCount: number;
-    lastWatchedAt: string | null;
-  } | null;
+  watchStatus: WatchStatusSummary | null;
   tally: { keepCount: number };
   currentUserVote: CommunityVoteValue | null;
   isRequestor: boolean;
