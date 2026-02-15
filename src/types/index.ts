@@ -106,7 +106,9 @@ export interface CommunityCandidate {
   posterPath: string | null;
   status: MediaStatus;
   tmdbId: number | null;
+  tvdbId: number | null;
   imdbId: string | null;
+  overseerrId: number | null;
   requestedByUsername: string;
   requestedAt: string | null;
   seasonCount: number | null;

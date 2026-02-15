@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
+import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { getOverseerrClient } from "@/lib/services/overseerr";
 
 export async function GET(
@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ tmdbId: string }> }
 ) {
   try {
-    await requireAdmin();
+    await requireAuth();
     const { tmdbId } = await params;
     const id = Number(tmdbId);
 

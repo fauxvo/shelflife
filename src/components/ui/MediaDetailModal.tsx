@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
-import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { MediaTypeBadge } from "./MediaTypeBadge";
 
 interface MediaDetailModalProps {
   title: string;
@@ -11,8 +11,8 @@ interface MediaDetailModalProps {
   posterPath: string | null;
   seasonCount: number | null;
   availableSeasonCount: number | null;
-  requestedByUsername: string;
-  nominatedBy: string[];
+  requestedByUsername?: string;
+  nominatedBy?: string[];
   tmdbId: number | null;
   tvdbId: number | null;
   imdbId: string | null;
@@ -49,14 +49,18 @@ export function MediaDetailModal({
   const overseerrUrl = process.env.NEXT_PUBLIC_OVERSEERR_URL;
   const [overview, setOverview] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(!!tmdbId);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -68,7 +72,7 @@ export function MediaDetailModal({
   // Fetch overview from Overseerr (via TMDB) on mount
   useEffect(() => {
     if (!tmdbId) return;
-    fetch(`/api/admin/media/${tmdbId}/details?type=${tmdbType}`)
+    fetch(`/api/media/details/${tmdbId}?type=${tmdbType}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.overview) setOverview(data.overview);
@@ -156,47 +160,51 @@ export function MediaDetailModal({
             <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-gray-400">{overview}</p>
           ) : null}
 
-          {/* Requested by */}
-          <div className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center gap-2 text-gray-400">
-              <svg
-                className="h-4 w-4 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-              <span>
-                Requested by <span className="text-gray-200">{requestedByUsername}</span>
-              </span>
+          {/* Requested by / Nominated by */}
+          {(requestedByUsername || (nominatedBy && nominatedBy.length > 0)) && (
+            <div className="mt-4 space-y-2 text-sm">
+              {requestedByUsername && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <svg
+                    className="h-4 w-4 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  <span>
+                    Requested by <span className="text-gray-200">{requestedByUsername}</span>
+                  </span>
+                </div>
+              )}
+              {nominatedBy && nominatedBy.length > 0 && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <svg
+                    className="h-4 w-4 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                    />
+                  </svg>
+                  <span>
+                    Nominated by <span className="text-gray-200">{nominatedBy.join(", ")}</span>
+                  </span>
+                </div>
+              )}
             </div>
-            {nominatedBy.length > 0 && (
-              <div className="flex items-center gap-2 text-gray-400">
-                <svg
-                  className="h-4 w-4 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                  />
-                </svg>
-                <span>
-                  Nominated by <span className="text-gray-200">{nominatedBy.join(", ")}</span>
-                </span>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* External links */}
           <div className="mt-auto pt-5">

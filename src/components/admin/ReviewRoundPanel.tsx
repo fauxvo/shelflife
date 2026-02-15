@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import Image from "next/image";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
+import { ClickablePoster } from "../ui/ClickablePoster";
 import { Toast, type ToastData } from "../ui/Toast";
 import { VoteTallyBar } from "../community/VoteTallyBar";
 import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
 import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
-import { MediaDetailModal } from "./MediaDetailModal";
+import { MediaDetailModal } from "../ui/MediaDetailModal";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
 import type { DeletionResult, DeletionServiceStatus, MediaStatus } from "@/types";
@@ -314,37 +314,12 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
           {sortedCandidates.map((c) => (
             <div key={c.id}>
               <div className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4">
-                <button
+                <ClickablePoster
+                  posterPath={c.posterPath}
+                  title={c.title}
                   onClick={() => setDetailId(c.id)}
-                  className="relative h-16 w-11 flex-shrink-0 cursor-pointer overflow-hidden rounded bg-gray-700 transition-opacity hover:opacity-80"
-                  title={`View details for ${c.title}`}
-                >
-                  {c.posterPath ? (
-                    <Image
-                      src={`https://image.tmdb.org/t/p/w92${c.posterPath}`}
-                      alt={c.title}
-                      fill
-                      className="object-cover"
-                      sizes="44px"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-gray-500">
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1}
-                          d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-                        />
-                      </svg>
-                    </div>
-                  )}
-                </button>
+                  size="compact"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <button
