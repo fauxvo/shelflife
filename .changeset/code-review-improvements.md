@@ -1,5 +1,5 @@
 ---
-"shelflife": patch
+"shelflife": minor
 ---
 
-Extract useDeletion hook from ReviewRoundPanel to reduce component complexity, apply CSS grid layout for consistent vote tally positioning, and add explicit test for keep-action blocking deletion
+Show voter names on click in admin review round vote tally, extract useDeletion hook from ReviewRoundPanel, and apply CSS grid layout for consistent vote tally positioning
