@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0
+
+### Minor Changes
+
+- [#54](https://github.com/fauxvo/shelflife/pull/54) [`f998ee5`](https://github.com/fauxvo/shelflife/commit/f998ee5ff5660e9b95742e2ece16cd3690f3d0ad) Thanks [@fauxvo](https://github.com/fauxvo)! - Add media detail modal with overview fetched from Overseerr/TMDB and external links (TMDB, IMDB, TheTVDB, Overseerr) when clicking poster thumbnails across all views (dashboard, community, admin user media, review rounds)
+
+- [#58](https://github.com/fauxvo/shelflife/pull/58) [`157f0a2`](https://github.com/fauxvo/shelflife/commit/157f0a2fcc2dbdd78458fa05b1084a09f9edd787) Thanks [@fauxvo](https://github.com/fauxvo)! - Add status badge and play count to media detail modal, fix poster cropping
+
+### Patch Changes
+
+- [#54](https://github.com/fauxvo/shelflife/pull/54) [`7797313`](https://github.com/fauxvo/shelflife/commit/77973135d868d40fab9cab1c591a6fc0da4b4ea2) Thanks [@fauxvo](https://github.com/fauxvo)! - Hide "Delete from Sonarr/Radarr" button when admin action is set to Keep
+
 ## 1.10.0
 
 ### Minor Changes
