@@ -375,6 +375,30 @@ describe("syncTautulli", () => {
     expect(count).toBe(0);
   });
 
+  it("does not inflate play count on repeated syncs", async () => {
+    mockGetTautulliUsers.mockResolvedValue([
+      { user_id: 10, username: "testuser", friendly_name: "testuser" },
+    ]);
+    const historyRecords = [
+      { user_id: 10, rating_key: "rk-1", watched_status: 1, stopped: 1700000000 },
+      { user_id: 10, rating_key: "rk-1", watched_status: 1, stopped: 1700001000 },
+    ];
+    mockGetHistory.mockResolvedValue(historyRecords);
+
+    // First sync
+    await syncTautulli();
+
+    // Second sync with same data
+    mockGetHistory.mockResolvedValue(historyRecords);
+    await syncTautulli();
+
+    // Play count should be 2 (the number of history records), NOT 4
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
+    const row = rows.find((r) => r.userPlexId === "plex-user-1");
+    expect(row).toBeDefined();
+    expect(row!.playCount).toBe(2);
+  });
+
   it("handles per-item errors gracefully", async () => {
     mockGetTautulliUsers.mockResolvedValue([
       { user_id: 10, username: "testuser", friendly_name: "testuser" },
