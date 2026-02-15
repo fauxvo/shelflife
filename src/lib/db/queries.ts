@@ -234,6 +234,7 @@ export async function getCandidatesForRound(roundId: number) {
       tmdbId: mediaItems.tmdbId,
       tvdbId: mediaItems.tvdbId,
       overseerrId: mediaItems.overseerrId,
+      imdbId: mediaItems.imdbId,
       requestedByUsername: users.username,
       nominatedByUsernames,
       seasonCount: mediaItems.seasonCount,

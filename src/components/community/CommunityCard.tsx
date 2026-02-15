@@ -1,8 +1,10 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { ExternalLinks } from "../ui/ExternalLinks";
+import { ClickablePoster } from "../ui/ClickablePoster";
+import { MediaDetailModal } from "../ui/MediaDetailModal";
 import { VoteTallyBar } from "./VoteTallyBar";
 import { CommunityVoteButton } from "./CommunityVoteButton";
 import { VoteButton } from "../media/VoteButton";
@@ -16,31 +18,15 @@ interface CommunityCardProps {
 }
 
 export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: CommunityCardProps) {
-  const posterUrl = item.posterPath ? `https://image.tmdb.org/t/p/w300${item.posterPath}` : null;
+  const [showDetail, setShowDetail] = useState(false);
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-800 bg-gray-900">
-      <div className="relative aspect-[2/3] bg-gray-800">
-        {posterUrl ? (
-          <Image
-            src={posterUrl}
-            alt={item.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-gray-600">
-            <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-              />
-            </svg>
-          </div>
-        )}
+      <ClickablePoster
+        posterPath={item.posterPath}
+        title={item.title}
+        onClick={() => setShowDetail(true)}
+      >
         <div className="absolute top-2 left-2 flex gap-1">
           <MediaTypeBadge mediaType={item.mediaType} />
           <span
@@ -56,7 +42,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
             </span>
           </div>
         )}
-      </div>
+      </ClickablePoster>
       <div className="space-y-2 p-3">
         <h3 className="truncate text-sm font-medium" title={item.title}>
           {item.title}
@@ -120,6 +106,21 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
           </>
         )}
       </div>
+      {showDetail && (
+        <MediaDetailModal
+          title={item.title}
+          mediaType={item.mediaType}
+          posterPath={item.posterPath}
+          seasonCount={item.seasonCount}
+          availableSeasonCount={item.availableSeasonCount}
+          requestedByUsername={item.requestedByUsername}
+          tmdbId={item.tmdbId}
+          tvdbId={item.tvdbId}
+          imdbId={item.imdbId}
+          overseerrId={item.overseerrId}
+          onClose={() => setShowDetail(false)}
+        />
+      )}
     </div>
   );
 }

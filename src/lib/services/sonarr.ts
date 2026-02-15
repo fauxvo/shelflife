@@ -39,8 +39,8 @@ class SonarrClient {
 
   async lookupByTvdbId(tvdbId: number): Promise<SonarrSeries | null> {
     const data = await this.fetch(`/api/v3/series?tvdbId=${tvdbId}`);
-    const results = data as SonarrSeries[];
-    return results[0] ?? null;
+    if (!Array.isArray(data)) return null;
+    return data[0] ?? null;
   }
 
   async deleteSeries(sonarrId: number, deleteFiles: boolean): Promise<void> {

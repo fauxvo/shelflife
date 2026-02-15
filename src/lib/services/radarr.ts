@@ -39,8 +39,8 @@ class RadarrClient {
 
   async lookupByTmdbId(tmdbId: number): Promise<RadarrMovie | null> {
     const data = await this.fetch(`/api/v3/movie?tmdbId=${tmdbId}`);
-    const results = data as RadarrMovie[];
-    return results[0] ?? null;
+    if (!Array.isArray(data)) return null;
+    return data[0] ?? null;
   }
 
   async deleteMovie(radarrId: number, deleteFiles: boolean): Promise<void> {
