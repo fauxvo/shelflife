@@ -25,7 +25,7 @@ export interface RoundCandidate {
   availableSeasonCount: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
-  tally: { keepCount: number };
+  tally: { keepCount: number; keepVoters: string[] };
   action: "remove" | "keep" | "skip" | null;
   tmdbId: number | null;
   tvdbId: number | null;
@@ -325,7 +325,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                       Removed
                     </span>
                   ) : (
-                    <VoteTallyBar keepCount={c.tally.keepCount} />
+                    <VoteTallyBar keepCount={c.tally.keepCount} keepVoters={c.tally.keepVoters} />
                   )}
                 </div>
                 {/* Col 4: Action controls */}

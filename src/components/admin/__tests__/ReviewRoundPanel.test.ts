@@ -14,7 +14,7 @@ const candidate = (
   availableSeasonCount: null,
   nominationType: "delete",
   keepSeasons: null,
-  tally: { keepCount: 0 },
+  tally: { keepCount: 0, keepVoters: [] },
   action: null,
   tmdbId: null,
   tvdbId: null,
@@ -24,9 +24,9 @@ const candidate = (
 });
 
 const candidates: RoundCandidate[] = [
-  candidate({ id: 1, title: "Charlie", mediaType: "tv", tally: { keepCount: 5 } }),
-  candidate({ id: 2, title: "Alpha", mediaType: "movie", tally: { keepCount: 2 } }),
-  candidate({ id: 3, title: "Bravo", mediaType: "tv", tally: { keepCount: 8 } }),
+  candidate({ id: 1, title: "Charlie", mediaType: "tv", tally: { keepCount: 5, keepVoters: [] } }),
+  candidate({ id: 2, title: "Alpha", mediaType: "movie", tally: { keepCount: 2, keepVoters: [] } }),
+  candidate({ id: 3, title: "Bravo", mediaType: "tv", tally: { keepCount: 8, keepVoters: [] } }),
 ];
 
 const ids = (sorted: RoundCandidate[]) => sorted.map((c) => c.id);
