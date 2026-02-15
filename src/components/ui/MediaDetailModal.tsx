@@ -4,15 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { MediaTypeBadge } from "./MediaTypeBadge";
+import { STATUS_COLORS } from "@/lib/constants";
+import type { MediaStatus } from "@/types";
 
 interface MediaDetailModalProps {
   title: string;
   mediaType: "movie" | "tv";
+  status?: MediaStatus;
   posterPath: string | null;
   seasonCount: number | null;
   availableSeasonCount: number | null;
   requestedByUsername?: string;
   nominatedBy?: string[];
+  playCount?: number | null;
   tmdbId: number | null;
   tvdbId: number | null;
   imdbId: string | null;
@@ -34,11 +38,13 @@ const ExternalLinkIcon = () => (
 export function MediaDetailModal({
   title,
   mediaType,
+  status,
   posterPath,
   seasonCount,
   availableSeasonCount,
   requestedByUsername,
   nominatedBy,
+  playCount,
   tmdbId,
   tvdbId,
   imdbId,
@@ -116,7 +122,7 @@ export function MediaDetailModal({
               src={`https://image.tmdb.org/t/p/w400${posterPath}`}
               alt={title}
               fill
-              className="object-cover"
+              className="object-contain"
               sizes="(max-width: 640px) 100vw, 192px"
             />
           ) : (
@@ -137,6 +143,13 @@ export function MediaDetailModal({
         <div className="flex flex-1 flex-col p-5">
           <div className="mb-1 flex items-center gap-2">
             <MediaTypeBadge mediaType={mediaType} />
+            {status && (
+              <span
+                className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
+              >
+                {status}
+              </span>
+            )}
           </div>
           <h2 className="text-lg font-semibold text-white">{title}</h2>
 
@@ -146,6 +159,13 @@ export function MediaDetailModal({
               {availableSeasonCount && availableSeasonCount !== seasonCount
                 ? `${availableSeasonCount} of ${seasonCount} seasons available`
                 : `${seasonCount} season${seasonCount > 1 ? "s" : ""}`}
+            </p>
+          )}
+
+          {/* Play count */}
+          {playCount != null && playCount > 0 && (
+            <p className="mt-1 text-sm text-purple-400">
+              Played {playCount} time{playCount !== 1 ? "s" : ""}
             </p>
           )}
 

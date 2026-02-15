@@ -408,6 +408,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                 <MediaDetailModal
                   title={c.title}
                   mediaType={c.mediaType}
+                  status={c.status}
                   posterPath={c.posterPath}
                   seasonCount={c.seasonCount}
                   availableSeasonCount={c.availableSeasonCount}
