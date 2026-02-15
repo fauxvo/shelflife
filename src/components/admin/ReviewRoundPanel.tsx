@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MediaTypeBadge } from "../ui/MediaTypeBadge";
 import { ClickablePoster } from "../ui/ClickablePoster";
-import { Toast, type ToastData } from "../ui/Toast";
+import { Toast } from "../ui/Toast";
 import { VoteTallyBar } from "../community/VoteTallyBar";
 import { ReviewCompletionPanel } from "./ReviewCompletionPanel";
 import { DeletionConfirmDialog } from "./DeletionConfirmDialog";
 import { MediaDetailModal } from "../ui/MediaDetailModal";
+import { useDeletion } from "./useDeletion";
 import { REVIEW_SORT_LABELS } from "@/lib/constants";
 import type { ReviewSort } from "@/lib/constants";
-import type { DeletionResult, DeletionServiceStatus, MediaStatus } from "@/types";
+import type { MediaStatus } from "@/types";
 
 export interface RoundCandidate {
   id: number;
@@ -24,7 +25,7 @@ export interface RoundCandidate {
   availableSeasonCount: number | null;
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
-  tally: { keepCount: number };
+  tally: { keepCount: number; keepVoters: string[] };
   action: "remove" | "keep" | "skip" | null;
   tmdbId: number | null;
   tvdbId: number | null;
@@ -72,11 +73,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
   const [sort, setSort] = useState<ReviewSort>("votes_asc");
   const [editingName, setEditingName] = useState(false);
   const [editName, setEditName] = useState(round.name);
-  const [serviceStatus, setServiceStatus] = useState<DeletionServiceStatus | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [toast, setToast] = useState<ToastData | null>(null);
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
@@ -97,15 +94,6 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
     fetchCandidates();
   }, [fetchCandidates]);
 
-  useEffect(() => {
-    fetch("/api/admin/services/status")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setServiceStatus(data);
-      })
-      .catch(() => {});
-  }, []);
-
   const handleAction = async (mediaItemId: number, action: "remove" | "keep" | "skip") => {
     try {
       const res = await fetch(`/api/admin/review-rounds/${round.id}/action`, {
@@ -121,49 +109,24 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
     }
   };
 
-  const handleExecuteDeletion = async (mediaItemId: number, deleteFiles: boolean) => {
-    setDeletingId(mediaItemId);
-    try {
-      // Ensure "remove" action is recorded before executing deletion
-      const candidate = candidates.find((c) => c.id === mediaItemId);
-      if (candidate && candidate.action !== "remove") {
-        await handleAction(mediaItemId, "remove");
-      }
-
-      const res = await fetch(`/api/admin/review-rounds/${round.id}/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaItemId, deleteFiles }),
-      });
-      if (res.ok) {
-        const result: DeletionResult = await res.json();
-        setCandidates((prev) =>
-          prev.map((c) => (c.id === mediaItemId ? { ...c, status: "removed" as const } : c))
-        );
-        setConfirmDeleteId(null);
-
-        // Surface partial failures so the admin knows what didn't clean up
-        const failures = [result.sonarr, result.radarr, result.overseerr].filter(
-          (s) => s.attempted && !s.success
-        );
-        if (failures.length > 0) {
-          setToast({
-            type: "error",
-            message:
-              "Removed from library, but some services had errors. Check deletion log for details.",
-          });
-        }
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setToast({ type: "error", message: data.error || "Deletion failed" });
-      }
-    } catch (error) {
-      console.error("Failed to execute deletion:", error);
-      setToast({ type: "error", message: "Deletion failed — check console for details" });
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const {
+    serviceStatus,
+    deletingId,
+    confirmDeleteId,
+    setConfirmDeleteId,
+    toast,
+    setToast,
+    handleExecuteDeletion,
+  } = useDeletion({
+    roundId: round.id,
+    candidates,
+    onEnsureRemoveAction: (mediaItemId) => handleAction(mediaItemId, "remove"),
+    onDeleted: (mediaItemId) => {
+      setCandidates((prev) =>
+        prev.map((c) => (c.id === mediaItemId ? { ...c, status: "removed" as const } : c))
+      );
+    },
+  });
 
   const sortedCandidates = useMemo(() => sortCandidates(candidates, sort), [candidates, sort]);
 
@@ -313,14 +276,16 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
         <div className="space-y-3">
           {sortedCandidates.map((c) => (
             <div key={c.id}>
-              <div className="flex items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4">
+              <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 rounded-lg border border-gray-800 bg-gray-800/50 p-4">
+                {/* Col 1: Poster */}
                 <ClickablePoster
                   posterPath={c.posterPath}
                   title={c.title}
                   onClick={() => setDetailId(c.id)}
                   size="compact"
                 />
-                <div className="min-w-0 flex-1">
+                {/* Col 2: Title + metadata */}
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setDetailId(c.id)}
@@ -352,47 +317,53 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                         : `${c.seasonCount} seasons`}
                     </p>
                   ) : null}
+                </div>
+                {/* Col 3: Vote tally / status */}
+                <div className="w-28 text-center">
                   {c.status === "removed" ? (
-                    <div className="mt-2 inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
-                      Removed from library
-                    </div>
+                    <span className="inline-block rounded bg-red-900/30 px-3 py-1 text-sm font-medium text-red-400">
+                      Removed
+                    </span>
                   ) : (
-                    <div className="mt-2 text-left">
-                      <VoteTallyBar keepCount={c.tally.keepCount} />
-                    </div>
+                    <VoteTallyBar keepCount={c.tally.keepCount} keepVoters={c.tally.keepVoters} />
                   )}
                 </div>
-                {c.status !== "removed" && (
-                  <div className="flex items-center gap-3">
-                    <select
-                      value={c.action ?? "remove"}
-                      onChange={(e) =>
-                        handleAction(c.id, e.target.value as "remove" | "keep" | "skip")
-                      }
-                      className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-200"
-                    >
-                      <option value="remove">Remove</option>
-                      <option value="keep">Keep</option>
-                      <option value="skip">Skip</option>
-                    </select>
-                    {c.action !== "keep" &&
-                      serviceStatus &&
-                      ((c.mediaType === "movie" && serviceStatus.radarr) ||
-                        (c.mediaType === "tv" && serviceStatus.sonarr)) && (
-                        <button
-                          onClick={() => setConfirmDeleteId(confirmDeleteId === c.id ? null : c.id)}
-                          disabled={deletingId === c.id}
-                          className="rounded-md bg-red-900/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-red-400 hover:bg-red-900/70 disabled:opacity-50"
-                        >
-                          {deletingId === c.id
-                            ? "Deleting..."
-                            : c.mediaType === "tv"
-                              ? "Delete from Sonarr"
-                              : "Delete from Radarr"}
-                        </button>
-                      )}
-                  </div>
-                )}
+                {/* Col 4: Action controls */}
+                <div className="flex items-center gap-3">
+                  {c.status !== "removed" && (
+                    <>
+                      <select
+                        value={c.action ?? "remove"}
+                        onChange={(e) =>
+                          handleAction(c.id, e.target.value as "remove" | "keep" | "skip")
+                        }
+                        className="rounded-md border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-200"
+                      >
+                        <option value="remove">Remove</option>
+                        <option value="keep">Keep</option>
+                        <option value="skip">Skip</option>
+                      </select>
+                      {c.action !== "keep" &&
+                        serviceStatus &&
+                        ((c.mediaType === "movie" && serviceStatus.radarr) ||
+                          (c.mediaType === "tv" && serviceStatus.sonarr)) && (
+                          <button
+                            onClick={() =>
+                              setConfirmDeleteId(confirmDeleteId === c.id ? null : c.id)
+                            }
+                            disabled={deletingId === c.id}
+                            className="rounded-md bg-red-900/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-red-400 hover:bg-red-900/70 disabled:opacity-50"
+                          >
+                            {deletingId === c.id
+                              ? "Deleting..."
+                              : c.mediaType === "tv"
+                                ? "Delete from Sonarr"
+                                : "Delete from Radarr"}
+                          </button>
+                        )}
+                    </>
+                  )}
+                </div>
               </div>
               {confirmDeleteId === c.id && serviceStatus && (
                 <DeletionConfirmDialog

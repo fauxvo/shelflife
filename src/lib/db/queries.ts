@@ -168,12 +168,21 @@ export function buildPagination(page: number, limit: number, total: number) {
  * and the acting admin's username.
  */
 export async function getCandidatesForRound(roundId: number) {
-  const keepCountSub = db
+  const keepVoterUser = db
+    .select({ plexId: users.plexId, username: users.username })
+    .from(users)
+    .as("keep_voter_user");
+
+  const keepTallySub = db
     .select({
       mediaItemId: communityVotes.mediaItemId,
       cnt: count().as("keep_count"),
+      voterUsernames: sql<string>`GROUP_CONCAT(DISTINCT ${keepVoterUser.username})`.as(
+        "voter_usernames"
+      ),
     })
     .from(communityVotes)
+    .innerJoin(keepVoterUser, eq(keepVoterUser.plexId, communityVotes.userPlexId))
     .where(eq(communityVotes.vote, "keep"))
     .groupBy(communityVotes.mediaItemId)
     .as("keep_tally");
@@ -241,7 +250,8 @@ export async function getCandidatesForRound(roundId: number) {
       availableSeasonCount: mediaItems.availableSeasonCount,
       nominationType: selfPreferredVote,
       keepSeasons: selfPreferredKeepSeasons,
-      keepCount: keepCountSub.cnt,
+      keepCount: keepTallySub.cnt,
+      keepVoterUsernames: keepTallySub.voterUsernames,
       action: actionSubquery.action,
       actedAt: actionSubquery.actedAt,
       actionByUsername: actionByUser.username,
@@ -251,13 +261,13 @@ export async function getCandidatesForRound(roundId: number) {
     .innerJoin(userVotes, baseCondition!)
     .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
     .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
-    .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
+    .leftJoin(keepTallySub, eq(keepTallySub.mediaItemId, mediaItems.id))
     .leftJoin(actionSubquery, eq(actionSubquery.mediaItemId, mediaItems.id))
     .leftJoin(actionByUser, eq(actionByUser.plexId, actionSubquery.actedByPlexId))
     .groupBy(mediaItems.id)
     .orderBy(
       sql`CASE WHEN ${mediaItems.status} = 'removed' THEN 1 ELSE 0 END ASC`,
-      sql`COALESCE(${keepCountSub.cnt}, 0) DESC`,
+      sql`COALESCE(${keepTallySub.cnt}, 0) DESC`,
       mediaItems.mediaType,
       mediaItems.title
     );

@@ -44,6 +44,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,
         tally: {
           keepCount: c.keepCount ?? 0,
+          keepVoters: c.keepVoterUsernames ? c.keepVoterUsernames.split(",") : [],
         },
         action: c.action || null,
       })),
