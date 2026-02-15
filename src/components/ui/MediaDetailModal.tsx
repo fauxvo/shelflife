@@ -211,26 +211,26 @@ export function MediaDetailModal({
             <p className="mb-2 text-xs font-medium tracking-wide text-gray-500 uppercase">
               View on
             </p>
-            <div className="flex flex-wrap gap-2">
-              {tmdbId && (
-                <a
-                  href={`https://www.themoviedb.org/${tmdbType}/${tmdbId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
-                >
-                  TMDB
-                  <ExternalLinkIcon />
-                </a>
-              )}
+            <div className="flex flex-wrap gap-3">
               {imdbId && (
                 <a
                   href={`https://www.imdb.com/title/${imdbId}/`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+                  className="text-brand inline-flex items-center gap-1 text-xs hover:underline"
                 >
                   IMDB
+                  <ExternalLinkIcon />
+                </a>
+              )}
+              {tmdbId && (
+                <a
+                  href={`https://www.themoviedb.org/${tmdbType}/${tmdbId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-tmdb inline-flex items-center gap-1 text-xs hover:underline"
+                >
+                  TMDB
                   <ExternalLinkIcon />
                 </a>
               )}
@@ -239,7 +239,7 @@ export function MediaDetailModal({
                   href={`https://thetvdb.com/?id=${tvdbId}&tab=series`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+                  className="inline-flex items-center gap-1 text-xs text-green-400 hover:underline"
                 >
                   TheTVDB
                   <ExternalLinkIcon />
@@ -250,7 +250,7 @@ export function MediaDetailModal({
                   href={`${overseerrUrl}/${tmdbType}/${tmdbId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-gray-800 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 hover:text-white"
+                  className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
                 >
                   Overseerr
                   <ExternalLinkIcon />
