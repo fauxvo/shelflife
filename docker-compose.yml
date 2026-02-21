@@ -9,8 +9,18 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_PATH=/app/data/shelflife.db
-      - OVERSEERR_URL=${OVERSEERR_URL}
-      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY}
+      # Seerr (primary — the successor to Overseerr and Jellyseerr)
+      - SEERR_URL=${SEERR_URL:-}
+      - SEERR_API_KEY=${SEERR_API_KEY:-}
+      - NEXT_PUBLIC_SEERR_URL=${NEXT_PUBLIC_SEERR_URL:-}
+      # Overseerr (legacy fallback)
+      - OVERSEERR_URL=${OVERSEERR_URL:-}
+      - OVERSEERR_API_KEY=${OVERSEERR_API_KEY:-}
+      - NEXT_PUBLIC_OVERSEERR_URL=${NEXT_PUBLIC_OVERSEERR_URL:-}
+      # Jellyseerr (legacy fallback)
+      - JELLYSEERR_URL=${JELLYSEERR_URL:-}
+      - JELLYSEERR_API_KEY=${JELLYSEERR_API_KEY:-}
+      - NEXT_PUBLIC_JELLYSEERR_URL=${NEXT_PUBLIC_JELLYSEERR_URL:-}
       - TAUTULLI_URL=${TAUTULLI_URL}
       - TAUTULLI_API_KEY=${TAUTULLI_API_KEY}
       - SONARR_URL=${SONARR_URL:-}

@@ -6,6 +6,8 @@ import Image from "next/image";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
+import { useProviderLabel } from "@/lib/provider-context";
+import { getClientProviderUrl } from "@/lib/request-provider";
 import type { MediaStatus } from "@/types";
 
 interface MediaDetailModalProps {
@@ -55,7 +57,8 @@ export function MediaDetailModal({
   onClose,
 }: MediaDetailModalProps) {
   const tmdbType = mediaType === "tv" ? "tv" : "movie";
-  const overseerrUrl = process.env.NEXT_PUBLIC_OVERSEERR_URL;
+  const providerUrl = getClientProviderUrl();
+  const providerLabel = useProviderLabel();
   const [overview, setOverview] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(!!tmdbId);
   const onCloseRef = useRef(onClose);
@@ -273,14 +276,14 @@ export function MediaDetailModal({
                   <ExternalLinkIcon />
                 </a>
               )}
-              {overseerrId && overseerrUrl && (
+              {overseerrId && providerUrl && (
                 <a
-                  href={`${overseerrUrl}/${tmdbType}/${tmdbId}`}
+                  href={`${providerUrl}/${tmdbType}/${tmdbId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
                 >
-                  Overseerr
+                  {providerLabel}
                   <ExternalLinkIcon />
                 </a>
               )}

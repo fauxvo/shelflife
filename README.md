@@ -1,11 +1,11 @@
 # Shelflife
 
-Manage your Plex library storage. Shelflife connects to [Overseerr](https://overseerr.dev/) and [Tautulli](https://tautulli.com/) to let users vote on whether content they requested should be kept or deleted. Admins get a dashboard showing what can be safely pruned.
+Manage your Plex library storage. Shelflife connects to [Seerr](https://github.com/seerr-app/seerr) (or [Overseerr](https://overseerr.dev/)/[Jellyseerr](https://github.com/Fallenbagel/jellyseerr) for legacy setups) and [Tautulli](https://tautulli.com/) to let users vote on whether content they requested should be kept or deleted. Admins get a dashboard showing what can be safely pruned.
 
 ## How it works
 
-1. Users sign in with their Plex account (same login as Overseerr)
-2. Shelflife syncs media requests from Overseerr and watch history from Tautulli
+1. Users sign in with their Plex account (same login as Seerr/Overseerr)
+2. Shelflife syncs media requests from Seerr (or Overseerr) and watch history from Tautulli
 3. Each user sees their own requests and marks them as **Keep** or **Can Delete**
 4. Admins see an aggregate view of what users have flagged for deletion
 
@@ -13,9 +13,11 @@ By default Shelflife is read-only -- it syncs data but never modifies your exter
 
 ## Requirements
 
-- [Overseerr](https://overseerr.dev/) -- for media request data
+- [Seerr](https://github.com/seerr-app/seerr), [Overseerr](https://overseerr.dev/) (legacy), or [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) (legacy) -- for media request data
 - [Tautulli](https://tautulli.com/) -- for watch history
 - A Plex account
+
+> **Note:** Both Overseerr and Jellyseerr have been archived and succeeded by Seerr (v3.0.0+). Shelflife supports all three -- configure `SEERR_URL`/`SEERR_API_KEY` for Seerr, `OVERSEERR_URL`/`OVERSEERR_API_KEY` for legacy Overseerr, or `JELLYSEERR_URL`/`JELLYSEERR_API_KEY` for legacy Jellyseerr. Seerr takes priority when multiple are configured.
 
 ### Tautulli setup for file size display
 
@@ -33,22 +35,31 @@ After this, Tautulli will return TV show file sizes in its API, and Shelflife wi
 
 ## Configuration
 
-| Variable            | Required | Description                                                                            |
-| ------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `OVERSEERR_URL`     | Yes      | URL of your Overseerr instance (e.g. `http://192.168.1.100:5055`)                      |
-| `OVERSEERR_API_KEY` | Yes      | Found in Overseerr under Settings > General                                            |
-| `TAUTULLI_URL`      | Yes      | URL of your Tautulli instance (e.g. `http://192.168.1.100:8181`)                       |
-| `TAUTULLI_API_KEY`  | Yes      | Found in Tautulli under Settings > Web Interface                                       |
-| `SESSION_SECRET`    | Yes      | Random string for signing sessions (minimum 32 characters)                             |
-| `SONARR_URL`        | No       | URL of your Sonarr instance -- enables TV show deletion from admin                     |
-| `SONARR_API_KEY`    | No       | Found in Sonarr under Settings > General                                               |
-| `RADARR_URL`        | No       | URL of your Radarr instance -- enables movie deletion from admin                       |
-| `RADARR_API_KEY`    | No       | Found in Radarr under Settings > General                                               |
-| `PLEX_CLIENT_ID`    | No       | Identifier for Plex auth (defaults to `shelflife`)                                     |
-| `ADMIN_PLEX_ID`     | No       | Force a specific Plex user as admin. If unset, the first user to sign in becomes admin |
-| `DATABASE_PATH`     | No       | Path to SQLite database (defaults to `/app/data/shelflife.db` in Docker)               |
-| `COOKIE_SECURE`     | No       | Set to `true` if behind HTTPS reverse proxy. Defaults to `false` for plain HTTP        |
-| `DEBUG`             | No       | Set to `true` for verbose debug logging (useful for troubleshooting)                   |
+| Variable                     | Required | Description                                                                            |
+| ---------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `SEERR_URL`                  | \*       | URL of your Seerr instance (e.g. `http://192.168.1.100:5055`)                          |
+| `SEERR_API_KEY`              | \*       | Found in Seerr under Settings > General                                                |
+| `NEXT_PUBLIC_SEERR_URL`      | No       | Public URL of your Seerr instance (for deep links in the UI)                           |
+| `OVERSEERR_URL`              | \*       | URL of your Overseerr instance (legacy fallback)                                       |
+| `OVERSEERR_API_KEY`          | \*       | Found in Overseerr under Settings > General                                            |
+| `NEXT_PUBLIC_OVERSEERR_URL`  | No       | Public URL of your Overseerr instance (legacy fallback for UI links)                   |
+| `JELLYSEERR_URL`             | \*       | URL of your Jellyseerr instance (legacy fallback)                                      |
+| `JELLYSEERR_API_KEY`         | \*       | Found in Jellyseerr under Settings > General                                           |
+| `NEXT_PUBLIC_JELLYSEERR_URL` | No       | Public URL of your Jellyseerr instance (legacy fallback for UI links)                  |
+| `TAUTULLI_URL`               | Yes      | URL of your Tautulli instance (e.g. `http://192.168.1.100:8181`)                       |
+| `TAUTULLI_API_KEY`           | Yes      | Found in Tautulli under Settings > Web Interface                                       |
+| `SESSION_SECRET`             | Yes      | Random string for signing sessions (minimum 32 characters)                             |
+| `SONARR_URL`                 | No       | URL of your Sonarr instance -- enables TV show deletion from admin                     |
+| `SONARR_API_KEY`             | No       | Found in Sonarr under Settings > General                                               |
+| `RADARR_URL`                 | No       | URL of your Radarr instance -- enables movie deletion from admin                       |
+| `RADARR_API_KEY`             | No       | Found in Radarr under Settings > General                                               |
+| `PLEX_CLIENT_ID`             | No       | Identifier for Plex auth (defaults to `shelflife`)                                     |
+| `ADMIN_PLEX_ID`              | No       | Force a specific Plex user as admin. If unset, the first user to sign in becomes admin |
+| `DATABASE_PATH`              | No       | Path to SQLite database (defaults to `/app/data/shelflife.db` in Docker)               |
+| `COOKIE_SECURE`              | No       | Set to `true` if behind HTTPS reverse proxy. Defaults to `false` for plain HTTP        |
+| `DEBUG`                      | No       | Set to `true` for verbose debug logging (useful for troubleshooting)                   |
+
+\* One of `SEERR_URL`/`SEERR_API_KEY`, `OVERSEERR_URL`/`OVERSEERR_API_KEY`, or `JELLYSEERR_URL`/`JELLYSEERR_API_KEY` must be set. When multiple are configured, Seerr takes priority.
 
 ## Running with Docker Compose
 
@@ -61,8 +72,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - OVERSEERR_URL=http://your-ip:5055
-      - OVERSEERR_API_KEY=your-key
+      # Seerr (recommended) — or use OVERSEERR_URL/OVERSEERR_API_KEY for legacy
+      - SEERR_URL=http://your-ip:5055
+      - SEERR_API_KEY=your-key
       - TAUTULLI_URL=http://your-ip:8181
       - TAUTULLI_API_KEY=your-key
       - SESSION_SECRET=your-random-32-char-secret
@@ -86,13 +98,13 @@ The app will be available at `http://localhost:3000`.
 
 ## Running on Unraid
 
-> **Important -- Networking:** Shelflife needs to reach your Overseerr and Tautulli instances. On Unraid with the default bridge network, `localhost` and `127.0.0.1` refer to the container itself, not your server. Use your **Unraid server's IP address** (e.g. `http://192.168.1.100:5055`) when setting `OVERSEERR_URL` and `TAUTULLI_URL`.
+> **Important -- Networking:** Shelflife needs to reach your Seerr/Overseerr and Tautulli instances. On Unraid with the default bridge network, `localhost` and `127.0.0.1` refer to the container itself, not your server. Use your **Unraid server's IP address** (e.g. `http://192.168.1.100:5055`) when setting `SEERR_URL` (or `OVERSEERR_URL`) and `TAUTULLI_URL`.
 
 ### Getting your API keys
 
 Before starting, grab these from your existing services:
 
-- **Overseerr API Key**: Open Overseerr > Settings > General > scroll to **API Key** and copy it
+- **Seerr API Key**: Open Seerr > Settings > General > scroll to **API Key** and copy it (or use your existing Overseerr API key if still on Overseerr)
 - **Tautulli API Key**: Open Tautulli > Settings > Web Interface > scroll to **API Key** and copy it
 
 ### Generating a session secret
@@ -122,8 +134,9 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
        ports:
          - "3000:3000"
        environment:
-         - OVERSEERR_URL=http://YOUR_UNRAID_IP:5055
-         - OVERSEERR_API_KEY=your-overseerr-api-key
+         # Seerr (recommended) — or use OVERSEERR_URL/OVERSEERR_API_KEY for legacy
+         - SEERR_URL=http://YOUR_UNRAID_IP:5055
+         - SEERR_API_KEY=your-seerr-api-key
          - TAUTULLI_URL=http://YOUR_UNRAID_IP:8181
          - TAUTULLI_API_KEY=your-tautulli-api-key
          - SESSION_SECRET=your-generated-secret-from-above
@@ -172,18 +185,18 @@ Requires the [**Compose Manager**](https://forums.unraid.net/topic/114415-plugin
 
    **Environment variables** (add one at a time):
 
-   | Config Type | Name              | Key                 | Value                                   |
-   | ----------- | ----------------- | ------------------- | --------------------------------------- |
-   | Variable    | Overseerr URL     | `OVERSEERR_URL`     | `http://YOUR_UNRAID_IP:5055`            |
-   | Variable    | Overseerr API Key | `OVERSEERR_API_KEY` | Your Overseerr API key                  |
-   | Variable    | Tautulli URL      | `TAUTULLI_URL`      | `http://YOUR_UNRAID_IP:8181`            |
-   | Variable    | Tautulli API Key  | `TAUTULLI_API_KEY`  | Your Tautulli API key                   |
-   | Variable    | Session Secret    | `SESSION_SECRET`    | Your generated secret                   |
-   | Variable    | Sonarr URL        | `SONARR_URL`        | `http://YOUR_UNRAID_IP:8989` (optional) |
-   | Variable    | Sonarr API Key    | `SONARR_API_KEY`    | Your Sonarr API key (optional)          |
-   | Variable    | Radarr URL        | `RADARR_URL`        | `http://YOUR_UNRAID_IP:7878` (optional) |
-   | Variable    | Radarr API Key    | `RADARR_API_KEY`    | Your Radarr API key (optional)          |
-   | Variable    | Debug Logging     | `DEBUG`             | `true` (optional)                       |
+   | Config Type | Name             | Key                | Value                                                        |
+   | ----------- | ---------------- | ------------------ | ------------------------------------------------------------ |
+   | Variable    | Seerr URL        | `SEERR_URL`        | `http://YOUR_UNRAID_IP:5055` (or use `OVERSEERR_URL` legacy) |
+   | Variable    | Seerr API Key    | `SEERR_API_KEY`    | Your Seerr API key (or use `OVERSEERR_API_KEY` legacy)       |
+   | Variable    | Tautulli URL     | `TAUTULLI_URL`     | `http://YOUR_UNRAID_IP:8181`                                 |
+   | Variable    | Tautulli API Key | `TAUTULLI_API_KEY` | Your Tautulli API key                                        |
+   | Variable    | Session Secret   | `SESSION_SECRET`   | Your generated secret                                        |
+   | Variable    | Sonarr URL       | `SONARR_URL`       | `http://YOUR_UNRAID_IP:8989` (optional)                      |
+   | Variable    | Sonarr API Key   | `SONARR_API_KEY`   | Your Sonarr API key (optional)                               |
+   | Variable    | Radarr URL       | `RADARR_URL`       | `http://YOUR_UNRAID_IP:7878` (optional)                      |
+   | Variable    | Radarr API Key   | `RADARR_API_KEY`   | Your Radarr API key (optional)                               |
+   | Variable    | Debug Logging    | `DEBUG`            | `true` (optional)                                            |
 
 6. Click **Apply**
 
@@ -202,14 +215,14 @@ This imports a pre-configured template so you only need to fill in your values:
    ```
 3. Go to the **Docker** tab and click **Add Container**
 4. From the **Template** dropdown, select **shelflife**
-5. Fill in your Overseerr URL, Overseerr API Key, Tautulli URL, Tautulli API Key, and Session Secret
+5. Fill in your Seerr URL (or Overseerr URL), API Key, Tautulli URL, Tautulli API Key, and Session Secret
 6. Click **Apply**
 
 The template has all ports, paths, and optional settings pre-configured. You just fill in your credentials.
 
 ### Troubleshooting
 
-**"Connection refused" when syncing:** Your `OVERSEERR_URL` or `TAUTULLI_URL` is probably using `localhost` or `127.0.0.1`. Change it to your Unraid server's actual IP address (e.g. `http://192.168.1.100:5055`).
+**"Connection refused" when syncing:** Your `SEERR_URL` (or `OVERSEERR_URL`) or `TAUTULLI_URL` is probably using `localhost` or `127.0.0.1`. Change it to your Unraid server's actual IP address (e.g. `http://192.168.1.100:5055`).
 
 **Container starts but can't reach the web UI:** Make sure port 3000 isn't already in use by another container. You can change the host port (the left side) to something else, e.g. `3001:3000`.
 
@@ -223,5 +236,5 @@ The template has all ports, paths, and optional settings pre-configured. You jus
 2. Click **Sign in with Plex**
 3. Authorize the app in the Plex popup
 4. The first user to sign in automatically becomes the admin
-5. Go to the Admin page and click **Sync** to pull in your Overseerr requests and Tautulli watch history
+5. Go to the Admin page and click **Sync** to pull in your Seerr/Overseerr requests and Tautulli watch history
 6. Share the URL with your Plex users so they can log in and vote on their own requests
