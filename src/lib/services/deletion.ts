@@ -4,7 +4,7 @@ import { eq, and, ne } from "drizzle-orm";
 import type { DeletionResult, DeletionServiceStatus } from "@/types";
 import { isSonarrConfigured, getSonarrClient } from "./sonarr";
 import { isRadarrConfigured, getRadarrClient } from "./radarr";
-import { getOverseerrClient } from "./overseerr";
+import { getRequestServiceClient } from "./request-service";
 
 export function getDeletionServiceStatus(): DeletionServiceStatus {
   return {
@@ -106,7 +106,7 @@ export async function executeMediaDeletion(params: {
   if (mediaItem.overseerrId) {
     result.overseerr.attempted = true;
     try {
-      const client = getOverseerrClient();
+      const client = getRequestServiceClient();
       await client.deleteMedia(mediaItem.overseerrId);
       result.overseerr.success = true;
     } catch (e) {

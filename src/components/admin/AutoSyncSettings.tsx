@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Toast, type ToastData } from "@/components/ui/Toast";
+import { useProviderLabel } from "@/lib/provider-context";
 
 interface AutoSyncSettingsProps {
   initialSettings: {
@@ -19,18 +20,18 @@ const SCHEDULE_PRESETS: { label: string; value: string }[] = [
   { label: "Custom", value: "custom" },
 ];
 
-const SYNC_TYPES: { label: string; value: string }[] = [
-  { label: "Full", value: "full" },
-  { label: "Overseerr Only", value: "overseerr" },
-  { label: "Tautulli Only", value: "tautulli" },
-];
-
 function getPresetForSchedule(schedule: string): string {
   const preset = SCHEDULE_PRESETS.find((p) => p.value === schedule);
   return preset ? preset.value : "custom";
 }
 
 export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
+  const providerLabel = useProviderLabel();
+  const syncTypes = [
+    { label: "Full", value: "full" },
+    { label: `${providerLabel} Only`, value: "overseerr" },
+    { label: "Tautulli Only", value: "tautulli" },
+  ];
   const [enabled, setEnabled] = useState(initialSettings.enabled);
   const [schedule, setSchedule] = useState(initialSettings.schedule);
   const [selectedPreset, setSelectedPreset] = useState(
@@ -139,7 +140,7 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
               onChange={(e) => setSyncType(e.target.value as typeof syncType)}
               className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
             >
-              {SYNC_TYPES.map((t) => (
+              {syncTypes.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

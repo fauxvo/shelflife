@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
-import { getOverseerrClient, mapMediaStatus } from "./overseerr";
+import { mapMediaStatus } from "./overseerr";
+import { getRequestServiceClient, getProviderLabel } from "./request-service";
 import { getTautulliClient } from "./tautulli";
 import { upsertUser } from "./user-upsert";
 import { eq, and, ne, count, isNotNull, notInArray } from "drizzle-orm";
@@ -49,11 +50,12 @@ async function markStaleItemsRemoved(
 }
 
 export async function syncOverseerr(onProgress?: ProgressCallback): Promise<number> {
-  const client = getOverseerrClient();
+  const client = getRequestServiceClient();
+  const providerLabel = getProviderLabel();
 
   onProgress?.({
     phase: "overseerr",
-    step: "Fetching requests from Overseerr...",
+    step: `Fetching requests from ${providerLabel}...`,
     current: 0,
     total: 0,
   });

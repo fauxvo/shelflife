@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Toast, type ToastData } from "@/components/ui/Toast";
+import { useProviderLabel } from "@/lib/provider-context";
 
 interface SyncStatusProps {
   lastSync?: {
@@ -38,7 +39,15 @@ export function formatSyncResult(synced: SyncResult): string {
   return `Synced ${parts.join(" and ")}`;
 }
 
+function formatSyncType(syncType: string, providerLabel: string): string {
+  if (syncType === "overseerr") return providerLabel;
+  if (syncType === "tautulli") return "Tautulli";
+  if (syncType === "full") return "Full";
+  return syncType;
+}
+
 export function SyncStatus({ lastSync }: SyncStatusProps) {
+  const providerLabel = useProviderLabel();
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -135,7 +144,11 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
       {lastSync && !syncing && (
         <div className="space-y-1 text-sm text-gray-400">
           <p>
-            Last sync: <span className="text-gray-200">{lastSync.syncType}</span> -{" "}
+            Last sync:{" "}
+            <span className="text-gray-200">
+              {formatSyncType(lastSync.syncType, providerLabel)}
+            </span>{" "}
+            -{" "}
             <span className={lastSync.status === "completed" ? "text-green-400" : "text-red-400"}>
               {lastSync.status}
             </span>
@@ -158,7 +171,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
                   : "bg-purple-900/50 text-purple-300"
               }`}
             >
-              {progress.phase === "overseerr" ? "Overseerr" : "Tautulli"}
+              {progress.phase === "overseerr" ? providerLabel : "Tautulli"}
             </span>
             <span className="text-sm text-gray-300">{progress.step}</span>
           </div>
@@ -228,7 +241,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
               onClick={() => triggerSync("overseerr")}
               className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
             >
-              Overseerr Only
+              {providerLabel} Only
             </button>
             <button
               onClick={() => triggerSync("tautulli")}

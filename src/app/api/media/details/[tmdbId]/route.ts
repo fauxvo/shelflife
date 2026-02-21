@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
-import { getOverseerrClient } from "@/lib/services/overseerr";
+import { getRequestServiceClient } from "@/lib/services/request-service";
 import { mediaDetailsQuerySchema } from "@/lib/validators/schemas";
 
 export async function GET(
@@ -28,7 +28,7 @@ export async function GET(
       );
     }
 
-    const client = getOverseerrClient();
+    const client = getRequestServiceClient();
     const details = await client.getMediaDetails(id, parsed.data.type);
 
     return NextResponse.json({

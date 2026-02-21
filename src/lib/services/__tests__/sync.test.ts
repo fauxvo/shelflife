@@ -16,11 +16,6 @@ const mockGetMediaDetails = vi.fn();
 const mockGetOverseerrUsers = vi.fn();
 
 vi.mock("../overseerr", () => ({
-  getOverseerrClient: () => ({
-    getAllRequests: mockGetAllRequests,
-    getMediaDetails: mockGetMediaDetails,
-    getUsers: mockGetOverseerrUsers,
-  }),
   mapMediaStatus: (status: number | null | undefined) => {
     const map: Record<number, string> = {
       1: "unknown",
@@ -31,6 +26,15 @@ vi.mock("../overseerr", () => ({
     };
     return map[status ?? 1] || "unknown";
   },
+}));
+
+vi.mock("../request-service", () => ({
+  getRequestServiceClient: () => ({
+    getAllRequests: mockGetAllRequests,
+    getMediaDetails: mockGetMediaDetails,
+    getUsers: mockGetOverseerrUsers,
+  }),
+  getProviderLabel: () => "Overseerr",
 }));
 
 const mockGetHistory = vi.fn();

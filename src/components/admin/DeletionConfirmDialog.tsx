@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useProviderLabel } from "@/lib/provider-context";
 
 interface DeletionConfirmDialogProps {
   title: string;
@@ -20,13 +21,14 @@ export function DeletionConfirmDialog({
   onCancel,
   isDeleting,
 }: DeletionConfirmDialogProps) {
+  const providerLabel = useProviderLabel();
   const [deleteFiles, setDeleteFiles] = useState(false);
 
   const serviceName = mediaType === "tv" ? "Sonarr" : "Radarr";
   const serviceConfigured = mediaType === "tv" ? serviceStatus.sonarr : serviceStatus.radarr;
   const services = [
     serviceConfigured && serviceName,
-    serviceStatus.overseerr && "Overseerr",
+    serviceStatus.overseerr && providerLabel,
   ].filter(Boolean);
 
   // Close on Escape key
@@ -102,7 +104,7 @@ export function DeletionConfirmDialog({
             {serviceStatus.overseerr && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-red-900/30 px-3 py-1 text-xs font-medium text-red-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                Overseerr
+                {providerLabel}
               </span>
             )}
           </div>
