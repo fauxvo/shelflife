@@ -1,0 +1,77 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
+import {
+  getAllServiceConfigs,
+  setServiceConfig,
+  clearServiceConfig,
+  getActiveRequestProvider,
+  setActiveRequestProvider,
+  maskApiKey,
+  type ServiceType,
+} from "@/lib/services/service-config";
+import { settingsUpdateSchema } from "@/lib/validators/schemas";
+
+export async function GET() {
+  try {
+    await requireAdmin();
+
+    const configs = await getAllServiceConfigs();
+    const activeProvider = await getActiveRequestProvider();
+
+    // Mask API keys in response
+    const masked: Record<string, { url: string; apiKey: string } | null> = {};
+    for (const [type, config] of Object.entries(configs)) {
+      masked[type] = config ? { url: config.url, apiKey: maskApiKey(config.apiKey) } : null;
+    }
+
+    return NextResponse.json({ services: masked, activeProvider });
+  } catch (error) {
+    return handleAuthError(error);
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    await requireAdmin();
+
+    const body = await request.json();
+    const parsed = settingsUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { services, activeProvider } = parsed.data;
+
+    // Save service configs
+    if (services) {
+      for (const [type, config] of Object.entries(services)) {
+        const serviceType = type as ServiceType;
+        if (config === null) {
+          await clearServiceConfig(serviceType);
+        } else {
+          await setServiceConfig(serviceType, config);
+        }
+      }
+    }
+
+    // Save active provider
+    if (activeProvider) {
+      await setActiveRequestProvider(activeProvider);
+    }
+
+    // Return updated state
+    const configs = await getAllServiceConfigs();
+    const currentProvider = await getActiveRequestProvider();
+    const masked: Record<string, { url: string; apiKey: string } | null> = {};
+    for (const [type, config] of Object.entries(configs)) {
+      masked[type] = config ? { url: config.url, apiKey: maskApiKey(config.apiKey) } : null;
+    }
+
+    return NextResponse.json({ services: masked, activeProvider: currentProvider });
+  } catch (error) {
+    return handleAuthError(error);
+  }
+}

@@ -1,33 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createRadarrClient } from "../radarr";
 
 const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
+beforeEach(() => {
+  mockFetch.mockReset();
+});
 
 describe("RadarrClient", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.stubGlobal("fetch", mockFetch);
-    mockFetch.mockReset();
-    process.env.RADARR_URL = "http://localhost:7878";
-    process.env.RADARR_API_KEY = "test-radarr-key";
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete process.env.RADARR_URL;
-    delete process.env.RADARR_API_KEY;
-  });
-
-  it("throws if RADARR_URL is not set", async () => {
-    delete process.env.RADARR_URL;
-    const { getRadarrClient } = await import("../radarr");
-    expect(() => getRadarrClient()).toThrow("RADARR_URL and RADARR_API_KEY must be set");
-  });
-
-  it("throws if RADARR_API_KEY is not set", async () => {
-    delete process.env.RADARR_API_KEY;
-    const { getRadarrClient } = await import("../radarr");
-    expect(() => getRadarrClient()).toThrow("RADARR_URL and RADARR_API_KEY must be set");
-  });
+  function makeClient() {
+    return createRadarrClient({ url: "http://localhost:7878", apiKey: "test-radarr-key" });
+  }
 
   it("lookupByTmdbId returns movie when found", async () => {
     mockFetch.mockResolvedValueOnce({
@@ -36,8 +20,7 @@ describe("RadarrClient", () => {
       json: () => Promise.resolve([{ id: 42, title: "Test Movie" }]),
     });
 
-    const { getRadarrClient } = await import("../radarr");
-    const client = getRadarrClient();
+    const client = makeClient();
     const result = await client.lookupByTmdbId(5000);
 
     expect(result).toEqual({ id: 42, title: "Test Movie" });
@@ -56,8 +39,7 @@ describe("RadarrClient", () => {
       json: () => Promise.resolve([]),
     });
 
-    const { getRadarrClient } = await import("../radarr");
-    const client = getRadarrClient();
+    const client = makeClient();
     const result = await client.lookupByTmdbId(9999);
 
     expect(result).toBeNull();
@@ -69,8 +51,7 @@ describe("RadarrClient", () => {
       headers: { get: () => null },
     });
 
-    const { getRadarrClient } = await import("../radarr");
-    const client = getRadarrClient();
+    const client = makeClient();
     await client.deleteMovie(42, true);
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -89,34 +70,8 @@ describe("RadarrClient", () => {
       statusText: "Internal Server Error",
     });
 
-    const { getRadarrClient } = await import("../radarr");
-    const client = getRadarrClient();
+    const client = makeClient();
 
     await expect(client.deleteMovie(42, true)).rejects.toThrow("Radarr API error: 500");
-  });
-});
-
-describe("isRadarrConfigured", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  afterEach(() => {
-    delete process.env.RADARR_URL;
-    delete process.env.RADARR_API_KEY;
-  });
-
-  it("returns true when env vars set", async () => {
-    process.env.RADARR_URL = "http://localhost:7878";
-    process.env.RADARR_API_KEY = "test-radarr-key";
-    const { isRadarrConfigured } = await import("../radarr");
-    expect(isRadarrConfigured()).toBe(true);
-  });
-
-  it("returns false when env vars missing", async () => {
-    delete process.env.RADARR_URL;
-    delete process.env.RADARR_API_KEY;
-    const { isRadarrConfigured } = await import("../radarr");
-    expect(isRadarrConfigured()).toBe(false);
   });
 });

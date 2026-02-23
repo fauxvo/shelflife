@@ -173,12 +173,14 @@ When reviewing PRs, check for:
 
 Required:
 
-- `OVERSEERR_URL` / `OVERSEERR_API_KEY` -- Overseerr instance
-- `TAUTULLI_URL` / `TAUTULLI_API_KEY` -- Tautulli instance
 - `SESSION_SECRET` -- JWT signing key (min 32 chars)
 
-Optional:
+Optional (can also be configured in Admin > Settings after first login):
 
+- `SEERR_URL` / `SEERR_API_KEY` -- Seerr instance (also supports Overseerr/Jellyseerr)
+- `TAUTULLI_URL` / `TAUTULLI_API_KEY` -- Tautulli instance
+- `SONARR_URL` / `SONARR_API_KEY` -- Sonarr instance (enables TV show deletion)
+- `RADARR_URL` / `RADARR_API_KEY` -- Radarr instance (enables movie deletion)
 - `PLEX_CLIENT_ID` -- defaults to "shelflife"
 - `ADMIN_PLEX_ID` -- force a specific admin user
 - `DATABASE_PATH` -- defaults to `/app/data/shelflife.db` in Docker

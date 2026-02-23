@@ -2,14 +2,19 @@ import { db } from "@/lib/db";
 import { mediaItems, deletionLog } from "@/lib/db/schema";
 import { eq, and, ne } from "drizzle-orm";
 import type { DeletionResult, DeletionServiceStatus } from "@/types";
-import { isSonarrConfigured, getSonarrClient } from "./sonarr";
-import { isRadarrConfigured, getRadarrClient } from "./radarr";
+import { getServiceConfig } from "./service-config";
+import { createSonarrClient } from "./sonarr";
+import { createRadarrClient } from "./radarr";
 import { getRequestServiceClient } from "./request-service";
 
-export function getDeletionServiceStatus(): DeletionServiceStatus {
+export async function getDeletionServiceStatus(): Promise<DeletionServiceStatus> {
+  const [sonarrConfig, radarrConfig] = await Promise.all([
+    getServiceConfig("sonarr"),
+    getServiceConfig("radarr"),
+  ]);
   return {
-    sonarr: isSonarrConfigured(),
-    radarr: isRadarrConfigured(),
+    sonarr: sonarrConfig !== null,
+    radarr: radarrConfig !== null,
     overseerr: true,
   };
 }
@@ -69,10 +74,11 @@ export async function executeMediaDeletion(params: {
   };
 
   // Sonarr deletion for TV shows
-  if (mediaItem.mediaType === "tv" && isSonarrConfigured() && mediaItem.tvdbId) {
+  const sonarrConfig = await getServiceConfig("sonarr");
+  if (mediaItem.mediaType === "tv" && sonarrConfig && mediaItem.tvdbId) {
     result.sonarr.attempted = true;
     try {
-      const client = getSonarrClient();
+      const client = createSonarrClient(sonarrConfig);
       const series = await client.lookupByTvdbId(mediaItem.tvdbId);
       if (series) {
         await client.deleteSeries(series.id, deleteFiles);
@@ -86,10 +92,11 @@ export async function executeMediaDeletion(params: {
   }
 
   // Radarr deletion for movies
-  if (mediaItem.mediaType === "movie" && isRadarrConfigured() && mediaItem.tmdbId) {
+  const radarrConfig = await getServiceConfig("radarr");
+  if (mediaItem.mediaType === "movie" && radarrConfig && mediaItem.tmdbId) {
     result.radarr.attempted = true;
     try {
-      const client = getRadarrClient();
+      const client = createRadarrClient(radarrConfig);
       const movie = await client.lookupByTmdbId(mediaItem.tmdbId);
       if (movie) {
         await client.deleteMovie(movie.id, deleteFiles);
@@ -106,7 +113,7 @@ export async function executeMediaDeletion(params: {
   if (mediaItem.overseerrId) {
     result.overseerr.attempted = true;
     try {
-      const client = getRequestServiceClient();
+      const client = await getRequestServiceClient();
       await client.deleteMedia(mediaItem.overseerrId);
       result.overseerr.success = true;
     } catch (e) {

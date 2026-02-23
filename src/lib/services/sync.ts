@@ -2,12 +2,13 @@ import { db } from "@/lib/db";
 import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
 import { mapMediaStatus } from "./overseerr";
 import { getRequestServiceClient, getProviderLabel } from "./request-service";
-import { getTautulliClient } from "./tautulli";
+import { getServiceConfig } from "./service-config";
+import { createTautulliClient } from "./tautulli";
 import { upsertUser } from "./user-upsert";
 import { eq, and, ne, count, isNotNull, notInArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
-type TautulliClientType = ReturnType<typeof getTautulliClient>;
+type TautulliClientType = ReturnType<typeof createTautulliClient>;
 
 export interface SyncProgress {
   phase: "overseerr" | "tautulli";
@@ -50,8 +51,8 @@ async function markStaleItemsRemoved(
 }
 
 export async function syncOverseerr(onProgress?: ProgressCallback): Promise<number> {
-  const client = getRequestServiceClient();
-  const providerLabel = getProviderLabel();
+  const client = await getRequestServiceClient();
+  const providerLabel = await getProviderLabel();
 
   onProgress?.({
     phase: "overseerr",
@@ -92,7 +93,9 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
           seasonCount = details.numberOfSeasons || null;
           // Overseerr season status: 4 = partially available, 5 = fully available
           const SEASON_AVAILABLE_THRESHOLD = 4;
-          const seasons = details.mediaInfo?.seasons;
+          const seasons = details.mediaInfo?.seasons as
+            | { seasonNumber: number; status: number }[]
+            | undefined;
           if (seasons && seasons.length > 0) {
             availableSeasonCount =
               seasons.filter((s) => s.status >= SEASON_AVAILABLE_THRESHOLD).length || null;
@@ -252,7 +255,13 @@ async function fetchPlexTvFileSizes(
 }
 
 export async function syncTautulli(onProgress?: ProgressCallback): Promise<number> {
-  const client = getTautulliClient();
+  const tautulliConfig = await getServiceConfig("tautulli");
+  if (!tautulliConfig) {
+    throw new Error(
+      "Tautulli is not configured. Set TAUTULLI_URL/TAUTULLI_API_KEY or configure in Admin > Settings."
+    );
+  }
+  const client = createTautulliClient(tautulliConfig);
   let synced = 0;
 
   onProgress?.({

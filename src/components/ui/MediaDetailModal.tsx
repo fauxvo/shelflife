@@ -6,8 +6,7 @@ import Image from "next/image";
 import { MediaTypeBadge } from "./MediaTypeBadge";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
-import { useProviderLabel } from "@/lib/provider-context";
-import { getClientProviderUrl } from "@/lib/request-provider";
+import { useProviderLabel, useProviderUrl } from "@/lib/provider-context";
 import type { MediaStatus } from "@/types";
 
 interface MediaDetailModalProps {
@@ -57,7 +56,7 @@ export function MediaDetailModal({
   onClose,
 }: MediaDetailModalProps) {
   const tmdbType = mediaType === "tv" ? "tv" : "movie";
-  const providerUrl = getClientProviderUrl();
+  const providerUrl = useProviderUrl();
   const providerLabel = useProviderLabel();
   const [overview, setOverview] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(!!tmdbId);

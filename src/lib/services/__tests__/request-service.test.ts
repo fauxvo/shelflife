@@ -1,185 +1,216 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-describe("request-service", () => {
-  const origSeerrUrl = process.env.SEERR_URL;
-  const origSeerrKey = process.env.SEERR_API_KEY;
-  const origOverseerrUrl = process.env.OVERSEERR_URL;
-  const origOverseerrKey = process.env.OVERSEERR_API_KEY;
-  const origJellyseerrUrl = process.env.JELLYSEERR_URL;
-  const origJellyseerrKey = process.env.JELLYSEERR_API_KEY;
+const mockGetActiveRequestProvider = vi.fn();
+const mockGetServiceConfig = vi.fn();
+const mockGetAllServiceConfigs = vi.fn();
+const mockGetClientGeneration = vi.fn();
 
-  beforeEach(() => {
-    vi.resetModules();
+vi.mock("../service-config", () => ({
+  getActiveRequestProvider: () => mockGetActiveRequestProvider(),
+  getServiceConfig: (...args: unknown[]) => mockGetServiceConfig(...args),
+  getAllServiceConfigs: () => mockGetAllServiceConfigs(),
+  getClientGeneration: () => mockGetClientGeneration(),
+}));
+
+vi.mock("../seerr", () => ({
+  createSeerrClient: (config: { url: string; apiKey: string }) => ({
+    _provider: "seerr",
+    _config: config,
+    getAllRequests: vi.fn(),
+    getMediaDetails: vi.fn(),
+    deleteMedia: vi.fn(),
+  }),
+}));
+
+vi.mock("../overseerr", () => ({
+  createOverseerrClient: (config: { url: string; apiKey: string }) => ({
+    _provider: "overseerr",
+    _config: config,
+    getAllRequests: vi.fn(),
+    getMediaDetails: vi.fn(),
+    deleteMedia: vi.fn(),
+  }),
+}));
+
+vi.mock("../jellyseerr", () => ({
+  createJellyseerrClient: (config: { url: string; apiKey: string }) => ({
+    _provider: "jellyseerr",
+    _config: config,
+    getAllRequests: vi.fn(),
+    getMediaDetails: vi.fn(),
+    deleteMedia: vi.fn(),
+  }),
+}));
+
+// Import after mocking
+const { getActiveProvider, getProviderLabel, getRequestServiceClient } =
+  await import("../request-service");
+
+const nullConfigs = {
+  seerr: null,
+  overseerr: null,
+  jellyseerr: null,
+  tautulli: null,
+  sonarr: null,
+  radarr: null,
+};
+
+let generationCounter = 0;
+beforeEach(() => {
+  vi.clearAllMocks();
+  generationCounter++;
+  mockGetClientGeneration.mockReturnValue(generationCounter); // unique each test to bust cache
+  mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs });
+});
+
+describe("getActiveProvider", () => {
+  it("returns 'seerr' when auto-detect finds seerr config", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      seerr: { url: "http://seerr:5055", apiKey: "key" },
+    });
+
+    expect(await getActiveProvider()).toBe("seerr");
   });
 
-  afterEach(() => {
-    // Restore original env vars
-    if (origSeerrUrl !== undefined) process.env.SEERR_URL = origSeerrUrl;
-    else delete process.env.SEERR_URL;
-    if (origSeerrKey !== undefined) process.env.SEERR_API_KEY = origSeerrKey;
-    else delete process.env.SEERR_API_KEY;
-    if (origOverseerrUrl !== undefined) process.env.OVERSEERR_URL = origOverseerrUrl;
-    else delete process.env.OVERSEERR_URL;
-    if (origOverseerrKey !== undefined) process.env.OVERSEERR_API_KEY = origOverseerrKey;
-    else delete process.env.OVERSEERR_API_KEY;
-    if (origJellyseerrUrl !== undefined) process.env.JELLYSEERR_URL = origJellyseerrUrl;
-    else delete process.env.JELLYSEERR_URL;
-    if (origJellyseerrKey !== undefined) process.env.JELLYSEERR_API_KEY = origJellyseerrKey;
-    else delete process.env.JELLYSEERR_API_KEY;
+  it("returns 'overseerr' when only overseerr is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      overseerr: { url: "http://overseerr:5055", apiKey: "key" },
+    });
+
+    expect(await getActiveProvider()).toBe("overseerr");
   });
 
-  function clearAllProviderEnvVars() {
-    delete process.env.SEERR_URL;
-    delete process.env.SEERR_API_KEY;
-    delete process.env.OVERSEERR_URL;
-    delete process.env.OVERSEERR_API_KEY;
-    delete process.env.JELLYSEERR_URL;
-    delete process.env.JELLYSEERR_API_KEY;
-  }
-
-  describe("getActiveProvider", () => {
-    it("returns 'seerr' when SEERR env vars are set", async () => {
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.SEERR_API_KEY = "seerr-key";
-      clearAllProviderEnvVars();
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.SEERR_API_KEY = "seerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("seerr");
+  it("returns 'jellyseerr' when only jellyseerr is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      jellyseerr: { url: "http://jellyseerr:5055", apiKey: "key" },
     });
 
-    it("returns 'overseerr' when only OVERSEERR env vars are set", async () => {
-      clearAllProviderEnvVars();
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      process.env.OVERSEERR_API_KEY = "overseerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("overseerr");
-    });
-
-    it("returns 'jellyseerr' when only JELLYSEERR env vars are set", async () => {
-      clearAllProviderEnvVars();
-      process.env.JELLYSEERR_URL = "http://jellyseerr:5055";
-      process.env.JELLYSEERR_API_KEY = "jellyseerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("jellyseerr");
-    });
-
-    it("returns 'seerr' when all three are configured (seerr takes priority)", async () => {
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.SEERR_API_KEY = "seerr-key";
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      process.env.OVERSEERR_API_KEY = "overseerr-key";
-      process.env.JELLYSEERR_URL = "http://jellyseerr:5055";
-      process.env.JELLYSEERR_API_KEY = "jellyseerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("seerr");
-    });
-
-    it("throws when none is configured", async () => {
-      clearAllProviderEnvVars();
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(() => getActiveProvider()).toThrow("No request service configured");
-    });
-
-    it("falls back to overseerr when SEERR_URL is set but SEERR_API_KEY is missing", async () => {
-      clearAllProviderEnvVars();
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      process.env.OVERSEERR_API_KEY = "overseerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("overseerr");
-    });
-
-    it("falls back to jellyseerr when seerr and overseerr are incomplete", async () => {
-      clearAllProviderEnvVars();
-      process.env.SEERR_URL = "http://seerr:5055";
-      // SEERR_API_KEY missing
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      // OVERSEERR_API_KEY missing
-      process.env.JELLYSEERR_URL = "http://jellyseerr:5055";
-      process.env.JELLYSEERR_API_KEY = "jellyseerr-key";
-
-      const { getActiveProvider } = await import("../request-service");
-      expect(getActiveProvider()).toBe("jellyseerr");
-    });
+    expect(await getActiveProvider()).toBe("jellyseerr");
   });
 
-  describe("getProviderLabel", () => {
-    it("returns 'Seerr' when seerr is active", async () => {
-      clearAllProviderEnvVars();
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.SEERR_API_KEY = "seerr-key";
-
-      const { getProviderLabel } = await import("../request-service");
-      expect(getProviderLabel()).toBe("Seerr");
+  it("returns 'seerr' when all three are configured (seerr takes priority)", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    const allConfigured = { url: "http://any:5055", apiKey: "key" };
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      seerr: allConfigured,
+      overseerr: allConfigured,
+      jellyseerr: allConfigured,
     });
 
-    it("returns 'Overseerr' when overseerr is active", async () => {
-      clearAllProviderEnvVars();
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      process.env.OVERSEERR_API_KEY = "overseerr-key";
-
-      const { getProviderLabel } = await import("../request-service");
-      expect(getProviderLabel()).toBe("Overseerr");
-    });
-
-    it("returns 'Jellyseerr' when jellyseerr is active", async () => {
-      clearAllProviderEnvVars();
-      process.env.JELLYSEERR_URL = "http://jellyseerr:5055";
-      process.env.JELLYSEERR_API_KEY = "jellyseerr-key";
-
-      const { getProviderLabel } = await import("../request-service");
-      expect(getProviderLabel()).toBe("Jellyseerr");
-    });
+    expect(await getActiveProvider()).toBe("seerr");
   });
 
-  describe("getRequestServiceClient", () => {
-    it("returns a client when seerr is configured", async () => {
-      clearAllProviderEnvVars();
-      process.env.SEERR_URL = "http://seerr:5055";
-      process.env.SEERR_API_KEY = "seerr-key";
+  it("throws when none is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs });
 
-      const { getRequestServiceClient } = await import("../request-service");
-      const client = getRequestServiceClient();
-      expect(client).toBeDefined();
-      expect(typeof client.getAllRequests).toBe("function");
-      expect(typeof client.getMediaDetails).toBe("function");
-      expect(typeof client.deleteMedia).toBe("function");
+    await expect(getActiveProvider()).rejects.toThrow("No request service configured");
+  });
+
+  it("uses explicit provider setting when configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("overseerr");
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "overseerr") return { url: "http://overseerr:5055", apiKey: "key" };
+      return null;
     });
 
-    it("returns a client when overseerr is configured", async () => {
-      clearAllProviderEnvVars();
-      process.env.OVERSEERR_URL = "http://overseerr:5055";
-      process.env.OVERSEERR_API_KEY = "overseerr-key";
+    expect(await getActiveProvider()).toBe("overseerr");
+  });
 
-      const { getRequestServiceClient } = await import("../request-service");
-      const client = getRequestServiceClient();
-      expect(client).toBeDefined();
-      expect(typeof client.getAllRequests).toBe("function");
+  it("falls back to auto-detect when explicit provider has no config", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("overseerr");
+    mockGetServiceConfig.mockResolvedValue(null); // overseerr not configured
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      seerr: { url: "http://seerr:5055", apiKey: "key" },
     });
 
-    it("returns a client when jellyseerr is configured", async () => {
-      clearAllProviderEnvVars();
-      process.env.JELLYSEERR_URL = "http://jellyseerr:5055";
-      process.env.JELLYSEERR_API_KEY = "jellyseerr-key";
+    expect(await getActiveProvider()).toBe("seerr");
+  });
+});
 
-      const { getRequestServiceClient } = await import("../request-service");
-      const client = getRequestServiceClient();
-      expect(client).toBeDefined();
-      expect(typeof client.getAllRequests).toBe("function");
+describe("getProviderLabel", () => {
+  it("returns 'Seerr' when seerr is active", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      seerr: { url: "http://seerr:5055", apiKey: "key" },
     });
+    mockGetServiceConfig.mockResolvedValue({ url: "http://seerr:5055", apiKey: "key" });
 
-    it("throws when none is configured", async () => {
-      clearAllProviderEnvVars();
+    expect(await getProviderLabel()).toBe("Seerr");
+  });
 
-      const { getRequestServiceClient } = await import("../request-service");
-      expect(() => getRequestServiceClient()).toThrow("No request service configured");
+  it("returns 'Overseerr' when overseerr is active", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      overseerr: { url: "http://overseerr:5055", apiKey: "key" },
     });
+    mockGetServiceConfig.mockResolvedValue({ url: "http://overseerr:5055", apiKey: "key" });
+
+    expect(await getProviderLabel()).toBe("Overseerr");
+  });
+
+  it("returns 'Jellyseerr' when jellyseerr is active", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({
+      ...nullConfigs,
+      jellyseerr: { url: "http://jellyseerr:5055", apiKey: "key" },
+    });
+    mockGetServiceConfig.mockResolvedValue({ url: "http://jellyseerr:5055", apiKey: "key" });
+
+    expect(await getProviderLabel()).toBe("Jellyseerr");
+  });
+});
+
+describe("getRequestServiceClient", () => {
+  it("returns a seerr client when seerr is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    const seerrConfig = { url: "http://seerr:5055", apiKey: "seerr-key" };
+    mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs, seerr: seerrConfig });
+    mockGetServiceConfig.mockResolvedValue(seerrConfig);
+
+    const client = await getRequestServiceClient();
+    expect(client).toBeDefined();
+    expect(typeof client.getAllRequests).toBe("function");
+    expect(typeof client.getMediaDetails).toBe("function");
+    expect(typeof client.deleteMedia).toBe("function");
+  });
+
+  it("returns an overseerr client when overseerr is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    const overseerrConfig = { url: "http://overseerr:5055", apiKey: "key" };
+    mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs, overseerr: overseerrConfig });
+    mockGetServiceConfig.mockResolvedValue(overseerrConfig);
+
+    const client = await getRequestServiceClient();
+    expect(client).toBeDefined();
+    expect(typeof client.getAllRequests).toBe("function");
+  });
+
+  it("returns a jellyseerr client when jellyseerr is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    const jellyseerrConfig = { url: "http://jellyseerr:5055", apiKey: "key" };
+    mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs, jellyseerr: jellyseerrConfig });
+    mockGetServiceConfig.mockResolvedValue(jellyseerrConfig);
+
+    const client = await getRequestServiceClient();
+    expect(client).toBeDefined();
+    expect(typeof client.getAllRequests).toBe("function");
+  });
+
+  it("throws when none is configured", async () => {
+    mockGetActiveRequestProvider.mockResolvedValue("auto");
+    mockGetAllServiceConfigs.mockResolvedValue({ ...nullConfigs });
+
+    await expect(getRequestServiceClient()).rejects.toThrow("No request service configured");
   });
 });

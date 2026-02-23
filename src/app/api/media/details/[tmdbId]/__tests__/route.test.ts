@@ -28,9 +28,10 @@ vi.mock("@/lib/auth/middleware", () => ({
 const mockGetMediaDetails = vi.fn();
 
 vi.mock("@/lib/services/request-service", () => ({
-  getRequestServiceClient: () => ({
-    getMediaDetails: mockGetMediaDetails,
-  }),
+  getRequestServiceClient: () =>
+    Promise.resolve({
+      getMediaDetails: mockGetMediaDetails,
+    }),
 }));
 
 const { GET } = await import("../route");

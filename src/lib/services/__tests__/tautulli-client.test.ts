@@ -1,31 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createTautulliClient } from "../tautulli";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+beforeEach(() => {
+  mockFetch.mockReset();
+});
+
 describe("TautulliClient", () => {
-  let getTautulliClient: () => any;
-
-  beforeEach(async () => {
-    mockFetch.mockReset();
-    vi.resetModules();
-    const mod = await import("../tautulli");
-    getTautulliClient = mod.getTautulliClient;
-  });
-
-  it("throws without env vars", async () => {
-    const origUrl = process.env.TAUTULLI_URL;
-    const origKey = process.env.TAUTULLI_API_KEY;
-    delete process.env.TAUTULLI_URL;
-    delete process.env.TAUTULLI_API_KEY;
-
-    vi.resetModules();
-    const mod = await import("../tautulli");
-    expect(() => mod.getTautulliClient()).toThrow("TAUTULLI_URL and TAUTULLI_API_KEY must be set");
-
-    process.env.TAUTULLI_URL = origUrl;
-    process.env.TAUTULLI_API_KEY = origKey;
-  });
+  function makeClient() {
+    return createTautulliClient({ url: "http://tautulli:8181", apiKey: "test-key" });
+  }
 
   function mockTautulliResponse(data: unknown) {
     mockFetch.mockResolvedValueOnce({
@@ -53,7 +39,7 @@ describe("TautulliClient", () => {
       ],
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const history = await client.getHistory("100");
     expect(history).toHaveLength(1);
     expect(history[0].title).toBe("Test Movie");
@@ -62,7 +48,7 @@ describe("TautulliClient", () => {
   it("getHistory returns empty array when data is null", async () => {
     mockTautulliResponse(null);
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const history = await client.getHistory("100");
     expect(history).toEqual([]);
   });
@@ -76,7 +62,7 @@ describe("TautulliClient", () => {
       ],
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const status = await client.getWatchStatusForItem("100");
     expect(status).toHaveLength(2);
 
@@ -99,7 +85,7 @@ describe("TautulliClient", () => {
       ],
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const status = await client.getWatchStatusForItem("100");
     expect(status).toHaveLength(1);
   });
@@ -112,7 +98,7 @@ describe("TautulliClient", () => {
       ],
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const status = await client.getWatchStatusForItem("100");
     const laterDate = new Date(1700200000 * 1000).toISOString();
     expect(status[0].lastWatchedAt).toBe(laterDate);
@@ -124,7 +110,7 @@ describe("TautulliClient", () => {
       { user_id: 2, username: "user2", friendly_name: "User Two" },
     ]);
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const users = await client.getUsers();
     expect(users).toHaveLength(2);
     expect(users[0].username).toBe("user1");
@@ -133,7 +119,7 @@ describe("TautulliClient", () => {
   it("getUsers returns empty array for non-array data", async () => {
     mockTautulliResponse("not an array");
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const users = await client.getUsers();
     expect(users).toEqual([]);
   });
@@ -146,7 +132,7 @@ describe("TautulliClient", () => {
       ],
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const items = await client.getLibraryMediaInfo("1");
     expect(items).toHaveLength(2);
   });
@@ -154,7 +140,7 @@ describe("TautulliClient", () => {
   it("getLibraryMediaInfo returns empty for null data", async () => {
     mockTautulliResponse(null);
 
-    const client = getTautulliClient();
+    const client = makeClient();
     const items = await client.getLibraryMediaInfo("1");
     expect(items).toEqual([]);
   });
@@ -168,7 +154,7 @@ describe("TautulliClient", () => {
         }),
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     await expect(client.getHistory("100")).rejects.toThrow("Tautulli error: Something went wrong");
   });
 
@@ -179,7 +165,7 @@ describe("TautulliClient", () => {
       statusText: "Internal Server Error",
     });
 
-    const client = getTautulliClient();
+    const client = makeClient();
     await expect(client.getHistory("100")).rejects.toThrow("Tautulli API error: 500");
   });
 });

@@ -1,19 +1,9 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
+import Link from "next/link";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, users, syncLog } from "@/lib/db/schema";
-import { eq, count, desc, inArray, ne, sql, and } from "drizzle-orm";
-import { SyncStatus } from "@/components/admin/SyncStatus";
-import { AutoSyncSettings } from "@/components/admin/AutoSyncSettings";
-import { ReviewRoundList } from "@/components/admin/ReviewRoundList";
-import { AppVersion } from "@/components/ui/AppVersion";
-import { getSyncScheduleSettings } from "@/lib/services/settings";
+import { mediaItems, userVotes, users } from "@/lib/db/schema";
+import { count, desc, inArray, sql } from "drizzle-orm";
 
 export default async function AdminPage() {
-  const session = await getSession();
-  if (!session?.isAdmin) redirect("/");
-
-  // Get overview stats
   const [totalMedia] = await db.select({ total: count() }).from(mediaItems);
   const [totalUsers] = await db.select({ total: count() }).from(users);
   const [totalNominations] = await db
@@ -21,15 +11,6 @@ export default async function AdminPage() {
     .from(userVotes)
     .where(inArray(userVotes.vote, ["delete", "trim"]));
 
-  // Get last sync
-  const lastSyncResult = await db.select().from(syncLog).orderBy(desc(syncLog.startedAt)).limit(1);
-
-  const lastSync = lastSyncResult[0] || null;
-
-  // Sync schedule settings
-  const syncScheduleSettings = await getSyncScheduleSettings();
-
-  // Per-user stats
   const userStats = await db
     .select({
       username: users.username,
@@ -38,95 +19,56 @@ export default async function AdminPage() {
       activeRequests: sql<number>`count(case when ${mediaItems.status} != 'removed' then 1 end)`,
     })
     .from(users)
-    .leftJoin(mediaItems, eq(mediaItems.requestedByPlexId, users.plexId))
+    .leftJoin(mediaItems, sql`${mediaItems.requestedByPlexId} = ${users.plexId}`)
     .groupBy(users.id)
     .orderBy(desc(count(mediaItems.id)));
 
   return (
-    <div className="min-h-screen">
-      <header className="border-t-brand sticky top-0 z-10 border-t-2 border-b border-b-gray-800 bg-gray-950/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
-          <div>
-            <div className="flex items-baseline gap-3">
-              <h1 className="text-xl font-extrabold tracking-tight">Shelflife</h1>
-              <span className="text-gray-600">/</span>
-              <span className="text-base font-medium text-gray-400">Admin</span>
-              <AppVersion />
-            </div>
-            <p className="text-sm text-gray-500">Library management overview</p>
-          </div>
-          <nav className="flex items-center gap-4">
-            <a href="/dashboard" className="text-sm text-gray-400 hover:text-gray-200">
-              Dashboard
-            </a>
-            <a href="/community" className="text-sm text-gray-400 hover:text-gray-200">
-              Community
-            </a>
-            <span className="text-brand text-sm font-medium">Admin</span>
-            <form action="/api/auth/logout" method="POST">
-              <button className="text-sm text-gray-400 hover:text-gray-200">Sign Out</button>
-            </form>
-          </nav>
+    <>
+      {/* Overview Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+          <p className="text-xs tracking-wide text-gray-500 uppercase">Total Media</p>
+          <p className="mt-1 text-2xl font-bold">{totalMedia?.total || 0}</p>
         </div>
-      </header>
-      <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
-        {/* Overview Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-            <p className="text-xs tracking-wide text-gray-500 uppercase">Total Media</p>
-            <p className="mt-1 text-2xl font-bold">{totalMedia?.total || 0}</p>
-          </div>
-          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-            <p className="text-xs tracking-wide text-gray-500 uppercase">Users</p>
-            <p className="mt-1 text-2xl font-bold">{totalUsers?.total || 0}</p>
-          </div>
-          <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
-            <p className="text-xs tracking-wide text-gray-500 uppercase">Nominations</p>
-            <p className="mt-1 text-2xl font-bold text-red-400">{totalNominations?.total || 0}</p>
-          </div>
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+          <p className="text-xs tracking-wide text-gray-500 uppercase">Users</p>
+          <p className="mt-1 text-2xl font-bold">{totalUsers?.total || 0}</p>
         </div>
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
+          <p className="text-xs tracking-wide text-gray-500 uppercase">Nominations</p>
+          <p className="mt-1 text-2xl font-bold text-red-400">{totalNominations?.total || 0}</p>
+        </div>
+      </div>
 
-        {/* Sync */}
-        <SyncStatus lastSync={lastSync} />
-
-        {/* Auto Sync */}
-        <AutoSyncSettings initialSettings={syncScheduleSettings} />
-
-        {/* Users breakdown */}
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
-          <h3 className="mb-4 text-lg font-semibold">Users</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-800 text-left text-gray-400">
-                  <th className="pr-4 pb-3">Username</th>
-                  <th className="pr-4 pb-3">Active</th>
-                  <th className="pb-3">Total</th>
+      {/* Quick user breakdown */}
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-6">
+        <h3 className="mb-4 text-lg font-semibold">Users</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800 text-left text-gray-400">
+                <th className="pr-4 pb-3">Username</th>
+                <th className="pr-4 pb-3">Active</th>
+                <th className="pb-3">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800">
+              {userStats.map((u) => (
+                <tr key={u.plexId} className="text-gray-200">
+                  <td className="py-3 pr-4">
+                    <Link href={`/admin/users/${u.plexId}`} className="text-brand hover:underline">
+                      {u.username}
+                    </Link>
+                  </td>
+                  <td className="py-3 pr-4">{u.activeRequests}</td>
+                  <td className="py-3 text-gray-500">{u.totalRequests}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {userStats.map((u) => (
-                  <tr key={u.plexId} className="text-gray-200">
-                    <td className="py-3 pr-4">
-                      <a href={`/admin/users/${u.plexId}`} className="text-brand hover:underline">
-                        {u.username}
-                      </a>
-                    </td>
-                    <td className="py-3 pr-4">{u.activeRequests}</td>
-                    <td className="py-3 text-gray-500">{u.totalRequests}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        {/* Review Rounds */}
-        <div>
-          <h2 className="mb-4 text-lg font-semibold">Review Rounds</h2>
-          <ReviewRoundList />
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

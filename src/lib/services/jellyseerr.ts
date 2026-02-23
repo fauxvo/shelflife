@@ -112,14 +112,9 @@ class JellyseerrClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.JELLYSEERR_URL;
-    const key = process.env.JELLYSEERR_API_KEY;
-    if (!url || !key) {
-      throw new Error("JELLYSEERR_URL and JELLYSEERR_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -191,11 +186,6 @@ class JellyseerrClient {
   }
 }
 
-let client: JellyseerrClient | null = null;
-
-export function getJellyseerrClient(): JellyseerrClient {
-  if (!client) {
-    client = new JellyseerrClient();
-  }
-  return client;
+export function createJellyseerrClient(config: { url: string; apiKey: string }): JellyseerrClient {
+  return new JellyseerrClient(config);
 }

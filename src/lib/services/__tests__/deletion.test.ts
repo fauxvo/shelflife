@@ -4,26 +4,28 @@ import { createTestDb } from "@/test/helpers/db";
 // Declare testDb at module scope so the db mock getter can access it
 let testDb: ReturnType<typeof createTestDb>;
 
+const mockGetServiceConfig = vi.fn();
+const mockCreateRadarrClient = vi.fn();
+const mockCreateSonarrClient = vi.fn();
+
+vi.mock("@/lib/services/service-config", () => ({
+  getServiceConfig: (...args: unknown[]) => mockGetServiceConfig(...args),
+}));
+
 vi.mock("@/lib/services/radarr", () => ({
-  isRadarrConfigured: vi.fn(() => true),
-  getRadarrClient: vi.fn(() => ({
-    lookupByTmdbId: vi.fn(),
-    deleteMovie: vi.fn(),
-  })),
+  createRadarrClient: (...args: unknown[]) => mockCreateRadarrClient(...args),
 }));
 
 vi.mock("@/lib/services/sonarr", () => ({
-  isSonarrConfigured: vi.fn(() => true),
-  getSonarrClient: vi.fn(() => ({
-    lookupByTvdbId: vi.fn(),
-    deleteSeries: vi.fn(),
-  })),
+  createSonarrClient: (...args: unknown[]) => mockCreateSonarrClient(...args),
 }));
 
 vi.mock("@/lib/services/request-service", () => ({
-  getRequestServiceClient: vi.fn(() => ({
-    deleteMedia: vi.fn(),
-  })),
+  getRequestServiceClient: vi.fn(() =>
+    Promise.resolve({
+      deleteMedia: vi.fn(),
+    })
+  ),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -35,6 +37,11 @@ vi.mock("@/lib/db", () => ({
 beforeEach(() => {
   testDb = createTestDb();
   vi.restoreAllMocks();
+
+  // Reset mocks with defaults
+  mockGetServiceConfig.mockReset();
+  mockCreateRadarrClient.mockReset();
+  mockCreateSonarrClient.mockReset();
 
   // Seed test data: a user and media items
   const sqlite = (testDb.db as any).session.client;
@@ -50,22 +57,23 @@ beforeEach(() => {
 
 describe("executeMediaDeletion", () => {
   it("deletes movie via Radarr and Overseerr", async () => {
-    const { isRadarrConfigured, getRadarrClient } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    // Radarr configured, Sonarr not
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "radarr") return { url: "http://radarr:7878", apiKey: "key" };
+      return null;
+    });
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockResolvedValue({ id: 42 });
-    (mockRadarrClient.deleteMovie as any).mockResolvedValue(undefined);
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = {
+      lookupByTmdbId: vi.fn().mockResolvedValue({ id: 42 }),
+      deleteMovie: vi.fn().mockResolvedValue(undefined),
+    };
+    mockCreateRadarrClient.mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -92,22 +100,23 @@ describe("executeMediaDeletion", () => {
   });
 
   it("deletes TV via Sonarr and Overseerr", async () => {
-    const { isRadarrConfigured } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured, getSonarrClient } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(false);
-    (isSonarrConfigured as any).mockReturnValue(true);
+    // Sonarr configured, Radarr not
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "sonarr") return { url: "http://sonarr:8989", apiKey: "key" };
+      return null;
+    });
 
-    const mockSonarrClient = (getSonarrClient as any)();
-    (mockSonarrClient.lookupByTvdbId as any).mockResolvedValue({ id: 55 });
-    (mockSonarrClient.deleteSeries as any).mockResolvedValue(undefined);
-    (getSonarrClient as any).mockReturnValue(mockSonarrClient);
+    const mockSonarrClient = {
+      lookupByTvdbId: vi.fn().mockResolvedValue({ id: 55 }),
+      deleteSeries: vi.fn().mockResolvedValue(undefined),
+    };
+    mockCreateSonarrClient.mockReturnValue(mockSonarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 2,
@@ -128,23 +137,22 @@ describe("executeMediaDeletion", () => {
   });
 
   it("handles partial failure (Radarr fails, Overseerr succeeds)", async () => {
-    const { isRadarrConfigured, getRadarrClient } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "radarr") return { url: "http://radarr:7878", apiKey: "key" };
+      return null;
+    });
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockRejectedValue(
-      new Error("Radarr connection refused")
-    );
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = {
+      lookupByTmdbId: vi.fn().mockRejectedValue(new Error("Radarr connection refused")),
+      deleteMovie: vi.fn(),
+    };
+    mockCreateRadarrClient.mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -164,22 +172,22 @@ describe("executeMediaDeletion", () => {
   });
 
   it("handles item not found in external service as success", async () => {
-    const { isRadarrConfigured, getRadarrClient } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "radarr") return { url: "http://radarr:7878", apiKey: "key" };
+      return null;
+    });
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    // lookupByTmdbId returns null -- movie not in Radarr anymore
-    (mockRadarrClient.lookupByTmdbId as any).mockResolvedValue(null);
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = {
+      lookupByTmdbId: vi.fn().mockResolvedValue(null),
+      deleteMovie: vi.fn(),
+    };
+    mockCreateRadarrClient.mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 1,
@@ -193,17 +201,13 @@ describe("executeMediaDeletion", () => {
   });
 
   it("skips Sonarr when not configured", async () => {
-    const { isRadarrConfigured } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(false);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    mockGetServiceConfig.mockResolvedValue(null);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     const result = await executeMediaDeletion({
       mediaItemId: 2,
@@ -244,21 +248,22 @@ describe("executeMediaDeletion", () => {
   });
 
   it("writes deletion_log with errors", async () => {
-    const { isRadarrConfigured, getRadarrClient } = await import("@/lib/services/radarr");
-    const { isSonarrConfigured } = await import("@/lib/services/sonarr");
     const { getRequestServiceClient } = await import("@/lib/services/request-service");
     const { executeMediaDeletion } = await import("../deletion");
 
-    (isRadarrConfigured as any).mockReturnValue(true);
-    (isSonarrConfigured as any).mockReturnValue(false);
+    mockGetServiceConfig.mockImplementation(async (type: string) => {
+      if (type === "radarr") return { url: "http://radarr:7878", apiKey: "key" };
+      return null;
+    });
 
-    const mockRadarrClient = (getRadarrClient as any)();
-    (mockRadarrClient.lookupByTmdbId as any).mockRejectedValue(new Error("Radarr timeout"));
-    (getRadarrClient as any).mockReturnValue(mockRadarrClient);
+    const mockRadarrClient = {
+      lookupByTmdbId: vi.fn().mockRejectedValue(new Error("Radarr timeout")),
+      deleteMovie: vi.fn(),
+    };
+    mockCreateRadarrClient.mockReturnValue(mockRadarrClient);
 
-    const mockOverseerrClient = (getRequestServiceClient as any)();
-    (mockOverseerrClient.deleteMedia as any).mockResolvedValue(undefined);
-    (getRequestServiceClient as any).mockReturnValue(mockOverseerrClient);
+    const mockOverseerrClient = { deleteMedia: vi.fn().mockResolvedValue(undefined) };
+    (getRequestServiceClient as any).mockResolvedValue(mockOverseerrClient);
 
     await executeMediaDeletion({
       mediaItemId: 1,

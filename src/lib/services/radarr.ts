@@ -8,14 +8,9 @@ class RadarrClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.RADARR_URL;
-    const key = process.env.RADARR_API_KEY;
-    if (!url || !key) {
-      throw new Error("RADARR_URL and RADARR_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -51,15 +46,6 @@ class RadarrClient {
   }
 }
 
-export function isRadarrConfigured(): boolean {
-  return !!(process.env.RADARR_URL && process.env.RADARR_API_KEY);
-}
-
-let client: RadarrClient | null = null;
-
-export function getRadarrClient(): RadarrClient {
-  if (!client) {
-    client = new RadarrClient();
-  }
-  return client;
+export function createRadarrClient(config: { url: string; apiKey: string }): RadarrClient {
+  return new RadarrClient(config);
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { ProviderLabelProvider } from "@/lib/provider-context";
-import { getProviderLabel } from "@/lib/services/request-service";
+import { getProviderInfo } from "@/lib/services/request-service";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -14,25 +14,19 @@ export const metadata: Metadata = {
   description: "Manage your Plex library storage - vote to keep or prune requested content",
 };
 
-function resolveProviderLabel(): "Seerr" | "Overseerr" | "Jellyseerr" {
-  try {
-    return getProviderLabel();
-  } catch {
-    return "Overseerr";
-  }
-}
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const providerLabel = resolveProviderLabel();
+  const { label, url } = await getProviderInfo();
 
   return (
     <html lang="en" className={`dark ${manrope.variable}`}>
       <body className="min-h-screen bg-gray-950 text-gray-100 antialiased">
-        <ProviderLabelProvider label={providerLabel}>{children}</ProviderLabelProvider>
+        <ProviderLabelProvider label={label} url={url}>
+          {children}
+        </ProviderLabelProvider>
       </body>
     </html>
   );

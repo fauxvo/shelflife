@@ -1,33 +1,17 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { createSonarrClient } from "../sonarr";
 
 const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
+beforeEach(() => {
+  mockFetch.mockReset();
+});
 
 describe("SonarrClient", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.stubGlobal("fetch", mockFetch);
-    mockFetch.mockReset();
-    process.env.SONARR_URL = "http://localhost:8989";
-    process.env.SONARR_API_KEY = "test-sonarr-key";
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    delete process.env.SONARR_URL;
-    delete process.env.SONARR_API_KEY;
-  });
-
-  it("throws if SONARR_URL is not set", async () => {
-    delete process.env.SONARR_URL;
-    const { getSonarrClient } = await import("../sonarr");
-    expect(() => getSonarrClient()).toThrow("SONARR_URL and SONARR_API_KEY must be set");
-  });
-
-  it("throws if SONARR_API_KEY is not set", async () => {
-    delete process.env.SONARR_API_KEY;
-    const { getSonarrClient } = await import("../sonarr");
-    expect(() => getSonarrClient()).toThrow("SONARR_URL and SONARR_API_KEY must be set");
-  });
+  function makeClient() {
+    return createSonarrClient({ url: "http://localhost:8989", apiKey: "test-sonarr-key" });
+  }
 
   it("lookupByTvdbId returns series when found", async () => {
     mockFetch.mockResolvedValueOnce({
@@ -36,8 +20,7 @@ describe("SonarrClient", () => {
       json: () => Promise.resolve([{ id: 55, title: "Test Show" }]),
     });
 
-    const { getSonarrClient } = await import("../sonarr");
-    const client = getSonarrClient();
+    const client = makeClient();
     const result = await client.lookupByTvdbId(3000);
 
     expect(result).toEqual({ id: 55, title: "Test Show" });
@@ -56,8 +39,7 @@ describe("SonarrClient", () => {
       json: () => Promise.resolve([]),
     });
 
-    const { getSonarrClient } = await import("../sonarr");
-    const client = getSonarrClient();
+    const client = makeClient();
     const result = await client.lookupByTvdbId(9999);
 
     expect(result).toBeNull();
@@ -69,8 +51,7 @@ describe("SonarrClient", () => {
       headers: { get: () => null },
     });
 
-    const { getSonarrClient } = await import("../sonarr");
-    const client = getSonarrClient();
+    const client = makeClient();
     await client.deleteSeries(55, true);
 
     expect(mockFetch).toHaveBeenCalledWith(
@@ -89,34 +70,8 @@ describe("SonarrClient", () => {
       statusText: "Internal Server Error",
     });
 
-    const { getSonarrClient } = await import("../sonarr");
-    const client = getSonarrClient();
+    const client = makeClient();
 
     await expect(client.deleteSeries(55, true)).rejects.toThrow("Sonarr API error: 500");
-  });
-});
-
-describe("isSonarrConfigured", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  afterEach(() => {
-    delete process.env.SONARR_URL;
-    delete process.env.SONARR_API_KEY;
-  });
-
-  it("returns true when env vars set", async () => {
-    process.env.SONARR_URL = "http://localhost:8989";
-    process.env.SONARR_API_KEY = "test-sonarr-key";
-    const { isSonarrConfigured } = await import("../sonarr");
-    expect(isSonarrConfigured()).toBe(true);
-  });
-
-  it("returns false when env vars missing", async () => {
-    delete process.env.SONARR_URL;
-    delete process.env.SONARR_API_KEY;
-    const { isSonarrConfigured } = await import("../sonarr");
-    expect(isSonarrConfigured()).toBe(false);
   });
 });

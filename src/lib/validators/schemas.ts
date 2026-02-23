@@ -119,6 +119,23 @@ export const syncScheduleSchema = z.object({
   syncType: z.enum(["overseerr", "tautulli", "full"]).default("full"),
 });
 
+const serviceConfigValueSchema = z.object({
+  url: z.string().url(),
+  apiKey: z.string().min(1),
+});
+
+export const settingsUpdateSchema = z.object({
+  services: z
+    .record(
+      z.enum(["seerr", "overseerr", "jellyseerr", "tautulli", "sonarr", "radarr"]),
+      serviceConfigValueSchema.nullable()
+    )
+    .optional(),
+  activeProvider: z.enum(["auto", "seerr", "overseerr", "jellyseerr"]).optional(),
+});
+
+export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
+
 export type StatsQuery = z.infer<typeof statsQuerySchema>;
 export type VoteInput = z.infer<typeof voteSchema>;
 export type SyncRequest = z.infer<typeof syncRequestSchema>;

@@ -28,7 +28,7 @@ export async function GET(
       );
     }
 
-    const client = getRequestServiceClient();
+    const client = await getRequestServiceClient();
     const details = await client.getMediaDetails(id, parsed.data.type);
 
     return NextResponse.json({

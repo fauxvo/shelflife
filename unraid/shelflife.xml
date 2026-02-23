@@ -7,7 +7,7 @@
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support/>
-  <Overview>Manage your Plex library storage. Users log in via Plex to vote on keeping or deleting content they requested through Seerr, Overseerr, or Jellyseerr. Admin gets a dashboard showing what can be pruned.</Overview>
+  <Overview>Manage your Plex library storage. Users log in via Plex to vote on keeping or deleting content they requested through Seerr, Overseerr, or Jellyseerr. Admin gets a dashboard showing what can be pruned. Only SESSION_SECRET is required — all services can be configured in Admin > Settings after first login.</Overview>
   <Category>MediaServer:Other</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <TemplateURL/>
@@ -17,22 +17,19 @@
   <Description>Shelflife - Library storage management. Connect to Seerr, Overseerr, or Jellyseerr and Tautulli to let users vote on which requested content to keep or delete.</Description>
   <Config Name="Web UI Port" Target="3000" Default="3000" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">3000</Config>
   <Config Name="Data" Target="/app/data" Default="/mnt/user/appdata/shelflife" Mode="rw" Description="SQLite database and app data" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/shelflife</Config>
-  <Config Name="Seerr URL" Target="SEERR_URL" Default="http://192.168.1.x:5055" Mode="" Description="URL of your Seerr instance (recommended — the successor to Overseerr and Jellyseerr)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Seerr API Key" Target="SEERR_API_KEY" Default="" Mode="" Description="Seerr API key (Settings > General in Seerr)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="Seerr Public URL" Target="NEXT_PUBLIC_SEERR_URL" Default="" Mode="" Description="Public URL of your Seerr instance (for linking from the UI)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Overseerr URL" Target="OVERSEERR_URL" Default="http://192.168.1.x:5055" Mode="" Description="URL of your Overseerr instance (legacy fallback — used if Seerr is not configured)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Overseerr API Key" Target="OVERSEERR_API_KEY" Default="" Mode="" Description="Overseerr API key (Settings > General in Overseerr)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="Overseerr Public URL" Target="NEXT_PUBLIC_OVERSEERR_URL" Default="" Mode="" Description="Public URL of your Overseerr instance (legacy fallback for linking from the UI)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Jellyseerr URL" Target="JELLYSEERR_URL" Default="" Mode="" Description="URL of your Jellyseerr instance (legacy fallback — used if Seerr is not configured)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Jellyseerr API Key" Target="JELLYSEERR_API_KEY" Default="" Mode="" Description="Jellyseerr API key (Settings > General in Jellyseerr)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="Jellyseerr Public URL" Target="NEXT_PUBLIC_JELLYSEERR_URL" Default="" Mode="" Description="Public URL of your Jellyseerr instance (legacy fallback for linking from the UI)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Tautulli URL" Target="TAUTULLI_URL" Default="http://192.168.1.x:8181" Mode="" Description="URL of your Tautulli instance" Type="Variable" Display="always" Required="true" Mask="false">http://192.168.1.x:8181</Config>
-  <Config Name="Tautulli API Key" Target="TAUTULLI_API_KEY" Default="" Mode="" Description="Tautulli API key (Settings > Web Interface in Tautulli)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
-  <Config Name="Session Secret" Target="SESSION_SECRET" Default="" Mode="" Description="Random string for JWT signing (minimum 32 characters)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
-  <Config Name="Sonarr URL" Target="SONARR_URL" Default="" Mode="" Description="URL of your Sonarr instance (optional - enables TV show deletion from admin)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Sonarr API Key" Target="SONARR_API_KEY" Default="" Mode="" Description="Sonarr API key (Settings > General in Sonarr)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="Radarr URL" Target="RADARR_URL" Default="" Mode="" Description="URL of your Radarr instance (optional - enables movie deletion from admin)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="Radarr API Key" Target="RADARR_API_KEY" Default="" Mode="" Description="Radarr API key (Settings > General in Radarr)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Session Secret" Target="SESSION_SECRET" Default="" Mode="" Description="Random string for JWT signing (minimum 32 characters). Generate with: openssl rand -hex 32" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Seerr URL" Target="SEERR_URL" Default="" Mode="" Description="URL of your Seerr instance (optional — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Seerr API Key" Target="SEERR_API_KEY" Default="" Mode="" Description="Seerr API key (optional — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Overseerr URL" Target="OVERSEERR_URL" Default="" Mode="" Description="URL of your Overseerr instance (legacy fallback — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Overseerr API Key" Target="OVERSEERR_API_KEY" Default="" Mode="" Description="Overseerr API key (legacy fallback — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Jellyseerr URL" Target="JELLYSEERR_URL" Default="" Mode="" Description="URL of your Jellyseerr instance (legacy fallback — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Jellyseerr API Key" Target="JELLYSEERR_API_KEY" Default="" Mode="" Description="Jellyseerr API key (legacy fallback — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Tautulli URL" Target="TAUTULLI_URL" Default="" Mode="" Description="URL of your Tautulli instance (optional — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Tautulli API Key" Target="TAUTULLI_API_KEY" Default="" Mode="" Description="Tautulli API key (optional — can also be configured in Admin > Settings)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Sonarr URL" Target="SONARR_URL" Default="" Mode="" Description="URL of your Sonarr instance (optional — enables TV show deletion from admin)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Sonarr API Key" Target="SONARR_API_KEY" Default="" Mode="" Description="Sonarr API key (optional)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Radarr URL" Target="RADARR_URL" Default="" Mode="" Description="URL of your Radarr instance (optional — enables movie deletion from admin)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Radarr API Key" Target="RADARR_API_KEY" Default="" Mode="" Description="Radarr API key (optional)" Type="Variable" Display="always" Required="false" Mask="true"></Config>
   <Config Name="Plex Client ID" Target="PLEX_CLIENT_ID" Default="shelflife" Mode="" Description="Unique client identifier for Plex auth (keep default unless running multiple instances)" Type="Variable" Display="advanced" Required="false" Mask="false">shelflife</Config>
   <Config Name="Admin Plex ID" Target="ADMIN_PLEX_ID" Default="" Mode="" Description="Force a specific Plex user ID as admin (optional - first user to sign in becomes admin if unset)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="Database Path" Target="DATABASE_PATH" Default="/app/data/shelflife.db" Mode="" Description="Path to SQLite database inside container" Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/shelflife.db</Config>

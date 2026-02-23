@@ -112,14 +112,9 @@ class OverseerrClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.OVERSEERR_URL;
-    const key = process.env.OVERSEERR_API_KEY;
-    if (!url || !key) {
-      throw new Error("OVERSEERR_URL and OVERSEERR_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -191,11 +186,6 @@ class OverseerrClient {
   }
 }
 
-let client: OverseerrClient | null = null;
-
-export function getOverseerrClient(): OverseerrClient {
-  if (!client) {
-    client = new OverseerrClient();
-  }
-  return client;
+export function createOverseerrClient(config: { url: string; apiKey: string }): OverseerrClient {
+  return new OverseerrClient(config);
 }
