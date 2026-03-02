@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.13.0
+
+### Minor Changes
+
+- [#71](https://github.com/fauxvo/shelflife/pull/71) [`c14bde4`](https://github.com/fauxvo/shelflife/commit/c14bde40e8b7b4aae4cf8a110a936a29981c4c51) Thanks [@fauxvo](https://github.com/fauxvo)! - Add Tracearr as an alternative stats provider alongside Tautulli with active provider selector
+
+- [#68](https://github.com/fauxvo/shelflife/pull/68) [`3e92800`](https://github.com/fauxvo/shelflife/commit/3e928003d10cac0a125dd5db5e6cda07d875ce51) Thanks [@fauxvo](https://github.com/fauxvo)! - Add DB-backed service configuration with admin settings UI
+  - Multi-page admin section with shared layout and tab navigation (Overview, Settings, Sync, Users, Reviews)
+  - Service URLs and API keys stored in DB (`app_settings` table) with env var fallback
+  - Settings UI with service cards, connection testing, and request provider selection
+  - Refactored all service clients to accept explicit config params
+  - Only `SESSION_SECRET` is required — everything else can be configured through the admin UI
+
+- [#65](https://github.com/fauxvo/shelflife/pull/65) [`2d3cf4a`](https://github.com/fauxvo/shelflife/commit/2d3cf4ae57350c8699c5d908347fe2c48a22e659) Thanks [@fauxvo](https://github.com/fauxvo)! - Add Seerr support as the primary request service, with Overseerr and Jellyseerr as legacy fallbacks. Auto-detects the active provider from env vars (Seerr > Overseerr > Jellyseerr) and dynamically reflects the provider name in all UI labels.
+
 ## 1.12.0
 
 ### Minor Changes
