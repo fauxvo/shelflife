@@ -56,14 +56,9 @@ class TautulliClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.TAUTULLI_URL;
-    const key = process.env.TAUTULLI_API_KEY;
-    if (!url || !key) {
-      throw new Error("TAUTULLI_URL and TAUTULLI_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(cmd: string, params: Record<string, string> = {}) {
@@ -151,7 +146,6 @@ class TautulliClient {
     const allItems: z.infer<typeof tautulliLibraryMediaSchema>[] = [];
     let start = 0;
 
-     
     while (true) {
       const data = await this.fetch("get_library_media_info", {
         section_id: sectionId,
@@ -189,11 +183,6 @@ class TautulliClient {
   }
 }
 
-let client: TautulliClient | null = null;
-
-export function getTautulliClient(): TautulliClient {
-  if (!client) {
-    client = new TautulliClient();
-  }
-  return client;
+export function createTautulliClient(config: { url: string; apiKey: string }): TautulliClient {
+  return new TautulliClient(config);
 }

@@ -1,8 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapMediaStatus } from "../seerr";
-
-// We need to test both mapMediaStatus and SeerrClient.
-// SeerrClient uses a module-level singleton, so we need to reset it between tests.
+import { mapMediaStatus, createSeerrClient } from "../seerr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -50,28 +47,9 @@ describe("mapMediaStatus (seerr)", () => {
 });
 
 describe("SeerrClient", () => {
-  // Reset the module-level singleton between tests
-  let getSeerrClient: () => any;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    const mod = await import("../seerr");
-    getSeerrClient = mod.getSeerrClient;
-  });
-
-  it("throws without env vars", async () => {
-    const origUrl = process.env.SEERR_URL;
-    const origKey = process.env.SEERR_API_KEY;
-    delete process.env.SEERR_URL;
-    delete process.env.SEERR_API_KEY;
-
-    vi.resetModules();
-    const mod = await import("../seerr");
-    expect(() => mod.getSeerrClient()).toThrow("SEERR_URL and SEERR_API_KEY must be set");
-
-    process.env.SEERR_URL = origUrl;
-    process.env.SEERR_API_KEY = origKey;
-  });
+  function makeClient() {
+    return createSeerrClient({ url: "http://seerr:5055", apiKey: "test-key" });
+  }
 
   it("getRequests returns parsed page with pagination", async () => {
     mockFetch.mockResolvedValueOnce({
@@ -94,7 +72,7 @@ describe("SeerrClient", () => {
         }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     const result = await client.getRequests();
     expect(result.pageInfo.results).toBe(1);
     expect(result.results).toHaveLength(1);
@@ -115,13 +93,12 @@ describe("SeerrClient", () => {
         }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     const results = await client.getAllRequests();
     expect(results).toHaveLength(2);
   });
 
   it("getAllRequests paginates multiple pages", async () => {
-    // Page 1: 50 results out of 75 total
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
@@ -137,7 +114,6 @@ describe("SeerrClient", () => {
           })),
         }),
     });
-    // Page 2: remaining 25
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
@@ -154,7 +130,7 @@ describe("SeerrClient", () => {
         }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     const results = await client.getAllRequests();
     expect(results).toHaveLength(75);
   });
@@ -171,7 +147,7 @@ describe("SeerrClient", () => {
         }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     const details = await client.getMediaDetails(100, "movie");
     expect(details.title).toBe("Test Movie");
     expect(mockFetch).toHaveBeenCalledWith(
@@ -191,7 +167,7 @@ describe("SeerrClient", () => {
         }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     const details = await client.getMediaDetails(200, "tv");
     expect(details.name).toBe("Test Show");
     expect(mockFetch).toHaveBeenCalledWith(
@@ -207,7 +183,7 @@ describe("SeerrClient", () => {
       statusText: "Internal Server Error",
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow("Seerr API error: 500");
   });
 
@@ -218,7 +194,7 @@ describe("SeerrClient", () => {
       json: () => Promise.resolve({ totally: "wrong" }),
     });
 
-    const client = getSeerrClient();
+    const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow();
   });
 });

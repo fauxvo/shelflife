@@ -8,14 +8,9 @@ class SonarrClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.SONARR_URL;
-    const key = process.env.SONARR_API_KEY;
-    if (!url || !key) {
-      throw new Error("SONARR_URL and SONARR_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -51,15 +46,6 @@ class SonarrClient {
   }
 }
 
-export function isSonarrConfigured(): boolean {
-  return !!(process.env.SONARR_URL && process.env.SONARR_API_KEY);
-}
-
-let client: SonarrClient | null = null;
-
-export function getSonarrClient(): SonarrClient {
-  if (!client) {
-    client = new SonarrClient();
-  }
-  return client;
+export function createSonarrClient(config: { url: string; apiKey: string }): SonarrClient {
+  return new SonarrClient(config);
 }

@@ -4,18 +4,29 @@ import { createContext, useContext } from "react";
 
 type ProviderLabel = "Seerr" | "Overseerr" | "Jellyseerr";
 
-const ProviderLabelContext = createContext<ProviderLabel>("Overseerr");
+interface ProviderContextValue {
+  label: ProviderLabel;
+  url?: string;
+}
+
+const ProviderContext = createContext<ProviderContextValue>({ label: "Overseerr" });
 
 export function ProviderLabelProvider({
   label,
+  url,
   children,
 }: {
   label: ProviderLabel;
+  url?: string;
   children: React.ReactNode;
 }) {
-  return <ProviderLabelContext.Provider value={label}>{children}</ProviderLabelContext.Provider>;
+  return <ProviderContext.Provider value={{ label, url }}>{children}</ProviderContext.Provider>;
 }
 
 export function useProviderLabel(): ProviderLabel {
-  return useContext(ProviderLabelContext);
+  return useContext(ProviderContext).label;
+}
+
+export function useProviderUrl(): string | undefined {
+  return useContext(ProviderContext).url;
 }

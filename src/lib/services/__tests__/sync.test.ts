@@ -29,12 +29,13 @@ vi.mock("../overseerr", () => ({
 }));
 
 vi.mock("../request-service", () => ({
-  getRequestServiceClient: () => ({
-    getAllRequests: mockGetAllRequests,
-    getMediaDetails: mockGetMediaDetails,
-    getUsers: mockGetOverseerrUsers,
-  }),
-  getProviderLabel: () => "Overseerr",
+  getRequestServiceClient: () =>
+    Promise.resolve({
+      getAllRequests: mockGetAllRequests,
+      getMediaDetails: mockGetMediaDetails,
+      getUsers: mockGetOverseerrUsers,
+    }),
+  getProviderLabel: () => Promise.resolve("Overseerr"),
 }));
 
 const mockGetHistory = vi.fn();
@@ -44,8 +45,14 @@ const mockGetLibraries = vi.fn();
 const mockGetLibraryMediaInfo = vi.fn();
 const mockGetServerInfo = vi.fn();
 
+vi.mock("../service-config", () => ({
+  getServiceConfig: vi.fn(() =>
+    Promise.resolve({ url: "http://tautulli:8181", apiKey: "test-key" })
+  ),
+}));
+
 vi.mock("../tautulli", () => ({
-  getTautulliClient: () => ({
+  createTautulliClient: () => ({
     getHistory: mockGetHistory,
     getUsers: mockGetTautulliUsers,
     getWatchStatusForItem: vi.fn(),

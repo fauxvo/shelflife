@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapMediaStatus } from "../jellyseerr";
+import { mapMediaStatus, createJellyseerrClient } from "../jellyseerr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -23,29 +23,9 @@ describe("mapMediaStatus (jellyseerr)", () => {
 });
 
 describe("JellyseerrClient", () => {
-  let getJellyseerrClient: () => any;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    const mod = await import("../jellyseerr");
-    getJellyseerrClient = mod.getJellyseerrClient;
-  });
-
-  it("throws without env vars", async () => {
-    const origUrl = process.env.JELLYSEERR_URL;
-    const origKey = process.env.JELLYSEERR_API_KEY;
-    delete process.env.JELLYSEERR_URL;
-    delete process.env.JELLYSEERR_API_KEY;
-
-    vi.resetModules();
-    const mod = await import("../jellyseerr");
-    expect(() => mod.getJellyseerrClient()).toThrow(
-      "JELLYSEERR_URL and JELLYSEERR_API_KEY must be set"
-    );
-
-    process.env.JELLYSEERR_URL = origUrl;
-    process.env.JELLYSEERR_API_KEY = origKey;
-  });
+  function makeClient() {
+    return createJellyseerrClient({ url: "http://jellyseerr:5055", apiKey: "test-key" });
+  }
 
   it("getRequests returns parsed page with pagination", async () => {
     mockFetch.mockResolvedValueOnce({
@@ -68,7 +48,7 @@ describe("JellyseerrClient", () => {
         }),
     });
 
-    const client = getJellyseerrClient();
+    const client = makeClient();
     const result = await client.getRequests();
     expect(result.pageInfo.results).toBe(1);
     expect(result.results).toHaveLength(1);
@@ -81,7 +61,7 @@ describe("JellyseerrClient", () => {
       statusText: "Internal Server Error",
     });
 
-    const client = getJellyseerrClient();
+    const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow("Jellyseerr API error: 500");
   });
 });

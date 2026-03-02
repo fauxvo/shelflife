@@ -1,8 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mapMediaStatus } from "../overseerr";
-
-// We need to test both mapMediaStatus and OverseerrClient.
-// OverseerrClient uses a module-level singleton, so we need to reset it between tests.
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mapMediaStatus, createOverseerrClient } from "../overseerr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -15,65 +12,36 @@ describe("mapMediaStatus", () => {
   it("maps 1 to 'unknown'", () => {
     expect(mapMediaStatus(1)).toBe("unknown");
   });
-
   it("maps 2 to 'pending'", () => {
     expect(mapMediaStatus(2)).toBe("pending");
   });
-
   it("maps 3 to 'processing'", () => {
     expect(mapMediaStatus(3)).toBe("processing");
   });
-
   it("maps 4 to 'partial'", () => {
     expect(mapMediaStatus(4)).toBe("partial");
   });
-
   it("maps 5 to 'available'", () => {
     expect(mapMediaStatus(5)).toBe("available");
   });
-
   it("returns 'unknown' for null", () => {
     expect(mapMediaStatus(null)).toBe("unknown");
   });
-
   it("returns 'unknown' for undefined", () => {
     expect(mapMediaStatus(undefined)).toBe("unknown");
   });
-
   it("returns 'unknown' for 0", () => {
     expect(mapMediaStatus(0)).toBe("unknown");
   });
-
   it("returns 'unknown' for unmapped values", () => {
     expect(mapMediaStatus(99)).toBe("unknown");
   });
 });
 
 describe("OverseerrClient", () => {
-  // Reset the module-level singleton between tests
-  let getOverseerrClient: () => any;
-
-  beforeEach(async () => {
-    vi.resetModules();
-    const mod = await import("../overseerr");
-    getOverseerrClient = mod.getOverseerrClient;
-  });
-
-  it("throws without env vars", async () => {
-    const origUrl = process.env.OVERSEERR_URL;
-    const origKey = process.env.OVERSEERR_API_KEY;
-    delete process.env.OVERSEERR_URL;
-    delete process.env.OVERSEERR_API_KEY;
-
-    vi.resetModules();
-    const mod = await import("../overseerr");
-    expect(() => mod.getOverseerrClient()).toThrow(
-      "OVERSEERR_URL and OVERSEERR_API_KEY must be set"
-    );
-
-    process.env.OVERSEERR_URL = origUrl;
-    process.env.OVERSEERR_API_KEY = origKey;
-  });
+  function makeClient() {
+    return createOverseerrClient({ url: "http://overseerr:5055", apiKey: "test-key" });
+  }
 
   it("getRequests returns parsed page with pagination", async () => {
     mockFetch.mockResolvedValueOnce({
@@ -96,7 +64,7 @@ describe("OverseerrClient", () => {
         }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const result = await client.getRequests();
     expect(result.pageInfo.results).toBe(1);
     expect(result.results).toHaveLength(1);
@@ -117,13 +85,12 @@ describe("OverseerrClient", () => {
         }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const results = await client.getAllRequests();
     expect(results).toHaveLength(2);
   });
 
   it("getAllRequests paginates multiple pages", async () => {
-    // Page 1: 50 results out of 75 total
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
@@ -139,7 +106,6 @@ describe("OverseerrClient", () => {
           })),
         }),
     });
-    // Page 2: remaining 25
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
@@ -156,7 +122,7 @@ describe("OverseerrClient", () => {
         }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const results = await client.getAllRequests();
     expect(results).toHaveLength(75);
   });
@@ -165,15 +131,10 @@ describe("OverseerrClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
-      json: () =>
-        Promise.resolve({
-          id: 100,
-          title: "Test Movie",
-          posterPath: "/poster.jpg",
-        }),
+      json: () => Promise.resolve({ id: 100, title: "Test Movie", posterPath: "/poster.jpg" }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const details = await client.getMediaDetails(100, "movie");
     expect(details.title).toBe("Test Movie");
     expect(mockFetch).toHaveBeenCalledWith(
@@ -186,14 +147,10 @@ describe("OverseerrClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
-      json: () =>
-        Promise.resolve({
-          id: 200,
-          name: "Test Show",
-        }),
+      json: () => Promise.resolve({ id: 200, name: "Test Show" }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const details = await client.getMediaDetails(200, "tv");
     expect(details.name).toBe("Test Show");
     expect(mockFetch).toHaveBeenCalledWith(
@@ -206,15 +163,10 @@ describe("OverseerrClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
-      json: () =>
-        Promise.resolve({
-          id: 300,
-          name: "Big Brother",
-          numberOfSeasons: 25,
-        }),
+      json: () => Promise.resolve({ id: 300, name: "Big Brother", numberOfSeasons: 25 }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const details = await client.getMediaDetails(300, "tv");
     expect(details.numberOfSeasons).toBe(25);
   });
@@ -226,10 +178,7 @@ describe("OverseerrClient", () => {
       json: () =>
         Promise.resolve({
           pageInfo: { pages: 2, pageSize: 50, results: 75, page: 1 },
-          results: Array.from({ length: 50 }, (_, i) => ({
-            id: i + 1,
-            username: `user${i + 1}`,
-          })),
+          results: Array.from({ length: 50 }, (_, i) => ({ id: i + 1, username: `user${i + 1}` })),
         }),
     });
     mockFetch.mockResolvedValueOnce({
@@ -245,7 +194,7 @@ describe("OverseerrClient", () => {
         }),
     });
 
-    const client = getOverseerrClient();
+    const client = makeClient();
     const users = await client.getUsers();
     expect(users).toHaveLength(75);
   });
@@ -256,8 +205,7 @@ describe("OverseerrClient", () => {
       status: 500,
       statusText: "Internal Server Error",
     });
-
-    const client = getOverseerrClient();
+    const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow("Overseerr API error: 500");
   });
 
@@ -267,8 +215,7 @@ describe("OverseerrClient", () => {
       headers: { get: () => "application/json" },
       json: () => Promise.resolve({ totally: "wrong" }),
     });
-
-    const client = getOverseerrClient();
+    const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow();
   });
 });

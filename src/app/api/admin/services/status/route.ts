@@ -5,7 +5,7 @@ import { getDeletionServiceStatus } from "@/lib/services/deletion";
 export async function GET() {
   try {
     await requireAdmin();
-    return NextResponse.json(getDeletionServiceStatus());
+    return NextResponse.json(await getDeletionServiceStatus());
   } catch (error) {
     return handleAuthError(error);
   }

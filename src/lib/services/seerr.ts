@@ -112,14 +112,9 @@ class SeerrClient {
   private baseUrl: string;
   private apiKey: string;
 
-  constructor() {
-    const url = process.env.SEERR_URL;
-    const key = process.env.SEERR_API_KEY;
-    if (!url || !key) {
-      throw new Error("SEERR_URL and SEERR_API_KEY must be set");
-    }
-    this.baseUrl = url.replace(/\/$/, "");
-    this.apiKey = key;
+  constructor(config: { url: string; apiKey: string }) {
+    this.baseUrl = config.url.replace(/\/$/, "");
+    this.apiKey = config.apiKey;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -191,11 +186,6 @@ class SeerrClient {
   }
 }
 
-let client: SeerrClient | null = null;
-
-export function getSeerrClient(): SeerrClient {
-  if (!client) {
-    client = new SeerrClient();
-  }
-  return client;
+export function createSeerrClient(config: { url: string; apiKey: string }): SeerrClient {
+  return new SeerrClient(config);
 }
