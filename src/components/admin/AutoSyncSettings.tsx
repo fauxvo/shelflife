@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { Toast, type ToastData } from "@/components/ui/Toast";
-import { useProviderLabel } from "@/lib/provider-context";
+import {
+  useProviderLabel,
+  useStatsProviderLabel,
+  useStatsProviderId,
+} from "@/lib/provider-context";
 
 interface AutoSyncSettingsProps {
   initialSettings: {
     enabled: boolean;
     schedule: string;
-    syncType: "overseerr" | "tautulli" | "full";
+    syncType: "overseerr" | "tautulli" | "tracearr" | "full";
   };
 }
 
@@ -27,10 +31,12 @@ function getPresetForSchedule(schedule: string): string {
 
 export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
   const providerLabel = useProviderLabel();
+  const statsLabel = useStatsProviderLabel();
+  const statsProviderId = useStatsProviderId();
   const syncTypes = [
     { label: "Full", value: "full" },
     { label: `${providerLabel} Only`, value: "overseerr" },
-    { label: "Tautulli Only", value: "tautulli" },
+    { label: `${statsLabel} Only`, value: statsProviderId },
   ];
   const [enabled, setEnabled] = useState(initialSettings.enabled);
   const [schedule, setSchedule] = useState(initialSettings.schedule);

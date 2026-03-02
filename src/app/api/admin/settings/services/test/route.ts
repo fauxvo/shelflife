@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
-import { SERVICE_TYPES, type ServiceType } from "@/lib/services/service-config";
+import { SERVICE_TYPES, getServiceConfig, type ServiceType } from "@/lib/services/service-config";
 
 const VALID_SERVICE_TYPES = new Set<string>(SERVICE_TYPES);
 
@@ -33,6 +33,9 @@ async function testConnection(
       u.searchParams.set("apikey", apiKey);
       u.searchParams.set("cmd", "arnold");
       testUrl = u.toString();
+    } else if (type === "tracearr") {
+      testUrl = `${baseUrl}/api/v1/public/health`;
+      headers["Authorization"] = `Bearer ${apiKey}`;
     } else if (type === "sonarr" || type === "radarr") {
       testUrl = `${baseUrl}/api/v3/system/status`;
       headers["X-Api-Key"] = apiKey;
@@ -72,19 +75,37 @@ export async function POST(request: NextRequest) {
     await requireAdmin();
 
     const body = await request.json();
-    const { type, url, apiKey } = body;
+    const { type, url, apiKey, useStored } = body;
 
     if (!type || !VALID_SERVICE_TYPES.has(type)) {
       return NextResponse.json({ error: "Invalid service type" }, { status: 400 });
     }
 
-    if (!url || typeof url !== "string") {
+    // Resolve the actual URL and API key — use stored config when requested
+    let resolvedUrl = url;
+    let resolvedApiKey = apiKey;
+
+    if (useStored) {
+      const stored = await getServiceConfig(type as ServiceType);
+      if (!stored) {
+        return NextResponse.json(
+          { success: false, message: "No stored configuration found for this service" },
+          { status: 400 }
+        );
+      }
+      // Always use the stored URL when using stored credentials to prevent
+      // exfiltrating the API key to an attacker-controlled URL
+      resolvedUrl = stored.url;
+      resolvedApiKey = stored.apiKey;
+    }
+
+    if (!resolvedUrl || typeof resolvedUrl !== "string") {
       return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
     // Validate URL scheme and hostname to prevent SSRF
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(resolvedUrl);
       if (!["http:", "https:"].includes(parsed.protocol)) {
         return NextResponse.json({ error: "URL must use http:// or https://" }, { status: 400 });
       }
@@ -95,11 +116,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
     }
 
-    if (!apiKey || typeof apiKey !== "string") {
+    if (!resolvedApiKey || typeof resolvedApiKey !== "string") {
       return NextResponse.json({ error: "API key is required" }, { status: 400 });
     }
 
-    const result = await testConnection(type as ServiceType, url, apiKey);
+    const result = await testConnection(type as ServiceType, resolvedUrl, resolvedApiKey);
     return NextResponse.json(result);
   } catch (error) {
     return handleAuthError(error);

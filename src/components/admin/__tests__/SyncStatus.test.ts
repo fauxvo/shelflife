@@ -30,6 +30,16 @@ describe("formatSyncResult", () => {
     );
   });
 
+  it("formats tracearr-only sync", () => {
+    expect(formatSyncResult({ tracearr: 15 })).toBe("Synced 15 watch records");
+  });
+
+  it("formats full sync with overseerr and tracearr", () => {
+    expect(formatSyncResult({ overseerr: 50, tracearr: 10 })).toBe(
+      "Synced 50 media items and 10 watch records"
+    );
+  });
+
   it("returns fallback for empty result", () => {
     expect(formatSyncResult({})).toBe("Sync complete");
   });

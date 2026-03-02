@@ -5,6 +5,7 @@ import {
   getAllServiceConfigs,
   getServiceConfig,
   getActiveRequestProvider,
+  getActiveStatsProvider,
   getClientGeneration,
 } from "./service-config";
 
@@ -176,4 +177,68 @@ export async function getProviderLabel(): Promise<"Seerr" | "Overseerr" | "Jelly
  */
 export async function getProviderUrl(): Promise<string | undefined> {
   return (await getProviderInfo()).url;
+}
+
+export type StatsProvider = "tautulli" | "tracearr";
+
+// Cached stats provider info
+let cachedStatsProviderInfo: {
+  label: "Tautulli" | "Tracearr";
+  id: "tautulli" | "tracearr";
+} | null = null;
+let statsProviderInfoCachedAt = 0;
+let statsProviderInfoGeneration = -1;
+
+/**
+ * Returns the label and machine identifier for the active stats provider.
+ * Uses same TTL cache pattern as getProviderInfo().
+ */
+export async function getStatsProviderInfo(): Promise<{
+  label: "Tautulli" | "Tracearr";
+  id: "tautulli" | "tracearr";
+}> {
+  const generation = getClientGeneration();
+  const now = Date.now();
+  if (
+    cachedStatsProviderInfo &&
+    statsProviderInfoGeneration === generation &&
+    now - statsProviderInfoCachedAt < PROVIDER_INFO_TTL_MS
+  ) {
+    return cachedStatsProviderInfo;
+  }
+
+  try {
+    const setting = await getActiveStatsProvider();
+
+    if (setting === "tracearr") {
+      const config = await getServiceConfig("tracearr");
+      if (config) {
+        cachedStatsProviderInfo = { label: "Tracearr", id: "tracearr" };
+        statsProviderInfoCachedAt = now;
+        statsProviderInfoGeneration = generation;
+        return cachedStatsProviderInfo;
+      }
+    } else if (setting === "tautulli") {
+      cachedStatsProviderInfo = { label: "Tautulli", id: "tautulli" };
+      statsProviderInfoCachedAt = now;
+      statsProviderInfoGeneration = generation;
+      return cachedStatsProviderInfo;
+    }
+
+    // Auto-detect: Tautulli first, then Tracearr
+    const configs = await getAllServiceConfigs();
+    if (configs.tautulli) {
+      cachedStatsProviderInfo = { label: "Tautulli", id: "tautulli" };
+    } else if (configs.tracearr) {
+      cachedStatsProviderInfo = { label: "Tracearr", id: "tracearr" };
+    } else {
+      cachedStatsProviderInfo = { label: "Tautulli", id: "tautulli" }; // default fallback
+    }
+  } catch {
+    cachedStatsProviderInfo = { label: "Tautulli", id: "tautulli" };
+  }
+
+  statsProviderInfoCachedAt = now;
+  statsProviderInfoGeneration = generation;
+  return cachedStatsProviderInfo;
 }

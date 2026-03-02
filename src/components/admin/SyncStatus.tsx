@@ -3,7 +3,11 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Toast, type ToastData } from "@/components/ui/Toast";
-import { useProviderLabel } from "@/lib/provider-context";
+import {
+  useProviderLabel,
+  useStatsProviderLabel,
+  useStatsProviderId,
+} from "@/lib/provider-context";
 
 interface SyncStatusProps {
   lastSync?: {
@@ -25,6 +29,7 @@ interface ProgressState {
 interface SyncResult {
   overseerr?: number;
   tautulli?: number;
+  tracearr?: number;
 }
 
 export function formatSyncResult(synced: SyncResult): string {
@@ -32,22 +37,25 @@ export function formatSyncResult(synced: SyncResult): string {
   if (synced.overseerr != null) {
     parts.push(`${synced.overseerr} media item${synced.overseerr !== 1 ? "s" : ""}`);
   }
-  if (synced.tautulli != null) {
-    parts.push(`${synced.tautulli} watch record${synced.tautulli !== 1 ? "s" : ""}`);
+  const watchRecords = synced.tautulli ?? synced.tracearr;
+  if (watchRecords != null) {
+    parts.push(`${watchRecords} watch record${watchRecords !== 1 ? "s" : ""}`);
   }
   if (parts.length === 0) return "Sync complete";
   return `Synced ${parts.join(" and ")}`;
 }
 
-function formatSyncType(syncType: string, providerLabel: string): string {
+function formatSyncType(syncType: string, providerLabel: string, statsLabel: string): string {
   if (syncType === "overseerr") return providerLabel;
-  if (syncType === "tautulli") return "Tautulli";
+  if (syncType === "tautulli" || syncType === "tracearr") return statsLabel;
   if (syncType === "full") return "Full";
   return syncType;
 }
 
 export function SyncStatus({ lastSync }: SyncStatusProps) {
   const providerLabel = useProviderLabel();
+  const statsLabel = useStatsProviderLabel();
+  const statsProviderId = useStatsProviderId();
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -146,7 +154,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           <p>
             Last sync:{" "}
             <span className="text-gray-200">
-              {formatSyncType(lastSync.syncType, providerLabel)}
+              {formatSyncType(lastSync.syncType, providerLabel, statsLabel)}
             </span>{" "}
             -{" "}
             <span className={lastSync.status === "completed" ? "text-green-400" : "text-red-400"}>
@@ -171,7 +179,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
                   : "bg-purple-900/50 text-purple-300"
               }`}
             >
-              {progress.phase === "overseerr" ? providerLabel : "Tautulli"}
+              {progress.phase === "overseerr" ? providerLabel : statsLabel}
             </span>
             <span className="text-sm text-gray-300">{progress.step}</span>
           </div>
@@ -244,10 +252,10 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
               {providerLabel} Only
             </button>
             <button
-              onClick={() => triggerSync("tautulli")}
+              onClick={() => triggerSync(statsProviderId)}
               className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
             >
-              Tautulli Only
+              {statsLabel} Only
             </button>
           </>
         )}

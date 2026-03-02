@@ -17,7 +17,7 @@ export const statsQuerySchema = z.object({
 });
 
 export const syncRequestSchema = z.object({
-  type: z.enum(["overseerr", "tautulli", "full"]).default("full"),
+  type: z.enum(["overseerr", "tautulli", "tracearr", "full"]).default("full"),
 });
 
 export const mediaQuerySchema = z.object({
@@ -116,7 +116,7 @@ export const mediaDetailsQuerySchema = z.object({
 export const syncScheduleSchema = z.object({
   enabled: z.boolean(),
   schedule: z.string().min(1),
-  syncType: z.enum(["overseerr", "tautulli", "full"]).default("full"),
+  syncType: z.enum(["overseerr", "tautulli", "tracearr", "full"]).default("full"),
 });
 
 const serviceConfigValueSchema = z.object({
@@ -127,11 +127,12 @@ const serviceConfigValueSchema = z.object({
 export const settingsUpdateSchema = z.object({
   services: z
     .record(
-      z.enum(["seerr", "overseerr", "jellyseerr", "tautulli", "sonarr", "radarr"]),
+      z.enum(["seerr", "overseerr", "jellyseerr", "tautulli", "tracearr", "sonarr", "radarr"]),
       serviceConfigValueSchema.nullable()
     )
     .optional(),
   activeProvider: z.enum(["auto", "seerr", "overseerr", "jellyseerr"]).optional(),
+  activeStatsProvider: z.enum(["auto", "tautulli", "tracearr"]).optional(),
 });
 
 export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;

@@ -36,6 +36,7 @@ vi.mock("../request-service", () => ({
       getUsers: mockGetOverseerrUsers,
     }),
   getProviderLabel: () => Promise.resolve("Overseerr"),
+  getActiveProvider: () => Promise.resolve("overseerr"),
 }));
 
 const mockGetHistory = vi.fn();
@@ -45,10 +46,22 @@ const mockGetLibraries = vi.fn();
 const mockGetLibraryMediaInfo = vi.fn();
 const mockGetServerInfo = vi.fn();
 
+const mockGetAllTracearrHistory = vi.fn();
+
 vi.mock("../service-config", () => ({
-  getServiceConfig: vi.fn(() =>
-    Promise.resolve({ url: "http://tautulli:8181", apiKey: "test-key" })
-  ),
+  getServiceConfig: vi.fn((type: string) => {
+    if (type === "tautulli") {
+      return Promise.resolve({ url: "http://tautulli:8181", apiKey: "test-key" });
+    }
+    if (type === "overseerr") {
+      return Promise.resolve({ url: "http://overseerr:5055", apiKey: "test-key" });
+    }
+    if (type === "tracearr") {
+      return Promise.resolve({ url: "http://tracearr:7880", apiKey: "trr_pub_test" });
+    }
+    return Promise.resolve(null);
+  }),
+  getActiveStatsProvider: vi.fn(() => Promise.resolve("tautulli")),
 }));
 
 vi.mock("../tautulli", () => ({
@@ -62,8 +75,15 @@ vi.mock("../tautulli", () => ({
   }),
 }));
 
+vi.mock("../tracearr", () => ({
+  createTracearrClient: () => ({
+    getAllHistory: mockGetAllTracearrHistory,
+    healthCheck: vi.fn().mockResolvedValue({ success: true }),
+  }),
+}));
+
 // Import after mocking
-const { syncOverseerr, syncTautulli, runFullSync } = await import("../sync");
+const { syncOverseerr, syncTautulli, syncTracearr, runFullSync } = await import("../sync");
 
 beforeEach(() => {
   testDb = createTestDb();
@@ -76,6 +96,7 @@ beforeEach(() => {
   mockGetLibraries.mockReset().mockResolvedValue([]);
   mockGetLibraryMediaInfo.mockReset().mockResolvedValue([]);
   mockGetServerInfo.mockReset().mockResolvedValue({ pmsUrl: "http://localhost:32400" });
+  mockGetAllTracearrHistory.mockReset();
 });
 
 describe("syncOverseerr", () => {
@@ -705,6 +726,204 @@ describe("syncTautulli file sizes", () => {
   });
 });
 
+describe("syncTracearr", () => {
+  it("matches watch history by title (movie)", async () => {
+    // "Test Movie 1" in the seed data (id=1, title="Test Movie 1")
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+        stoppedAt: "2024-06-01T02:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(1);
+
+    // Verify watch_status was created/updated
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
+    const row = rows.find((r) => r.userPlexId === "plex-user-1");
+    expect(row).toBeDefined();
+    expect(row!.watched).toBe(true);
+  });
+
+  it("matches TV show episodes by showTitle", async () => {
+    // "Test Show 1" in the seed data (id=3, title="Test Show 1")
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Pilot",
+        mediaType: "episode",
+        showTitle: "Test Show 1",
+        seasonNumber: 1,
+        episodeNumber: 1,
+        durationMs: 3600000,
+        totalDurationMs: 3600000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+        stoppedAt: "2024-06-01T01:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(1);
+
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 3)).all();
+    const row = rows.find((r) => r.userPlexId === "plex-user-1");
+    expect(row).toBeDefined();
+    expect(row!.watched).toBe(true);
+  });
+
+  it("aggregates multiple sessions for the same user and title", async () => {
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 3600000,
+        totalDurationMs: 7200000,
+        watched: false,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+        stoppedAt: "2024-06-01T01:00:00Z",
+      },
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-02T00:00:00Z",
+        stoppedAt: "2024-06-02T02:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(1);
+
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
+    const row = rows.find((r) => r.userPlexId === "plex-user-1");
+    expect(row).toBeDefined();
+    expect(row!.watched).toBe(true);
+    expect(row!.playCount).toBe(2);
+    // Should keep the latest stoppedAt
+    expect(row!.lastWatchedAt).toBe("2024-06-02T02:00:00Z");
+  });
+
+  it("skips sessions with no matching local user", async () => {
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u99", username: "nonexistent_user" },
+        startedAt: "2024-06-01T00:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(0);
+  });
+
+  it("skips sessions with no matching media item title", async () => {
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Movie That Doesn't Exist",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(0);
+  });
+
+  it("title matching is case-insensitive", async () => {
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "test movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(1);
+  });
+
+  it("updates existing watch_status instead of duplicating", async () => {
+    // Item 1 already has a watch_status row for plex-user-1 (from seed data)
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-07-01T00:00:00Z",
+        stoppedAt: "2024-07-01T02:00:00Z",
+      },
+    ]);
+
+    const count = await syncTracearr();
+    expect(count).toBe(1);
+
+    // Should still only have one watch_status row for this user+item
+    const rows = testDb.db.select().from(watchStatus).where(eq(watchStatus.mediaItemId, 1)).all();
+    const userRows = rows.filter((r) => r.userPlexId === "plex-user-1");
+    expect(userRows).toHaveLength(1);
+    expect(userRows[0].watched).toBe(true);
+  });
+
+  it("reports progress callbacks", async () => {
+    mockGetAllTracearrHistory.mockResolvedValue([
+      {
+        mediaTitle: "Test Movie 1",
+        mediaType: "movie",
+        durationMs: 7200000,
+        totalDurationMs: 7200000,
+        watched: true,
+        user: { id: "u1", username: "testuser" },
+        startedAt: "2024-06-01T00:00:00Z",
+      },
+    ]);
+
+    const progressCalls: any[] = [];
+    await syncTracearr((p) => progressCalls.push(p));
+
+    expect(progressCalls.length).toBeGreaterThan(0);
+    expect(progressCalls[0].phase).toBe("tracearr");
+  });
+
+  it("wraps network errors with helpful message", async () => {
+    mockGetAllTracearrHistory.mockRejectedValue(new TypeError("fetch failed"));
+
+    await expect(syncTracearr()).rejects.toThrow("Could not connect to Tracearr");
+  });
+
+  it("passes through API errors unchanged", async () => {
+    mockGetAllTracearrHistory.mockRejectedValue(new Error("Tracearr API error: 401 Unauthorized"));
+
+    await expect(syncTracearr()).rejects.toThrow("Tracearr API error: 401 Unauthorized");
+  });
+});
+
 describe("runFullSync", () => {
   it("creates sync_log entry with 'running' status", async () => {
     mockGetAllRequests.mockResolvedValue([]);
@@ -738,22 +957,22 @@ describe("runFullSync", () => {
   });
 
   it("updates to 'failed' on error with error message", async () => {
-    mockGetAllRequests.mockRejectedValue(new Error("Connection refused"));
+    mockGetAllRequests.mockRejectedValue(new TypeError("fetch failed"));
     mockGetTautulliUsers.mockResolvedValue([]);
 
-    await expect(runFullSync()).rejects.toThrow("Connection refused");
+    await expect(runFullSync()).rejects.toThrow("Could not connect to Overseerr");
 
     const logs = testDb.db.select().from(syncLog).all();
     const lastLog = logs[logs.length - 1];
     expect(lastLog.status).toBe("failed");
-    expect(lastLog.errors).toContain("Connection refused");
+    expect(lastLog.errors).toContain("Could not connect to Overseerr");
   });
 
   it("re-throws the error after logging", async () => {
-    mockGetAllRequests.mockRejectedValue(new Error("Network error"));
+    mockGetAllRequests.mockRejectedValue(new Error("Some API error"));
     mockGetTautulliUsers.mockResolvedValue([]);
 
-    await expect(runFullSync()).rejects.toThrow("Network error");
+    await expect(runFullSync()).rejects.toThrow("Some API error");
   });
 
   it("records item count on completion", async () => {
