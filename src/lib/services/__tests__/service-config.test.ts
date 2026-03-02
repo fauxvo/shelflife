@@ -36,12 +36,13 @@ afterEach(() => {
 });
 
 describe("SERVICE_TYPES", () => {
-  it("exports all 6 service types", () => {
+  it("exports all 7 service types", () => {
     expect(SERVICE_TYPES).toEqual([
       "seerr",
       "overseerr",
       "jellyseerr",
       "tautulli",
+      "tracearr",
       "sonarr",
       "radarr",
     ]);

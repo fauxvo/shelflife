@@ -2,7 +2,14 @@ import { db } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
 import { eq, inArray, like } from "drizzle-orm";
 
-export type ServiceType = "seerr" | "overseerr" | "jellyseerr" | "tautulli" | "sonarr" | "radarr";
+export type ServiceType =
+  | "seerr"
+  | "overseerr"
+  | "jellyseerr"
+  | "tautulli"
+  | "tracearr"
+  | "sonarr"
+  | "radarr";
 
 export interface ServiceConfig {
   url: string;
@@ -14,6 +21,7 @@ export const SERVICE_TYPES: ServiceType[] = [
   "overseerr",
   "jellyseerr",
   "tautulli",
+  "tracearr",
   "sonarr",
   "radarr",
 ];
@@ -23,6 +31,7 @@ const ENV_VAR_MAP: Record<ServiceType, { url: string; apiKey: string }> = {
   overseerr: { url: "OVERSEERR_URL", apiKey: "OVERSEERR_API_KEY" },
   jellyseerr: { url: "JELLYSEERR_URL", apiKey: "JELLYSEERR_API_KEY" },
   tautulli: { url: "TAUTULLI_URL", apiKey: "TAUTULLI_API_KEY" },
+  tracearr: { url: "TRACEARR_URL", apiKey: "TRACEARR_API_KEY" },
   sonarr: { url: "SONARR_URL", apiKey: "SONARR_API_KEY" },
   radarr: { url: "RADARR_URL", apiKey: "RADARR_API_KEY" },
 };
@@ -127,6 +136,34 @@ export async function setActiveRequestProvider(value: string): Promise<void> {
   await db
     .insert(appSettings)
     .values({ key: ACTIVE_PROVIDER_KEY, value, updatedAt: now })
+    .onConflictDoUpdate({
+      target: appSettings.key,
+      set: { value, updatedAt: now },
+    });
+  invalidateClients();
+}
+
+const ACTIVE_STATS_PROVIDER_KEY = "active_stats_provider";
+
+/**
+ * Gets the active stats provider setting. Defaults to "auto".
+ */
+export async function getActiveStatsProvider(): Promise<string> {
+  const rows = await db
+    .select()
+    .from(appSettings)
+    .where(eq(appSettings.key, ACTIVE_STATS_PROVIDER_KEY));
+  return rows[0]?.value || "auto";
+}
+
+/**
+ * Sets the active stats provider ("auto", "tautulli", "tracearr").
+ */
+export async function setActiveStatsProvider(value: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db
+    .insert(appSettings)
+    .values({ key: ACTIVE_STATS_PROVIDER_KEY, value, updatedAt: now })
     .onConflictDoUpdate({
       target: appSettings.key,
       set: { value, updatedAt: now },

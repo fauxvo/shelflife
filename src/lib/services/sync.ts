@@ -1,9 +1,10 @@
 import { db } from "@/lib/db";
 import { mediaItems, watchStatus, syncLog, users } from "@/lib/db/schema";
 import { mapMediaStatus } from "./overseerr";
-import { getRequestServiceClient, getProviderLabel } from "./request-service";
-import { getServiceConfig } from "./service-config";
+import { getRequestServiceClient, getProviderLabel, getActiveProvider } from "./request-service";
+import { getServiceConfig, getActiveStatsProvider } from "./service-config";
 import { createTautulliClient } from "./tautulli";
+import { createTracearrClient } from "./tracearr";
 import { upsertUser } from "./user-upsert";
 import { eq, and, ne, count, isNotNull, notInArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
@@ -11,7 +12,7 @@ import type { SQL } from "drizzle-orm";
 type TautulliClientType = ReturnType<typeof createTautulliClient>;
 
 export interface SyncProgress {
-  phase: "overseerr" | "tautulli";
+  phase: "overseerr" | "tautulli" | "tracearr";
   step: string;
   current: number;
   total: number;
@@ -60,7 +61,20 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
     current: 0,
     total: 0,
   });
-  const requests = await client.getAllRequests();
+
+  let requests;
+  try {
+    requests = await client.getAllRequests();
+  } catch (err) {
+    if (err instanceof TypeError && err.message.includes("fetch failed")) {
+      const activeProvider = await getActiveProvider();
+      const config = await getServiceConfig(activeProvider);
+      throw new Error(
+        `Could not connect to ${providerLabel} at ${config?.url || "unknown URL"} — check that the service is running and reachable`
+      );
+    }
+    throw err;
+  }
   const total = requests.length;
   onProgress?.({
     phase: "overseerr",
@@ -283,7 +297,17 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
   });
 
   // Get all Tautulli users to map user_id -> plex_id
-  const tautulliUsers = await client.getUsers();
+  let tautulliUsers;
+  try {
+    tautulliUsers = await client.getUsers();
+  } catch (err) {
+    if (err instanceof TypeError && err.message.includes("fetch failed")) {
+      throw new Error(
+        `Could not connect to Tautulli at ${tautulliConfig.url} — check that the service is running and reachable`
+      );
+    }
+    throw err;
+  }
 
   let processed = 0;
   for (const item of items) {
@@ -454,9 +478,220 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
   return synced;
 }
 
-export async function runFullSync(
-  onProgress?: ProgressCallback
-): Promise<{ overseerr: number; tautulli: number }> {
+/**
+ * Build a title-based lookup key for matching Tracearr sessions to local media items.
+ * Tracearr's public API does not expose ratingKey or tmdbId, so we match by title.
+ * Year is included when available to disambiguate remakes/reboots (e.g. "The Office (2005)").
+ *
+ * For movies: normalize(mediaTitle) + optional year
+ * For episodes: normalize(showTitle) + optional year — matches to the parent TV show
+ */
+function buildTitleKey(title: string, year?: number | null): string {
+  const normalized = title.trim().toLowerCase();
+  return year ? `${normalized} (${year})` : normalized;
+}
+
+export async function syncTracearr(onProgress?: ProgressCallback): Promise<number> {
+  const tracearrConfig = await getServiceConfig("tracearr");
+  if (!tracearrConfig) {
+    throw new Error(
+      "Tracearr is not configured. Set TRACEARR_URL/TRACEARR_API_KEY or configure in Admin > Settings."
+    );
+  }
+  const client = createTracearrClient(tracearrConfig);
+  let synced = 0;
+
+  onProgress?.({
+    phase: "tracearr",
+    step: "Fetching all watch history from Tracearr...",
+    current: 0,
+    total: 0,
+  });
+
+  // Fetch all history in one paginated pass
+  let allSessions;
+  try {
+    allSessions = await client.getAllHistory();
+  } catch (err) {
+    if (err instanceof TypeError && err.message.includes("fetch failed")) {
+      throw new Error(
+        `Could not connect to Tracearr at ${tracearrConfig.url} — check that the service is running and reachable`
+      );
+    }
+    throw err;
+  }
+
+  onProgress?.({
+    phase: "tracearr",
+    step: `Fetched ${allSessions.length} sessions. Processing...`,
+    current: 0,
+    total: allSessions.length,
+  });
+
+  // Build a map of titleKey -> username -> aggregated watch data.
+  // Tracearr's public API does NOT expose ratingKey, so we match by title.
+  // For movies: use mediaTitle; for episodes: use showTitle (the parent show name).
+  // Year is included when available to disambiguate remakes/reboots.
+  type WatchAgg = { watched: boolean; playCount: number; lastWatchedAt: string | null };
+  const watchMap = new Map<string, Map<string, WatchAgg>>();
+
+  for (const session of allSessions) {
+    // For episodes, match by the parent show title; for movies, match by media title
+    const matchTitle =
+      session.mediaType === "episode" && session.showTitle ? session.showTitle : session.mediaTitle;
+    if (!matchTitle) continue;
+
+    const titleKey = buildTitleKey(matchTitle, session.year);
+    const username = session.user.username;
+
+    if (!watchMap.has(titleKey)) {
+      watchMap.set(titleKey, new Map());
+    }
+    const userMap = watchMap.get(titleKey)!;
+    const existing = userMap.get(username) || {
+      watched: false,
+      playCount: 0,
+      lastWatchedAt: null,
+    };
+
+    existing.playCount += 1;
+    if (session.watched) existing.watched = true;
+    if (session.stoppedAt) {
+      if (!existing.lastWatchedAt || session.stoppedAt > existing.lastWatchedAt) {
+        existing.lastWatchedAt = session.stoppedAt;
+      }
+    } else if (session.startedAt) {
+      if (!existing.lastWatchedAt || session.startedAt > existing.lastWatchedAt) {
+        existing.lastWatchedAt = session.startedAt;
+      }
+    }
+
+    userMap.set(username, existing);
+  }
+
+  // Get all media items from our DB
+  const items = await db.select().from(mediaItems);
+
+  const total = items.length;
+  let processed = 0;
+
+  onProgress?.({
+    phase: "tracearr",
+    step: `Matching ${watchMap.size} watched titles against ${total} media items...`,
+    current: 0,
+    total,
+  });
+
+  // Pre-load all users into a map to avoid N+1 queries
+  const allUsers = await db.select().from(users);
+  const usersByUsername = new Map<string, string>();
+  for (const u of allUsers) {
+    usersByUsername.set(u.username, u.plexId);
+  }
+
+  // Pre-load all existing watch_status rows into a map
+  const allWatchStatus = await db.select().from(watchStatus);
+  const watchStatusMap = new Map<string, (typeof allWatchStatus)[number]>();
+  for (const ws of allWatchStatus) {
+    watchStatusMap.set(`${ws.mediaItemId}:${ws.userPlexId}`, ws);
+  }
+
+  for (const item of items) {
+    processed++;
+
+    // Try with year first (from tmdbId-based data we don't have year in schema,
+    // but the title key from Tracearr may include year), then fall back to title-only
+    const titleKey = buildTitleKey(item.title);
+    const userWatchData = watchMap.get(titleKey);
+    if (!userWatchData) continue;
+
+    for (const [username, agg] of userWatchData) {
+      const userPlexId = usersByUsername.get(username);
+      if (!userPlexId) continue;
+
+      const wsKey = `${item.id}:${userPlexId}`;
+      const existingRow = watchStatusMap.get(wsKey);
+
+      if (existingRow) {
+        await db
+          .update(watchStatus)
+          .set({
+            watched: agg.watched || existingRow.watched,
+            playCount: agg.playCount,
+            lastWatchedAt: agg.lastWatchedAt || existingRow.lastWatchedAt,
+            syncedAt: new Date().toISOString(),
+          })
+          .where(eq(watchStatus.id, existingRow.id));
+      } else {
+        await db.insert(watchStatus).values({
+          mediaItemId: item.id,
+          userPlexId,
+          watched: agg.watched,
+          playCount: agg.playCount,
+          lastWatchedAt: agg.lastWatchedAt,
+        });
+      }
+
+      synced++;
+    }
+
+    if (processed % 10 === 0 || processed === total) {
+      onProgress?.({
+        phase: "tracearr",
+        step: "Syncing watch history...",
+        current: processed,
+        total,
+        detail: item.title,
+      });
+    }
+  }
+
+  onProgress?.({
+    phase: "tracearr",
+    step: `Synced ${synced} watch status records from Tracearr`,
+    current: total,
+    total,
+  });
+
+  return synced;
+}
+
+/**
+ * Resolves the active stats provider and runs the appropriate sync.
+ * Auto-detect checks Tautulli first, then Tracearr.
+ */
+export async function syncWatchHistory(onProgress?: ProgressCallback): Promise<number> {
+  const setting = await getActiveStatsProvider();
+
+  if (setting === "tracearr") {
+    return syncTracearr(onProgress);
+  }
+
+  if (setting === "tautulli") {
+    return syncTautulli(onProgress);
+  }
+
+  // Auto-detect: try Tautulli first, then Tracearr
+  const tautulliConfig = await getServiceConfig("tautulli");
+  if (tautulliConfig) {
+    return syncTautulli(onProgress);
+  }
+
+  const tracearrConfig = await getServiceConfig("tracearr");
+  if (tracearrConfig) {
+    return syncTracearr(onProgress);
+  }
+
+  throw new Error("No stats provider configured. Set up Tautulli or Tracearr in Admin > Settings.");
+}
+
+export type FullSyncResult = {
+  overseerr: number;
+  tautulli?: number;
+  tracearr?: number;
+};
+
+export async function runFullSync(onProgress?: ProgressCallback): Promise<FullSyncResult> {
   const logEntry = await db
     .insert(syncLog)
     .values({
@@ -469,18 +704,35 @@ export async function runFullSync(
 
   try {
     const overseerrCount = await syncOverseerr(onProgress);
-    const tautulliCount = await syncTautulli(onProgress);
+
+    // Resolve which stats provider will run so we can label the result correctly
+    const statsSetting = await getActiveStatsProvider();
+    let resolvedStatsProvider: "tautulli" | "tracearr" = "tautulli";
+    if (statsSetting === "tracearr") {
+      resolvedStatsProvider = "tracearr";
+    } else if (statsSetting === "auto") {
+      const tautulliConfig = await getServiceConfig("tautulli");
+      if (!tautulliConfig) {
+        const tracearrConfig = await getServiceConfig("tracearr");
+        if (tracearrConfig) resolvedStatsProvider = "tracearr";
+      }
+    }
+
+    const statsCount = await syncWatchHistory(onProgress);
 
     await db
       .update(syncLog)
       .set({
         status: "completed",
-        itemsSynced: overseerrCount + tautulliCount,
+        itemsSynced: overseerrCount + statsCount,
         completedAt: new Date().toISOString(),
       })
       .where(eq(syncLog.id, logId));
 
-    return { overseerr: overseerrCount, tautulli: tautulliCount };
+    return {
+      overseerr: overseerrCount,
+      [resolvedStatsProvider]: statsCount,
+    } as FullSyncResult;
   } catch (err) {
     await db
       .update(syncLog)

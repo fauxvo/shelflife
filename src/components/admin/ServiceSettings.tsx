@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { Toast, type ToastData } from "@/components/ui/Toast";
 
-type ServiceType = "seerr" | "overseerr" | "jellyseerr" | "tautulli" | "sonarr" | "radarr";
+type ServiceType =
+  | "seerr"
+  | "overseerr"
+  | "jellyseerr"
+  | "tautulli"
+  | "tracearr"
+  | "sonarr"
+  | "radarr";
 
 interface ServiceState {
   url: string;
@@ -34,6 +41,11 @@ const SERVICE_INFO: Record<ServiceType, { name: string; description: string; log
     description: "Watch history and statistics",
     logo: "/logos/tautulli.svg",
   },
+  tracearr: {
+    name: "Tracearr",
+    description: "Watch history and statistics (multi-server)",
+    logo: "/logos/tracearr.svg",
+  },
   sonarr: {
     name: "Sonarr",
     description: "TV show management (optional)",
@@ -51,6 +63,7 @@ const SERVICE_ORDER: ServiceType[] = [
   "overseerr",
   "jellyseerr",
   "tautulli",
+  "tracearr",
   "sonarr",
   "radarr",
 ];
@@ -62,6 +75,12 @@ const PROVIDER_OPTIONS = [
   { value: "jellyseerr", label: "Jellyseerr" },
 ];
 
+const STATS_PROVIDER_OPTIONS = [
+  { value: "auto", label: "Auto-detect" },
+  { value: "tautulli", label: "Tautulli" },
+  { value: "tracearr", label: "Tracearr" },
+];
+
 export function ServiceSettings() {
   const [services, setServices] = useState<Record<ServiceType, ServiceState>>(() => {
     const init = {} as Record<ServiceType, ServiceState>;
@@ -71,6 +90,7 @@ export function ServiceSettings() {
     return init;
   });
   const [activeProvider, setActiveProvider] = useState("auto");
+  const [activeStatsProvider, setActiveStatsProvider] = useState("auto");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -104,6 +124,7 @@ export function ServiceSettings() {
       setServices(newServices);
       setOriginalMaskedKeys(maskedKeys);
       setActiveProvider(data.activeProvider || "auto");
+      setActiveStatsProvider(data.activeStatsProvider || "auto");
     } catch {
       setToast({ message: "Failed to load service settings", type: "error" });
     } finally {
@@ -128,24 +149,26 @@ export function ServiceSettings() {
 
   const testConnection = async (type: ServiceType) => {
     const service = services[type];
-    if (!service.url || !service.apiKey) return;
-
-    // Don't test with masked API key
-    if (service.apiKey === originalMaskedKeys[type]) {
-      setToast({ message: "Enter a new API key to test the connection", type: "error" });
-      return;
-    }
+    if (!service.url) return;
 
     setServices((prev) => ({
       ...prev,
       [type]: { ...prev[type], testing: true },
     }));
 
+    // If the API key is still the masked version, ask the server to use the stored key
+    const useStored = !service.apiKey || service.apiKey === originalMaskedKeys[type];
+
     try {
       const res = await fetch("/api/admin/settings/services/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, url: service.url, apiKey: service.apiKey }),
+        body: JSON.stringify({
+          type,
+          url: service.url,
+          apiKey: useStored ? undefined : service.apiKey,
+          useStored,
+        }),
       });
       const result = await res.json();
 
@@ -194,7 +217,7 @@ export function ServiceSettings() {
       const res = await fetch("/api/admin/settings/services", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ services: payload, activeProvider }),
+        body: JSON.stringify({ services: payload, activeProvider, activeStatsProvider }),
       });
 
       if (!res.ok) {
@@ -242,84 +265,143 @@ export function ServiceSettings() {
     (opt) => opt.value === "auto" || services[opt.value as ServiceType]?.url
   );
 
+  const availableStatsProviders = STATS_PROVIDER_OPTIONS.filter(
+    (opt) => opt.value === "auto" || services[opt.value as ServiceType]?.url
+  );
+
+  const serviceGroups: {
+    label: string;
+    types: ServiceType[];
+    providerSection?: React.ReactNode;
+  }[] = [
+    {
+      label: "Request Management",
+      types: ["seerr", "overseerr", "jellyseerr"],
+      providerSection: (
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+          <h4 className="mb-1 text-sm font-medium">Active Request Provider</h4>
+          <p className="mb-2 text-xs text-gray-500">
+            &quot;Auto-detect&quot; picks the first configured service (Seerr &gt; Overseerr &gt;
+            Jellyseerr).
+          </p>
+          <select
+            value={activeProvider}
+            onChange={(e) => setActiveProvider(e.target.value)}
+            className="focus:border-brand rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
+          >
+            {availableProviders.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ),
+    },
+    {
+      label: "Watch History & Statistics",
+      types: ["tautulli", "tracearr"],
+      providerSection: (
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+          <h4 className="mb-1 text-sm font-medium">Active Stats Provider</h4>
+          <p className="mb-2 text-xs text-gray-500">
+            &quot;Auto-detect&quot; picks the first configured service (Tautulli &gt; Tracearr).
+          </p>
+          <select
+            value={activeStatsProvider}
+            onChange={(e) => setActiveStatsProvider(e.target.value)}
+            className="focus:border-brand rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
+          >
+            {availableStatsProviders.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ),
+    },
+    {
+      label: "Media Management",
+      types: ["sonarr", "radarr"],
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Service Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {SERVICE_ORDER.map((type) => {
-          const info = SERVICE_INFO[type];
-          const service = services[type];
-          return (
-            <div key={type} className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img src={info.logo} alt={info.name} className="h-8 w-8 rounded object-contain" />
-                  <div>
-                    <h3 className="font-semibold">{info.name}</h3>
-                    <p className="text-xs text-gray-500">{info.description}</p>
+    <div className="space-y-8">
+      {serviceGroups.map((group) => (
+        <div key={group.label}>
+          <h3 className="mb-3 text-sm font-semibold tracking-wider text-gray-400 uppercase">
+            {group.label}
+          </h3>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {group.types.map((type) => {
+                const info = SERVICE_INFO[type];
+                const service = services[type];
+                return (
+                  <div key={type} className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={info.logo}
+                          alt={info.name}
+                          className="h-8 w-8 rounded object-contain"
+                        />
+                        <div>
+                          <h3 className="font-semibold">{info.name}</h3>
+                          <p className="text-xs text-gray-500">{info.description}</p>
+                        </div>
+                      </div>
+                      <StatusBadge status={service.status} />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-xs text-gray-400">URL</label>
+                        <input
+                          type="text"
+                          value={service.url}
+                          onChange={(e) => updateService(type, "url", e.target.value)}
+                          placeholder={`http://your-server:port`}
+                          className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs text-gray-400">API Key</label>
+                        <input
+                          type="password"
+                          value={service.apiKey}
+                          onChange={(e) => updateService(type, "apiKey", e.target.value)}
+                          placeholder="Enter API key"
+                          className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-200 placeholder-gray-600 focus:outline-none"
+                        />
+                      </div>
+
+                      {service.errorMessage && (
+                        <p className="text-xs text-red-400">{service.errorMessage}</p>
+                      )}
+
+                      <button
+                        onClick={() => testConnection(type)}
+                        disabled={
+                          !service.url ||
+                          (!service.apiKey && !originalMaskedKeys[type]) ||
+                          service.testing
+                        }
+                        className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {service.testing ? "Testing..." : "Test Connection"}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <StatusBadge status={service.status} />
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1 block text-xs text-gray-400">URL</label>
-                  <input
-                    type="text"
-                    value={service.url}
-                    onChange={(e) => updateService(type, "url", e.target.value)}
-                    placeholder={`http://your-server:port`}
-                    className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs text-gray-400">API Key</label>
-                  <input
-                    type="password"
-                    value={service.apiKey}
-                    onChange={(e) => updateService(type, "apiKey", e.target.value)}
-                    placeholder="Enter API key"
-                    className="focus:border-brand w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-200 placeholder-gray-600 focus:outline-none"
-                  />
-                </div>
-
-                {service.errorMessage && (
-                  <p className="text-xs text-red-400">{service.errorMessage}</p>
-                )}
-
-                <button
-                  onClick={() => testConnection(type)}
-                  disabled={!service.url || !service.apiKey || service.testing}
-                  className="rounded-md bg-gray-700 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {service.testing ? "Testing..." : "Test Connection"}
-                </button>
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
-
-      {/* Request Provider Selection */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-        <h3 className="mb-1 font-semibold">Request Provider</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Which service handles media requests. &quot;Auto-detect&quot; picks the first configured
-          service (Seerr &gt; Overseerr &gt; Jellyseerr).
-        </p>
-        <select
-          value={activeProvider}
-          onChange={(e) => setActiveProvider(e.target.value)}
-          className="focus:border-brand rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none"
-        >
-          {availableProviders.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
+            {group.providerSection}
+          </div>
+        </div>
+      ))}
 
       {/* Save Button */}
       <div className="flex items-center gap-3">

@@ -130,7 +130,7 @@ export function createTestDb() {
 
     CREATE TABLE sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'full')),
+      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'tracearr', 'full')),
       status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
       items_synced INTEGER NOT NULL DEFAULT 0,
       errors TEXT,

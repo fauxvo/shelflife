@@ -200,7 +200,7 @@ export const deletionLog = sqliteTable("deletion_log", {
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {
-    enum: ["overseerr", "tautulli", "full"],
+    enum: ["overseerr", "tautulli", "tracearr", "full"],
   }).notNull(),
   status: text("status", {
     enum: ["running", "completed", "failed"],

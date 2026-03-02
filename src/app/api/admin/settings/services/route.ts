@@ -6,6 +6,8 @@ import {
   clearServiceConfig,
   getActiveRequestProvider,
   setActiveRequestProvider,
+  getActiveStatsProvider,
+  setActiveStatsProvider,
   maskApiKey,
   type ServiceType,
 } from "@/lib/services/service-config";
@@ -17,6 +19,7 @@ export async function GET() {
 
     const configs = await getAllServiceConfigs();
     const activeProvider = await getActiveRequestProvider();
+    const activeStatsProvider = await getActiveStatsProvider();
 
     // Mask API keys in response
     const masked: Record<string, { url: string; apiKey: string } | null> = {};
@@ -24,7 +27,7 @@ export async function GET() {
       masked[type] = config ? { url: config.url, apiKey: maskApiKey(config.apiKey) } : null;
     }
 
-    return NextResponse.json({ services: masked, activeProvider });
+    return NextResponse.json({ services: masked, activeProvider, activeStatsProvider });
   } catch (error) {
     return handleAuthError(error);
   }
@@ -43,7 +46,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { services, activeProvider } = parsed.data;
+    const { services, activeProvider, activeStatsProvider } = parsed.data;
 
     // Save service configs
     if (services) {
@@ -62,15 +65,25 @@ export async function PUT(request: NextRequest) {
       await setActiveRequestProvider(activeProvider);
     }
 
+    // Save active stats provider
+    if (activeStatsProvider) {
+      await setActiveStatsProvider(activeStatsProvider);
+    }
+
     // Return updated state
     const configs = await getAllServiceConfigs();
     const currentProvider = await getActiveRequestProvider();
+    const currentStatsProvider = await getActiveStatsProvider();
     const masked: Record<string, { url: string; apiKey: string } | null> = {};
     for (const [type, config] of Object.entries(configs)) {
       masked[type] = config ? { url: config.url, apiKey: maskApiKey(config.apiKey) } : null;
     }
 
-    return NextResponse.json({ services: masked, activeProvider: currentProvider });
+    return NextResponse.json({
+      services: masked,
+      activeProvider: currentProvider,
+      activeStatsProvider: currentStatsProvider,
+    });
   } catch (error) {
     return handleAuthError(error);
   }

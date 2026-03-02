@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { ProviderLabelProvider } from "@/lib/provider-context";
-import { getProviderInfo } from "@/lib/services/request-service";
+import { getProviderInfo, getStatsProviderInfo } from "@/lib/services/request-service";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -20,11 +20,17 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const { label, url } = await getProviderInfo();
+  const { label: statsLabel, id: statsProviderId } = await getStatsProviderInfo();
 
   return (
     <html lang="en" className={`dark ${manrope.variable}`}>
       <body className="min-h-screen bg-gray-950 text-gray-100 antialiased">
-        <ProviderLabelProvider label={label} url={url}>
+        <ProviderLabelProvider
+          label={label}
+          url={url}
+          statsLabel={statsLabel}
+          statsProviderId={statsProviderId}
+        >
           {children}
         </ProviderLabelProvider>
       </body>

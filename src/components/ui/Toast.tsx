@@ -40,13 +40,13 @@ export function Toast({ message, type, onDismiss, duration = 5000 }: ToastProps)
       }`}
     >
       <div
-        className={`flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-sm ${
+        className={`flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-sm ${
           isSuccess
             ? "border-green-800 bg-green-950/90 text-green-200"
             : "border-red-800 bg-red-950/90 text-red-200"
         }`}
       >
-        <span className="mt-0.5 shrink-0 text-lg">{isSuccess ? "\u2713" : "\u2717"}</span>
+        <span className="shrink-0 text-lg leading-none">{isSuccess ? "\u2713" : "\u2717"}</span>
         <p className="text-sm leading-relaxed">{message}</p>
         <button
           onClick={() => {
