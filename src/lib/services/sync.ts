@@ -413,6 +413,22 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     total,
   });
 
+  // Pre-load all media items into a lookup map to avoid N+1 queries per request.
+  // Key: "tmdbId:mediaType" → value: array of matching items (may have duplicates).
+  const allItems = await db.select().from(mediaItems);
+  const itemsByTmdbKey = new Map<string, (typeof allItems)[number][]>();
+  for (const item of allItems) {
+    if (item.tmdbId) {
+      const key = `${item.tmdbId}:${item.mediaType}`;
+      const existing = itemsByTmdbKey.get(key);
+      if (existing) {
+        existing.push(item);
+      } else {
+        itemsByTmdbKey.set(key, [item]);
+      }
+    }
+  }
+
   let enriched = 0;
   let processed = 0;
 
@@ -449,10 +465,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     }
 
     // Find ALL matching items — there may be duplicates (legacy Overseerr + *arr item)
-    const matches = await db
-      .select()
-      .from(mediaItems)
-      .where(and(eq(mediaItems.tmdbId, tmdbId), eq(mediaItems.mediaType, mediaType)));
+    const matches = itemsByTmdbKey.get(`${tmdbId}:${mediaType}`) ?? [];
 
     if (matches.length > 0) {
       const overseerrId = req.media?.id ?? req.id;
