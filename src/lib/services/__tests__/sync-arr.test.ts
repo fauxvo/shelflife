@@ -213,7 +213,9 @@ describe("syncSonarr", () => {
 
     const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.sonarrId, 1)).all();
     expect(items[0].status).toBe("partial");
-    expect(items[0].availableSeasonCount).toBe(3);
+    // Sonarr doesn't have per-season download data, so partial shows get null;
+    // Seerr enrichment provides accurate per-season counts when available
+    expect(items[0].availableSeasonCount).toBeNull();
   });
 
   it("sets status to 'pending' when no episodes are downloaded", async () => {

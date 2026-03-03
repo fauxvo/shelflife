@@ -3,8 +3,8 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, reviewRounds } from "@/lib/db/schema";
-import { eq, and, count } from "drizzle-orm";
+import { mediaItems, userVotes, reviewRounds, reviewActions } from "@/lib/db/schema";
+import { eq, and, count, notInArray } from "drizzle-orm";
 
 const MAX_NOMINATIONS_PER_ROUND = 100;
 
@@ -34,14 +34,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "No active review round" }, { status: 400 });
     }
 
-    // Rate limit: cap nominations per user per round
+    // Rate limit: cap nominations per user per active round.
+    // Votes on items actioned in prior rounds (kept in userVotes for historical
+    // reference) are excluded so they don't count against the current round's cap.
     if (!session.isAdmin) {
+      // Subquery: item IDs that already have a review action (from prior rounds)
+      const actionedItems = db
+        .select({ mediaItemId: reviewActions.mediaItemId })
+        .from(reviewActions);
+
       const [existing] = await db
         .select({ total: count() })
         .from(userVotes)
-        .where(eq(userVotes.userPlexId, session.plexId));
+        .where(
+          and(
+            eq(userVotes.userPlexId, session.plexId),
+            notInArray(userVotes.mediaItemId, actionedItems)
+          )
+        );
 
-      // Allow re-voting on already-nominated items (existing vote for this item doesn't count toward cap)
+      // Allow re-voting on already-nominated items (existing vote doesn't count toward cap)
       const existingVote = await db
         .select({ id: userVotes.id })
         .from(userVotes)

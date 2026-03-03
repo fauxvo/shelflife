@@ -243,8 +243,9 @@ export async function getCandidatesForRound(roundId: number) {
 
   const baseCondition = getNominationCondition();
 
-  // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
-  // which correctly preserves the more specific vote
+  // Aggregate nomination type: with open nominations, multiple users may nominate the same
+  // item with different types. MAX picks 'trim' over 'delete' alphabetically in SQLite,
+  // giving priority to the more specific action (trim = keep some seasons vs delete = remove all).
   const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
 
   const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(

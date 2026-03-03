@@ -44,11 +44,14 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       .where(and(eq(reviewActions.reviewRoundId, roundId), eq(reviewActions.action, "remove")));
     const removedItemIds = removedItemActions.map((a) => a.mediaItemId);
 
-    // Clear ALL community votes (keep votes are round-scoped)
+    // Community "keep" votes are round-scoped — they only exist to influence
+    // the current round's admin review. Safe to clear all rows because only one
+    // round can be active at a time (POST /review-rounds enforces this).
     await db.delete(communityVotes);
 
-    // Clear nominations for surviving items only
+    // Clear nominations for surviving items only.
     // Items marked "remove" keep their nominations for historical reference
+    // (and so their votes don't count against the user's cap in future rounds).
     if (removedItemIds.length > 0) {
       await db.delete(userVotes).where(notInArray(userVotes.mediaItemId, removedItemIds));
     } else {

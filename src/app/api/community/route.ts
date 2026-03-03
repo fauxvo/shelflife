@@ -205,14 +205,10 @@ export async function GET(request: NextRequest) {
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus: mapWatchStatus(i),
-        nominatedBy: i.nominatedByUsernames
-          ? i.nominatedByUsernames.split(",").map((s: string) => s.trim())
-          : [],
+        nominatedBy: i.nominatedByUsernames ? i.nominatedByUsernames.split(",") : [],
         tally: {
           keepCount: Number(i.keepCount) || 0,
-          keepVoters: i.keepVoterUsernames
-            ? i.keepVoterUsernames.split(",").map((s: string) => s.trim())
-            : [],
+          keepVoters: i.keepVoterUsernames ? i.keepVoterUsernames.split(",") : [],
         },
         currentUserVote: i.currentUserVote || null,
         isRequestor: i.requestedByPlexId === session.plexId,

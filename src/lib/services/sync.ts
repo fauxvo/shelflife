@@ -179,7 +179,15 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
       fileSize: series.sizeOnDisk ?? null,
       addedAt: series.added || null,
       seasonCount: series.seasonCount ?? null,
-      availableSeasonCount: series.statistics?.episodeFileCount > 0 ? series.seasonCount : null,
+      availableSeasonCount: (() => {
+        const stats = series.statistics;
+        if (!stats || stats.episodeFileCount === 0) return null;
+        // Only report full season count when all episodes are downloaded;
+        // partial shows get null — Seerr enrichment has per-season status data
+        // for more accurate counts when available.
+        if (stats.episodeFileCount >= stats.episodeCount) return series.seasonCount ?? null;
+        return null;
+      })(),
       status: (() => {
         const stats = series.statistics;
         if (!stats || stats.episodeFileCount === 0) return "pending" as const;
@@ -449,15 +457,15 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     if (matches.length > 0) {
       const overseerrId = req.media?.id ?? req.id;
 
-      // Free overseerrId from any other item that holds it — tmdbId match is the source of truth
+      // Free overseerrId from any other item that holds it — tmdbId match is the source of truth.
+      // Only clear the Seerr identity fields; leave requestedByPlexId and requestedAt intact
+      // to avoid permanently erasing requester history if deconfliction is a false positive.
       const matchIds = matches.map((m) => m.id);
       const cleared = await db
         .update(mediaItems)
         .set({
           overseerrId: null,
           overseerrRequestId: null,
-          requestedByPlexId: null,
-          requestedAt: null,
           updatedAt: new Date().toISOString(),
         })
         .where(and(eq(mediaItems.overseerrId, overseerrId), notInArray(mediaItems.id, matchIds)))
@@ -1010,6 +1018,11 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
     }
   }
 
+  // Also update file sizes — standalone Tautulli sync should include this
+  // (runFullSync calls it as Layer 4, but users triggering "Tautulli Only"
+  // expect file sizes to be updated too).
+  await syncMissingFileSizes(onProgress);
+
   return synced;
 }
 
@@ -1269,7 +1282,7 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
 
     const libraries = await client.getLibraries();
     debug.sync(
-      `[file-sizes] Tautulli libraries: ${libraries.map((l: any) => `${l.section_name} (${l.section_type}, id=${l.section_id})`).join(", ")}`
+      `[file-sizes] Tautulli libraries: ${libraries.map((l) => `${l.section_name} (${l.section_type}, id=${l.section_id})`).join(", ")}`
     );
 
     let tautulliItemCount = 0;
@@ -1379,8 +1392,8 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
 
     if (needsPlexFallback) {
       const sectionsToFetch = libraries
-        .filter((l: any) => l.section_type === "show")
-        .map((l: any) => String(l.section_id));
+        .filter((l) => l.section_type === "show")
+        .map((l) => String(l.section_id));
 
       if (sectionsToFetch.length > 0) {
         debug.sync(
