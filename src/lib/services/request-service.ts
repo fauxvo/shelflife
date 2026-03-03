@@ -194,12 +194,16 @@ export async function getConfiguredServices(): Promise<{
     return cachedConfiguredServices;
   }
 
-  const configs = await getAllServiceConfigs();
-  cachedConfiguredServices = {
-    sonarr: configs.sonarr !== null,
-    radarr: configs.radarr !== null,
-    seerr: configs.seerr !== null || configs.overseerr !== null || configs.jellyseerr !== null,
-  };
+  try {
+    const configs = await getAllServiceConfigs();
+    cachedConfiguredServices = {
+      sonarr: configs.sonarr !== null,
+      radarr: configs.radarr !== null,
+      seerr: configs.seerr !== null || configs.overseerr !== null || configs.jellyseerr !== null,
+    };
+  } catch {
+    cachedConfiguredServices = { sonarr: false, radarr: false, seerr: false };
+  }
   configuredServicesCachedAt = now;
   configuredServicesGeneration = generation;
   return cachedConfiguredServices;
