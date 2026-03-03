@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.1
+
+### Patch Changes
+
+- [#74](https://github.com/fauxvo/shelflife/pull/74) [`c3590f4`](https://github.com/fauxvo/shelflife/commit/c3590f4f49e38ffb75e75cd3f6fe510289f8b9da) Thanks [@fauxvo](https://github.com/fauxvo)! - Fix Tracearr sync failing when sessions include unexpected media types like "trailer"
+
 ## 1.13.0
 
 ### Minor Changes
