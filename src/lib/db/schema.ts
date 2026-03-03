@@ -38,6 +38,9 @@ export const mediaItems = sqliteTable("media_items", {
   seasonCount: integer("season_count"),
   availableSeasonCount: integer("available_season_count"),
   fileSize: integer("file_size"),
+  sonarrId: integer("sonarr_id").unique(),
+  radarrId: integer("radarr_id").unique(),
+  addedAt: text("added_at"),
   lastSyncedAt: text("last_synced_at"),
   createdAt: text("created_at")
     .default(sql`(datetime('now'))`)
@@ -200,7 +203,7 @@ export const deletionLog = sqliteTable("deletion_log", {
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {
-    enum: ["overseerr", "tautulli", "tracearr", "full"],
+    enum: ["overseerr", "tautulli", "tracearr", "sonarr", "radarr", "seerr", "full"],
   }).notNull(),
   status: text("status", {
     enum: ["running", "completed", "failed"],

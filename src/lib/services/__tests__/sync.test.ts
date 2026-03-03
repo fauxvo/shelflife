@@ -15,7 +15,7 @@ const mockGetAllRequests = vi.fn();
 const mockGetMediaDetails = vi.fn();
 const mockGetOverseerrUsers = vi.fn();
 
-vi.mock("../overseerr", () => ({
+vi.mock("../seerr-client", () => ({
   mapMediaStatus: (status: number | null | undefined) => {
     const map: Record<number, string> = {
       1: "unknown",
@@ -83,7 +83,8 @@ vi.mock("../tracearr", () => ({
 }));
 
 // Import after mocking
-const { syncOverseerr, syncTautulli, syncTracearr, runFullSync } = await import("../sync");
+const { syncOverseerr, syncTautulli, syncTracearr, runFullSync, syncMissingFileSizes } =
+  await import("../sync");
 
 beforeEach(() => {
   testDb = createTestDb();
@@ -326,8 +327,8 @@ describe("syncOverseerr", () => {
 
     const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.overseerrId, 311)).all();
     expect(items[0].seasonCount).toBe(3);
-    // 0 available seasons stored as null (falsy coercion is intentional)
-    expect(items[0].availableSeasonCount).toBeNull();
+    // 0 available seasons is a valid value (not coerced to null)
+    expect(items[0].availableSeasonCount).toBe(0);
   });
 
   it("leaves availableSeasonCount null for movies", async () => {
@@ -441,6 +442,48 @@ describe("syncTautulli", () => {
     expect(row!.playCount).toBe(2);
   });
 
+  it("resolves missing ratingKeys from Tautulli library data", async () => {
+    // Insert a Sonarr-sourced item without a ratingKey
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`
+      INSERT INTO media_items (id, sonarr_id, tmdb_id, media_type, title, status)
+      VALUES (100, 42, 9999, 'tv', 'Arr Show', 'available')
+    `);
+
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "2", section_name: "TV Shows", section_type: "show" },
+    ]);
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-arr-show", title: "Arr Show", file_size: "" },
+    ]);
+    mockGetTautulliUsers.mockResolvedValue([]);
+    mockGetHistory.mockResolvedValue([]);
+
+    await syncTautulli();
+
+    // ratingKey should have been resolved from Tautulli library data
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 100)).all();
+    expect(items[0].ratingKey).toBe("rk-arr-show");
+  });
+
+  it("does not overwrite existing ratingKeys during resolution", async () => {
+    // Item 1 already has rk-1 from seed data
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "1", section_name: "Movies", section_type: "movie" },
+    ]);
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-different", title: "Test Movie 1", file_size: "" },
+    ]);
+    mockGetTautulliUsers.mockResolvedValue([]);
+    mockGetHistory.mockResolvedValue([]);
+
+    await syncTautulli();
+
+    // Existing ratingKey should NOT be overwritten (only missing ones are resolved)
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
+    expect(items[0].ratingKey).toBe("rk-1");
+  });
+
   it("handles per-item errors gracefully", async () => {
     mockGetTautulliUsers.mockResolvedValue([
       { user_id: 10, username: "testuser", friendly_name: "testuser" },
@@ -457,10 +500,8 @@ describe("syncTautulli", () => {
   });
 });
 
-describe("syncTautulli file sizes", () => {
+describe("syncMissingFileSizes", () => {
   it("updates file sizes from Tautulli library media info", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "1", section_name: "Movies", section_type: "movie" },
     ]);
@@ -469,7 +510,7 @@ describe("syncTautulli file sizes", () => {
       { rating_key: "rk-2", title: "Test Movie 2", file_size: 3000000000 },
     ]);
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     const item1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
     expect(item1[0].fileSize).toBe(5000000000);
@@ -479,8 +520,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("skips items with empty or zero file_size from Tautulli", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "1", section_name: "Movies", section_type: "movie" },
     ]);
@@ -490,7 +529,7 @@ describe("syncTautulli file sizes", () => {
       { rating_key: "rk-5", title: "Other Movie", file_size: null },
     ]);
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     const item1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
     expect(item1[0].fileSize).toBeNull();
@@ -500,8 +539,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("uses Tautulli values and does not call Plex when all sizes are present", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "1", section_name: "Movies", section_type: "movie" },
       { section_id: "2", section_name: "TV Shows", section_type: "show" },
@@ -526,7 +563,7 @@ describe("syncTautulli file sizes", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("Plex should not be called"));
     vi.stubGlobal("fetch", fetchMock);
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     // TV shows should have sizes from Tautulli
     const show1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
@@ -541,8 +578,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("falls back to Plex API for items missing from Tautulli", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "1", section_name: "Movies", section_type: "movie" },
       { section_id: "2", section_name: "TV Shows", section_type: "show" },
@@ -596,7 +631,7 @@ describe("syncTautulli file sizes", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     // Movie should have Tautulli value
     const movie = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 1)).all();
@@ -621,8 +656,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("does not overwrite Tautulli values with Plex fallback", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "2", section_name: "TV Shows", section_type: "show" },
     ]);
@@ -656,7 +689,7 @@ describe("syncTautulli file sizes", () => {
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => plexResponse }));
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     // rk-3: Tautulli value should win (not overwritten by Plex)
     const show1 = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
@@ -670,8 +703,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("handles Plex API failure gracefully", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "2", section_name: "TV Shows", section_type: "show" },
     ]);
@@ -689,7 +720,7 @@ describe("syncTautulli file sizes", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     // Should not throw — error is caught
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     // File size should remain null
     const show = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 3)).all();
@@ -700,8 +731,6 @@ describe("syncTautulli file sizes", () => {
   });
 
   it("skips Plex fallback when no admin plex token exists", async () => {
-    mockGetTautulliUsers.mockResolvedValue([]);
-    mockGetHistory.mockResolvedValue([]);
     mockGetLibraries.mockResolvedValue([
       { section_id: "2", section_name: "TV Shows", section_type: "show" },
     ]);
@@ -717,10 +746,79 @@ describe("syncTautulli file sizes", () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("Should not be called"));
     vi.stubGlobal("fetch", fetchMock);
 
-    await syncTautulli();
+    await syncMissingFileSizes();
 
     // fetch should not have been called for Plex (no admin token means early return)
     expect(fetchMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("resolves file size by title for items without ratingKey", async () => {
+    // Insert an item without a ratingKey (e.g., from Sonarr where ratingKey wasn't resolved)
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`
+      INSERT INTO media_items (id, sonarr_id, tmdb_id, media_type, title, status)
+      VALUES (100, 42, 9999, 'tv', 'Reality Check', 'available')
+    `);
+
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "2", section_name: "TV Shows", section_type: "show" },
+    ]);
+    mockGetLibraryMediaInfo.mockResolvedValue([
+      { rating_key: "rk-reality", title: "Reality Check", file_size: "8000000000" },
+    ]);
+
+    await syncMissingFileSizes();
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 100)).all();
+    expect(items[0].ratingKey).toBe("rk-reality");
+    expect(items[0].fileSize).toBe(8000000000);
+  });
+
+  it("resolves file size via Plex title when Tautulli has no match", async () => {
+    // Insert a TV item without ratingKey that Tautulli doesn't know about
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`
+      INSERT INTO media_items (id, sonarr_id, tmdb_id, media_type, title, status)
+      VALUES (101, 55, 8888, 'tv', 'Mystery Show', 'available')
+    `);
+
+    mockGetLibraries.mockResolvedValue([
+      { section_id: "2", section_name: "TV Shows", section_type: "show" },
+    ]);
+    // Tautulli has NO entry for "Mystery Show"
+    mockGetLibraryMediaInfo.mockResolvedValue([]);
+    mockGetServerInfo.mockResolvedValue({ pmsUrl: "http://plex:32400" });
+
+    sqlite.exec(`UPDATE users SET plex_token = 'test-token' WHERE plex_id = 'plex-admin'`);
+
+    // But Plex has episodes for it
+    const plexResponse = {
+      MediaContainer: {
+        Metadata: [
+          {
+            grandparentRatingKey: "rk-mystery",
+            grandparentTitle: "Mystery Show",
+            ratingKey: "ep-1",
+            Media: [{ Part: [{ size: 4000000000 }] }],
+          },
+          {
+            grandparentRatingKey: "rk-mystery",
+            grandparentTitle: "Mystery Show",
+            ratingKey: "ep-2",
+            Media: [{ Part: [{ size: 3000000000 }] }],
+          },
+        ],
+      },
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => plexResponse }));
+
+    await syncMissingFileSizes();
+
+    const items = testDb.db.select().from(mediaItems).where(eq(mediaItems.id, 101)).all();
+    expect(items[0].ratingKey).toBe("rk-mystery");
+    expect(items[0].fileSize).toBe(7000000000); // 4GB + 3GB
 
     vi.unstubAllGlobals();
   });

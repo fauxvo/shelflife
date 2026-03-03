@@ -1,7 +1,38 @@
+import type { ArrImage } from "./sonarr";
+
+export interface RadarrMovieFull {
+  id: number;
+  title: string;
+  tmdbId?: number;
+  imdbId?: string;
+  images: ArrImage[];
+  sizeOnDisk: number;
+  added: string;
+  hasFile: boolean;
+  year: number;
+  status: string;
+}
+
 interface RadarrMovie {
   id: number;
   title: string;
   [key: string]: unknown;
+}
+
+/**
+ * Extract poster path from Radarr images array.
+ * Radarr stores TMDB poster URLs — extract the relative path portion
+ * (e.g., "/abc123.jpg") so it works with existing TMDB URL construction.
+ */
+export function extractRadarrPoster(images: ArrImage[]): string | null {
+  const poster = images.find((img) => img.coverType === "poster");
+  if (!poster?.remoteUrl) return null;
+  try {
+    const url = new URL(poster.remoteUrl);
+    return url.pathname;
+  } catch {
+    return null;
+  }
 }
 
 class RadarrClient {
@@ -30,6 +61,12 @@ class RadarrClient {
       return res.json();
     }
     return null;
+  }
+
+  async getAllMovies(): Promise<RadarrMovieFull[]> {
+    const data = await this.fetch("/api/v3/movie");
+    if (!Array.isArray(data)) return [];
+    return data;
   }
 
   async lookupByTmdbId(tmdbId: number): Promise<RadarrMovie | null> {

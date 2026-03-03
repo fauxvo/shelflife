@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createTestDb } from "@/test/helpers/db";
 import { appSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 
 let testDb: ReturnType<typeof createTestDb>;
 

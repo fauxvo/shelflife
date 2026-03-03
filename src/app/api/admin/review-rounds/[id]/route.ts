@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
-import { getCandidatesForRound } from "@/lib/db/queries";
+import { getCandidatesForRound, mapBaseMediaFields } from "@/lib/db/queries";
 import { reviewRounds } from "@/lib/db/schema";
 import { reviewRoundUpdateSchema } from "@/lib/validators/schemas";
 import { eq } from "drizzle-orm";
@@ -27,19 +27,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       round: round[0],
       candidates: candidates.map((c) => ({
-        id: c.id,
-        title: c.title,
-        mediaType: c.mediaType,
-        status: c.status,
-        posterPath: c.posterPath || null,
-        tmdbId: c.tmdbId ?? null,
-        tvdbId: c.tvdbId ?? null,
-        overseerrId: c.overseerrId ?? null,
-        imdbId: c.imdbId ?? null,
+        ...mapBaseMediaFields(c),
         requestedByUsername: c.requestedByUsername || "Unknown",
         nominatedBy: c.nominatedByUsernames ? c.nominatedByUsernames.split(",") : [],
-        seasonCount: c.seasonCount || null,
-        availableSeasonCount: c.availableSeasonCount || null,
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,
         tally: {
@@ -47,7 +37,6 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           keepVoters: c.keepVoterUsernames ? c.keepVoterUsernames.split(",") : [],
         },
         action: c.action || null,
-        fileSize: c.fileSize ?? null,
       })),
     });
   } catch (error) {

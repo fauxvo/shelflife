@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Toast, type ToastData } from "@/components/ui/Toast";
 
 type ServiceType =
@@ -82,6 +83,7 @@ const STATS_PROVIDER_OPTIONS = [
 ];
 
 export function ServiceSettings() {
+  const router = useRouter();
   const [services, setServices] = useState<Record<ServiceType, ServiceState>>(() => {
     const init = {} as Record<ServiceType, ServiceState>;
     for (const type of SERVICE_ORDER) {
@@ -227,8 +229,9 @@ export function ServiceSettings() {
       }
 
       setToast({ message: "Service settings saved", type: "success" });
-      // Reload to get updated masked keys
+      // Reload to get updated masked keys + refresh layout for provider labels
       await loadSettings();
+      router.refresh();
     } catch {
       setToast({ message: "Failed to save settings", type: "error" });
     } finally {

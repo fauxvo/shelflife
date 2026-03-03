@@ -3,8 +3,8 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, communityVotes, users } from "@/lib/db/schema";
-import { eq, and, ne, inArray, or } from "drizzle-orm";
+import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
+import { eq, and, inArray, ne } from "drizzle-orm";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,36 +28,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // JSON parse error (empty body) is fine — vote defaults to "keep"
     }
 
-    // Verify the item exists and is a valid community candidate:
-    // - Someone voted "delete"/"trim" AND (they are the requestor OR they are an admin)
-    // - The current user is NOT the requestor (can't community-vote on your own)
+    // Gate on active review round
+    const activeRound = await db
+      .select({ id: reviewRounds.id })
+      .from(reviewRounds)
+      .where(eq(reviewRounds.status, "active"))
+      .limit(1);
+
+    if (activeRound.length === 0) {
+      return NextResponse.json({ error: "No active review round" }, { status: 400 });
+    }
+
+    // Verify the item exists and has at least one nomination
     const item = await db
       .select({
         id: mediaItems.id,
-        requestedByPlexId: mediaItems.requestedByPlexId,
       })
       .from(mediaItems)
       .innerJoin(
         userVotes,
-        and(
-          eq(userVotes.mediaItemId, mediaItems.id),
-          inArray(userVotes.vote, ["delete", "trim"]),
-          or(
-            eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-            inArray(
-              userVotes.userPlexId,
-              db.select({ plexId: users.plexId }).from(users).where(eq(users.isAdmin, true))
-            )
-          )
-        )
+        and(eq(userVotes.mediaItemId, mediaItems.id), inArray(userVotes.vote, ["delete", "trim"]))
       )
-      .where(and(eq(mediaItems.id, mediaItemId), ne(mediaItems.requestedByPlexId, session.plexId)))
+      .where(eq(mediaItems.id, mediaItemId))
       .limit(1);
 
     if (item.length === 0) {
+      return NextResponse.json({ error: "Item not found or not nominated" }, { status: 404 });
+    }
+
+    // Can't community-vote on an item you nominated yourself
+    const ownNomination = await db
+      .select({ id: userVotes.id })
+      .from(userVotes)
+      .where(
+        and(
+          eq(userVotes.mediaItemId, mediaItemId),
+          eq(userVotes.userPlexId, session.plexId),
+          inArray(userVotes.vote, ["delete", "trim"])
+        )
+      )
+      .limit(1);
+
+    if (ownNomination.length > 0) {
       return NextResponse.json(
-        { error: "Item not found, not nominated, or is your own request" },
-        { status: 404 }
+        { error: "Cannot community-vote on your own nomination" },
+        { status: 403 }
       );
     }
 
@@ -94,6 +109,17 @@ export async function DELETE(
 
     if (isNaN(mediaItemId)) {
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
+    }
+
+    // Gate on active review round
+    const activeRound = await db
+      .select({ id: reviewRounds.id })
+      .from(reviewRounds)
+      .where(eq(reviewRounds.status, "active"))
+      .limit(1);
+
+    if (activeRound.length === 0) {
+      return NextResponse.json({ error: "No active review round" }, { status: 400 });
     }
 
     await db

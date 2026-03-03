@@ -7,27 +7,43 @@ import {
   communityVotes,
   reviewActions,
 } from "@/lib/db/schema";
-import { eq, and, count, or, ne, inArray, sql, type SQL } from "drizzle-orm";
+import { eq, and, count, ne, inArray, sql, type SQL } from "drizzle-orm";
 
-const mediaItemColumns = {
+/** Base media item columns — reusable across any query that selects from mediaItems. */
+export const baseMediaColumns = {
   id: mediaItems.id,
   overseerrId: mediaItems.overseerrId,
   tmdbId: mediaItems.tmdbId,
+  tvdbId: mediaItems.tvdbId,
   imdbId: mediaItems.imdbId,
   mediaType: mediaItems.mediaType,
   title: mediaItems.title,
   posterPath: mediaItems.posterPath,
   status: mediaItems.status,
   requestedAt: mediaItems.requestedAt,
+  requestedByPlexId: mediaItems.requestedByPlexId,
   ratingKey: mediaItems.ratingKey,
   seasonCount: mediaItems.seasonCount,
   availableSeasonCount: mediaItems.availableSeasonCount,
   fileSize: mediaItems.fileSize,
-  vote: userVotes.vote,
-  keepSeasons: userVotes.keepSeasons,
+  sonarrId: mediaItems.sonarrId,
+  radarrId: mediaItems.radarrId,
+  addedAt: mediaItems.addedAt,
+};
+
+/** Watch status columns for LEFT JOIN on watchStatus table. */
+export const watchStatusColumns = {
   watched: watchStatus.watched,
   playCount: watchStatus.playCount,
   lastWatchedAt: watchStatus.lastWatchedAt,
+};
+
+const mediaItemColumns = {
+  ...baseMediaColumns,
+  vote: userVotes.vote,
+  keepSeasons: userVotes.keepSeasons,
+  ...watchStatusColumns,
+  requestedByUsername: users.username,
 };
 
 export function mediaQueryWithJoins(plexId: string) {
@@ -41,7 +57,8 @@ export function mediaQueryWithJoins(plexId: string) {
     .leftJoin(
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
-    );
+    )
+    .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId));
 }
 
 export function mediaCountWithJoins(plexId: string) {
@@ -58,13 +75,16 @@ export function mediaCountWithJoins(plexId: string) {
     );
 }
 
-export function mapMediaItemRow(
-  i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never
-) {
+/** Input shape expected by mapBaseMediaFields — must include at least the base media columns. */
+type BaseMediaRow = { [K in keyof typeof baseMediaColumns]: unknown };
+
+/** Maps base media item fields to a consistent response shape. Reuse in any route. */
+export function mapBaseMediaFields(i: BaseMediaRow & Record<string, unknown>) {
   return {
     id: i.id,
-    overseerrId: i.overseerrId,
+    overseerrId: i.overseerrId ?? null,
     tmdbId: i.tmdbId,
+    tvdbId: i.tvdbId ?? null,
     imdbId: i.imdbId,
     mediaType: i.mediaType,
     title: i.title,
@@ -72,39 +92,52 @@ export function mapMediaItemRow(
     status: i.status,
     requestedAt: i.requestedAt,
     ratingKey: i.ratingKey,
-    seasonCount: i.seasonCount || null,
-    availableSeasonCount: i.availableSeasonCount || null,
+    seasonCount: i.seasonCount ?? null,
+    availableSeasonCount: i.availableSeasonCount ?? null,
     fileSize: i.fileSize ?? null,
+    sonarrId: i.sonarrId ?? null,
+    radarrId: i.radarrId ?? null,
+    addedAt: i.addedAt ?? null,
+  };
+}
+
+/** Input shape expected by mapWatchStatus — must include at least the watch status columns. */
+type WatchStatusRow = { watched: unknown; playCount: unknown; lastWatchedAt: unknown };
+
+/** Maps watch status columns to the standard watchStatus response shape. */
+export function mapWatchStatus(i: WatchStatusRow & Record<string, unknown>) {
+  return i.watched !== null && i.watched !== undefined
+    ? {
+        watched: !!i.watched,
+        playCount: (i.playCount as number) || 0,
+        lastWatchedAt: i.lastWatchedAt as string | null,
+      }
+    : null;
+}
+
+export function mapMediaItemRow(
+  i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never
+) {
+  return {
+    ...mapBaseMediaFields(i),
+    requestedByUsername: i.requestedByUsername || null,
     vote: i.vote || null,
     keepSeasons: i.keepSeasons || null,
-    watchStatus:
-      i.watched !== null
-        ? {
-            watched: i.watched,
-            playCount: i.playCount || 0,
-            lastWatchedAt: i.lastWatchedAt,
-          }
-        : null,
+    watchStatus: mapWatchStatus(i),
   };
 }
 
 /**
  * Shared condition for community nomination queries.
- * An item is nominated if someone voted delete/trim AND
- * the voter is the requestor OR the voter is an admin.
+ * An item is nominated if any user voted delete/trim on it.
+ * With *arr-sourced content, items may have no requester — any nomination counts.
  */
-export function getNominationCondition() {
+export function getNominationCondition(): SQL {
+  // and() with concrete args always returns SQL, never undefined
   return and(
     eq(userVotes.mediaItemId, mediaItems.id),
-    inArray(userVotes.vote, ["delete", "trim"]),
-    or(
-      eq(userVotes.userPlexId, mediaItems.requestedByPlexId),
-      inArray(
-        userVotes.userPlexId,
-        db.select({ plexId: users.plexId }).from(users).where(eq(users.isAdmin, true))
-      )
-    )
-  );
+    inArray(userVotes.vote, ["delete", "trim"])
+  )!;
 }
 
 /**
@@ -210,16 +243,13 @@ export async function getCandidatesForRound(roundId: number) {
 
   const baseCondition = getNominationCondition();
 
-  // Prefer self-nomination over admin nomination for type and keepSeasons
-  const selfPreferredVote = sql<string>`COALESCE(
-    MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
-    MAX(${userVotes.vote})
-  )`.as("nomination_type");
+  // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
+  // which correctly preserves the more specific vote
+  const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
 
-  const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
-    MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
-    MAX(${userVotes.keepSeasons})
-  )`.as("keep_seasons_agg");
+  const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
+    "keep_seasons_agg"
+  );
 
   // Build a subquery to resolve nominator usernames
   const nominatorUser = db
@@ -237,31 +267,20 @@ export async function getCandidatesForRound(roundId: number) {
 
   return db
     .select({
-      id: mediaItems.id,
-      title: mediaItems.title,
-      mediaType: mediaItems.mediaType,
-      status: mediaItems.status,
-      posterPath: mediaItems.posterPath,
-      tmdbId: mediaItems.tmdbId,
-      tvdbId: mediaItems.tvdbId,
-      overseerrId: mediaItems.overseerrId,
-      imdbId: mediaItems.imdbId,
+      ...baseMediaColumns,
       requestedByUsername: users.username,
       nominatedByUsernames,
-      seasonCount: mediaItems.seasonCount,
-      availableSeasonCount: mediaItems.availableSeasonCount,
-      nominationType: selfPreferredVote,
-      keepSeasons: selfPreferredKeepSeasons,
+      nominationType: aggregatedVote,
+      keepSeasons: aggregatedKeepSeasons,
       keepCount: keepTallySub.cnt,
       keepVoterUsernames: keepTallySub.voterUsernames,
       action: actionSubquery.action,
       actedAt: actionSubquery.actedAt,
       actionByUsername: actionByUser.username,
-      fileSize: mediaItems.fileSize,
       updatedAt: mediaItems.updatedAt,
     })
     .from(mediaItems)
-    .innerJoin(userVotes, baseCondition!)
+    .innerJoin(userVotes, baseCondition)
     .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
     .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
     .leftJoin(keepTallySub, eq(keepTallySub.mediaItemId, mediaItems.id))

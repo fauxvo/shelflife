@@ -28,7 +28,7 @@ export function CommunityCard({ item, onVoteChange, onSelfVoteChange }: Communit
       keepSeasons={item.nominationType === "trim" ? item.keepSeasons : null}
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}
-      requestedByUsername={item.requestedByUsername}
+      requestedByUsername={item.requestedByUsername ?? undefined}
       showLastWatched
     >
       {item.status === "removed" ? (

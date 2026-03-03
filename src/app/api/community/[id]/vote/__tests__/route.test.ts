@@ -62,6 +62,19 @@ function createDeleteRequest(id: string) {
 }
 
 describe("POST /api/community/:id/vote", () => {
+  it("rejects vote when no active review round", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM review_rounds`);
+
+    mockRequireAuth.mockResolvedValue(otherUser);
+    const req = createVoteRequest("2", "keep");
+    const res = await POST(req, { params: Promise.resolve({ id: "2" }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("No active review round");
+  });
+
   it("casts 'keep' vote successfully", async () => {
     // Item 2: requested by plex-user-1 who voted "delete" -> plex-user-2 can community vote
     mockRequireAuth.mockResolvedValue(otherUser);
@@ -116,13 +129,15 @@ describe("POST /api/community/:id/vote", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects vote on own item", async () => {
-    // Item 2 is requested by plex-user-1 — they can't community-vote on it
+  it("rejects vote on own nomination", async () => {
+    // Item 2 is nominated by plex-user-1 — they can't community-vote on their own nomination
     mockRequireAuth.mockResolvedValue(requestor);
     const req = createVoteRequest("2", "keep");
     const res = await POST(req, { params: Promise.resolve({ id: "2" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("Cannot community-vote on your own nomination");
   });
 
   it("can community-vote on trim candidate", async () => {
@@ -163,6 +178,19 @@ describe("POST /api/community/:id/vote", () => {
 });
 
 describe("DELETE /api/community/:id/vote", () => {
+  it("rejects delete when no active review round", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM review_rounds`);
+
+    mockRequireAuth.mockResolvedValue(otherUser);
+    const req = createDeleteRequest("2");
+    const res = await DELETE(req, { params: Promise.resolve({ id: "2" }) });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("No active review round");
+  });
+
   it("retracts vote successfully", async () => {
     // plex-user-2 has a community vote on item 2
     mockRequireAuth.mockResolvedValue(otherUser);

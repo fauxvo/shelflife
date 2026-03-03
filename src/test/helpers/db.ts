@@ -27,12 +27,15 @@ export function createTestDb() {
       tmdb_id INTEGER,
       tvdb_id INTEGER,
       imdb_id TEXT,
+      sonarr_id INTEGER UNIQUE,
+      radarr_id INTEGER UNIQUE,
       media_type TEXT NOT NULL CHECK(media_type IN ('movie', 'tv')),
       title TEXT NOT NULL,
       poster_path TEXT,
       status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN ('unknown', 'pending', 'processing', 'partial', 'available', 'removed')),
       requested_by_plex_id TEXT REFERENCES users(plex_id),
       requested_at TEXT,
+      added_at TEXT,
       rating_key TEXT,
       season_count INTEGER,
       available_season_count INTEGER,
@@ -130,7 +133,7 @@ export function createTestDb() {
 
     CREATE TABLE sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'tracearr', 'full')),
+      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'tracearr', 'sonarr', 'radarr', 'seerr', 'full')),
       status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
       items_synced INTEGER NOT NULL DEFAULT 0,
       errors TEXT,
@@ -188,5 +191,11 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
       (2, 'plex-user-2', 'keep'),
       (2, 'plex-admin', 'keep'),
       (5, 'plex-user-1', 'keep');
+  `);
+
+  // Active review round — community content is gated on this
+  sqlite.exec(`
+    INSERT INTO review_rounds (id, name, status, started_at, created_by_plex_id) VALUES
+      (1, 'Test Round', 'active', datetime('now'), 'plex-admin');
   `);
 }

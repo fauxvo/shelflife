@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSonarrClient } from "../sonarr";
+import { createSonarrClient, extractSonarrPoster } from "../sonarr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -73,5 +73,29 @@ describe("SonarrClient", () => {
     const client = makeClient();
 
     await expect(client.deleteSeries(55, true)).rejects.toThrow("Sonarr API error: 500");
+  });
+});
+
+describe("extractSonarrPoster", () => {
+  it("returns remoteUrl for poster coverType", () => {
+    const images = [
+      { coverType: "banner", remoteUrl: "https://example.com/banner.jpg" },
+      { coverType: "poster", remoteUrl: "https://artworks.thetvdb.com/poster.jpg" },
+    ];
+    expect(extractSonarrPoster(images)).toBe("https://artworks.thetvdb.com/poster.jpg");
+  });
+
+  it("falls back to url when remoteUrl is missing", () => {
+    const images = [{ coverType: "poster", url: "/local/poster.jpg" }];
+    expect(extractSonarrPoster(images)).toBe("/local/poster.jpg");
+  });
+
+  it("returns null when no poster image exists", () => {
+    const images = [{ coverType: "banner", remoteUrl: "https://example.com/banner.jpg" }];
+    expect(extractSonarrPoster(images)).toBeNull();
+  });
+
+  it("returns null for empty images array", () => {
+    expect(extractSonarrPoster([])).toBeNull();
   });
 });

@@ -118,12 +118,15 @@ describe("POST /api/media/:id/vote", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects vote on another user's item (404)", async () => {
+  it("allows vote on another user's item (any user can nominate)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createVoteRequest("5", "delete");
     const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.vote).toBe("delete");
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -190,12 +193,14 @@ describe("POST /api/media/:id/vote", () => {
     expect(data.keepSeasons).toBe(2);
   });
 
-  it("non-admin still cannot vote on another user's item (404)", async () => {
+  it("non-admin can also vote on another user's item", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createVoteRequest("5", "delete");
     const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
   });
 
   it("rejects 'trim' with keepSeasons >= seasonCount (400)", async () => {
@@ -242,12 +247,16 @@ describe("DELETE /api/media/:id/vote", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects un-nominate on another user's item (404) for non-admin", async () => {
+  it("allows un-nominate on another user's item (any user can manage their own votes)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createDeleteRequest("5");
     const res = await DELETE(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    // No vote exists from this user on item 5, so deleted=false
+    expect(data.deleted).toBe(false);
   });
 
   it("allows admin to un-nominate on any item", async () => {

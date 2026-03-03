@@ -51,6 +51,9 @@ const exportModule = await import("@/app/api/admin/review-rounds/[id]/export/rou
 beforeEach(() => {
   testDb = createTestDb();
   seedTestData(testDb.db);
+  // Clear seed review round — these tests create their own rounds
+  const sqlite = (testDb.db as any).session.client;
+  sqlite.exec("DELETE FROM review_rounds");
   mockRequireAdmin.mockReset();
 });
 

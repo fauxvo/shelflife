@@ -71,6 +71,13 @@
       "when": 1771188167154,
       "tag": "0009_young_otto_octavius",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1772553198520,
+      "tag": "0010_flashy_james_howlett",
+      "breakpoints": true
     }
   ]
 }

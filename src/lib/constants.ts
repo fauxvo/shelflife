@@ -27,6 +27,8 @@ export const SORT_LABELS: Record<CommonSort, string> = {
   title_desc: "Title (Z-A)",
   requested_newest: "Date Requested (Newest)",
   requested_oldest: "Date Requested (Oldest)",
+  added_newest: "Date Added (Newest)",
+  added_oldest: "Date Added (Oldest)",
 };
 
 export const COMMUNITY_SORTS = [
