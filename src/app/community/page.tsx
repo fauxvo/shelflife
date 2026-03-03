@@ -7,6 +7,8 @@ import { getNominationCondition } from "@/lib/db/queries";
 import { CommunityContent } from "@/components/community/CommunityContent";
 import { AppVersion } from "@/components/ui/AppVersion";
 
+export const dynamic = "force-dynamic";
+
 export default async function CommunityPage() {
   const session = await getSession();
   if (!session) redirect("/");
