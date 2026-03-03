@@ -16,7 +16,7 @@ const tracearrSessionSchema = z.object({
   serverName: z.string().nullish(),
   state: z.string().nullish(),
   mediaTitle: z.string(),
-  mediaType: z.enum(["movie", "episode", "track", "live", "photo", "unknown"]),
+  mediaType: z.string(),
   showTitle: z.string().nullish(),
   seasonNumber: z.number().nullish(),
   episodeNumber: z.number().nullish(),
