@@ -3,8 +3,6 @@
  * Usage:
  *   import { debug } from "@/lib/debug";
  *   debug.auth("Creating Plex PIN...");
- *   debug.sync("Synced 42 items");
- *   debug.db("Migration applied");
  *
  * Enable by setting the environment variable: DEBUG=true
  */
@@ -23,7 +21,4 @@ function createLogger(prefix: string) {
 export const debug = {
   auth: createLogger("auth"),
   sync: createLogger("sync"),
-  db: createLogger("db"),
-  middleware: createLogger("middleware"),
-  api: createLogger("api"),
 };

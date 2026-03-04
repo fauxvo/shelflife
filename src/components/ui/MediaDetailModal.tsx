@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { MediaTypeBadge } from "./MediaTypeBadge";
+import { ExternalLinkIcon } from "./ExternalLinks";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/format";
 import { useProviderLabel, useProviderUrl } from "@/lib/provider-context";
@@ -26,17 +27,6 @@ interface MediaDetailModalProps {
   overseerrId: number | null;
   onClose: () => void;
 }
-
-const ExternalLinkIcon = () => (
-  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-    />
-  </svg>
-);
 
 export function MediaDetailModal({
   title,
@@ -124,7 +114,11 @@ export function MediaDetailModal({
         <div className="relative aspect-[2/3] w-full flex-shrink-0 bg-gray-800 sm:w-48">
           {posterPath ? (
             <Image
-              src={`https://image.tmdb.org/t/p/w400${posterPath}`}
+              src={
+                posterPath.startsWith("http")
+                  ? posterPath
+                  : `https://image.tmdb.org/t/p/w400${posterPath}`
+              }
               alt={title}
               fill
               className="object-contain"
@@ -250,7 +244,7 @@ export function MediaDetailModal({
                   className="text-brand inline-flex items-center gap-1 text-xs hover:underline"
                 >
                   IMDB
-                  <ExternalLinkIcon />
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {tmdbId && (
@@ -261,7 +255,7 @@ export function MediaDetailModal({
                   className="text-tmdb inline-flex items-center gap-1 text-xs hover:underline"
                 >
                   TMDB
-                  <ExternalLinkIcon />
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {tvdbId && mediaType === "tv" && (
@@ -272,7 +266,7 @@ export function MediaDetailModal({
                   className="inline-flex items-center gap-1 text-xs text-green-400 hover:underline"
                 >
                   TheTVDB
-                  <ExternalLinkIcon />
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {overseerrId && providerUrl && (
@@ -283,7 +277,7 @@ export function MediaDetailModal({
                   className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline"
                 >
                   {providerLabel}
-                  <ExternalLinkIcon />
+                  <ExternalLinkIcon className="h-3.5 w-3.5" />
                 </a>
               )}
             </div>

@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityQuerySchema } from "@/lib/validators/schemas";
-import { buildPagination, getNominationCondition } from "@/lib/db/queries";
+import {
+  buildPagination,
+  getNominationCondition,
+  baseMediaColumns,
+  watchStatusColumns,
+  mapBaseMediaFields,
+  mapWatchStatus,
+} from "@/lib/db/queries";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
+import {
+  mediaItems,
+  userVotes,
+  communityVotes,
+  watchStatus,
+  users,
+  reviewRounds,
+} from "@/lib/db/schema";
 import { eq, and, count, sql, isNull, desc } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
@@ -51,18 +65,41 @@ export async function GET(request: NextRequest) {
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const query = communityQuerySchema.parse(params);
 
+    // Gate on active review round — community content only exists during rounds
+    const activeRound = await db
+      .select({ id: reviewRounds.id })
+      .from(reviewRounds)
+      .where(eq(reviewRounds.status, "active"))
+      .limit(1);
+
+    if (activeRound.length === 0) {
+      return NextResponse.json({
+        items: [],
+        pagination: buildPagination(query.page, query.limit, 0),
+      });
+    }
+
     const offset = (query.page - 1) * query.limit;
 
     // Base query: items nominated for deletion/trim (self-nominated or admin-nominated)
     const baseCondition = getNominationCondition();
 
-    // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
+    // Keep voter subquery — includes count and comma-separated voter names
+    const keepVoterUser = db
+      .select({ plexId: users.plexId, username: users.username })
+      .from(users)
+      .as("keep_voter_user");
+
     const keepCountSub = db
       .select({
         mediaItemId: communityVotes.mediaItemId,
         cnt: count().as("keep_count"),
+        voterUsernames: sql<string>`GROUP_CONCAT(DISTINCT ${keepVoterUser.username})`.as(
+          "keep_voter_usernames"
+        ),
       })
       .from(communityVotes)
+      .innerJoin(keepVoterUser, eq(keepVoterUser.plexId, communityVotes.userPlexId))
       .where(eq(communityVotes.vote, "keep"))
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
@@ -77,62 +114,51 @@ export async function GET(request: NextRequest) {
       .where(eq(communityVotes.userPlexId, session.plexId))
       .as("user_cv");
 
-    // Use aggregates to resolve GROUP BY when both self + admin nominate the same item.
-    // COALESCE prefers the self-nomination; MAX() fallback is deterministic in SQLite
-    // (alphabetical: 'trim' > 'delete'), which correctly preserves the more specific vote.
-    // These use Drizzle column refs (parameterized), not string interpolation — safe from injection.
-    const selfPreferredVote = sql<string>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
-      MAX(${userVotes.vote})
-    )`.as("nomination_type");
+    // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
+    // which correctly preserves the more specific vote.
+    const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
 
-    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
-      MAX(${userVotes.keepSeasons})
-    )`.as("keep_seasons_agg");
+    const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
+      "keep_seasons_agg"
+    );
 
     const isNominator =
       sql<number>`MAX(CASE WHEN ${userVotes.userPlexId} = ${session.plexId} THEN 1 ELSE 0 END)`.as(
         "is_nominator"
       );
 
+    // Resolve nominator usernames (who voted delete/trim)
+    const nominatorUser = db
+      .select({ plexId: users.plexId, username: users.username })
+      .from(users)
+      .as("nominator_user");
+
+    const nominatedByUsernames = sql<string>`GROUP_CONCAT(DISTINCT ${nominatorUser.username})`.as(
+      "nominated_by_usernames"
+    );
+
     let baseQuery = db
       .select({
-        id: mediaItems.id,
-        title: mediaItems.title,
-        mediaType: mediaItems.mediaType,
-        posterPath: mediaItems.posterPath,
-        status: mediaItems.status,
-        tmdbId: mediaItems.tmdbId,
-        tvdbId: mediaItems.tvdbId,
-        imdbId: mediaItems.imdbId,
-        overseerrId: mediaItems.overseerrId,
-        requestedAt: mediaItems.requestedAt,
+        ...baseMediaColumns,
+        ...watchStatusColumns,
         requestedByUsername: users.username,
-        seasonCount: mediaItems.seasonCount,
-        availableSeasonCount: mediaItems.availableSeasonCount,
-        fileSize: mediaItems.fileSize,
-        nominationType: selfPreferredVote,
-        keepSeasons: selfPreferredKeepSeasons,
-        watched: watchStatus.watched,
-        playCount: watchStatus.playCount,
-        lastWatchedAt: watchStatus.lastWatchedAt,
+        nominationType: aggregatedVote,
+        keepSeasons: aggregatedKeepSeasons,
         keepCount: keepCountSub.cnt,
+        keepVoterUsernames: keepCountSub.voterUsernames,
+        nominatedByUsernames,
         currentUserVote: userCommunityVote.vote,
         selfVoteUpdatedAt: sql<string>`MAX(${userVotes.updatedAt})`.as("self_vote_updated_at"),
-        requestedByPlexId: mediaItems.requestedByPlexId,
         isNominator,
       })
       .from(mediaItems)
-      .innerJoin(userVotes, baseCondition!)
+      .innerJoin(userVotes, baseCondition)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
       .leftJoin(
         watchStatus,
-        and(
-          eq(watchStatus.mediaItemId, mediaItems.id),
-          eq(watchStatus.userPlexId, mediaItems.requestedByPlexId)
-        )
+        and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, session.plexId))
       )
+      .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
       .leftJoin(keepCountSub, eq(keepCountSub.mediaItemId, mediaItems.id))
       .leftJoin(userCommunityVote, eq(userCommunityVote.mediaItemId, mediaItems.id));
 
@@ -170,36 +196,19 @@ export async function GET(request: NextRequest) {
     const items = await baseQuery.groupBy(mediaItems.id).limit(query.limit).offset(offset);
 
     // Count query — separate paths to keep Drizzle types clean
-    const total = await getCandidateCount(db, baseCondition!, query, session.plexId);
+    const total = await getCandidateCount(db, baseCondition, query, session.plexId);
 
     return NextResponse.json({
       items: items.map((i) => ({
-        id: i.id,
-        title: i.title,
-        mediaType: i.mediaType,
-        posterPath: i.posterPath,
-        status: i.status,
-        tmdbId: i.tmdbId,
-        tvdbId: i.tvdbId ?? null,
-        imdbId: i.imdbId,
-        overseerrId: i.overseerrId ?? null,
-        requestedByUsername: i.requestedByUsername || "Unknown",
-        requestedAt: i.requestedAt,
-        seasonCount: i.seasonCount || null,
-        availableSeasonCount: i.availableSeasonCount || null,
-        fileSize: i.fileSize ?? null,
+        ...mapBaseMediaFields(i),
+        requestedByUsername: i.requestedByUsername || null,
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
-        watchStatus:
-          i.watched !== null && i.watched !== undefined
-            ? {
-                watched: !!i.watched,
-                playCount: i.playCount || 0,
-                lastWatchedAt: i.lastWatchedAt,
-              }
-            : null,
+        watchStatus: mapWatchStatus(i),
+        nominatedBy: i.nominatedByUsernames ? i.nominatedByUsernames.split(",") : [],
         tally: {
           keepCount: Number(i.keepCount) || 0,
+          keepVoters: i.keepVoterUsernames ? i.keepVoterUsernames.split(",") : [],
         },
         currentUserVote: i.currentUserVote || null,
         isRequestor: i.requestedByPlexId === session.plexId,

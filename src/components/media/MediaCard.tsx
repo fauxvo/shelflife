@@ -7,9 +7,10 @@ import type { MediaItemWithVote, VoteValue } from "@/types";
 interface MediaCardProps {
   item: MediaItemWithVote;
   onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
+  showVoteButton?: boolean;
 }
 
-export function MediaCard({ item, onVoteChange }: MediaCardProps) {
+export function MediaCard({ item, onVoteChange, showVoteButton = true }: MediaCardProps) {
   return (
     <BaseMediaCard
       title={item.title}
@@ -23,19 +24,22 @@ export function MediaCard({ item, onVoteChange }: MediaCardProps) {
       seasonCount={item.seasonCount}
       availableSeasonCount={item.availableSeasonCount}
       keepSeasons={item.vote === "trim" ? item.keepSeasons : null}
+      requestedByUsername={item.requestedByUsername ?? undefined}
       watchStatus={item.watchStatus}
       fileSize={item.fileSize}
     >
-      <VoteButton
-        mediaItemId={item.id}
-        currentVote={item.vote}
-        seasonCount={item.seasonCount}
-        mediaType={item.mediaType}
-        currentKeepSeasons={item.keepSeasons}
-        onVoteChange={(newVote: VoteValue | null, oldVote: VoteValue | null) =>
-          onVoteChange?.(item.id, oldVote, newVote)
-        }
-      />
+      {showVoteButton && (
+        <VoteButton
+          mediaItemId={item.id}
+          currentVote={item.vote}
+          seasonCount={item.seasonCount}
+          mediaType={item.mediaType}
+          currentKeepSeasons={item.keepSeasons}
+          onVoteChange={(newVote: VoteValue | null, oldVote: VoteValue | null) =>
+            onVoteChange?.(item.id, oldVote, newVote)
+          }
+        />
+      )}
     </BaseMediaCard>
   );
 }

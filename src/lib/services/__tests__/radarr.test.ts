@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createRadarrClient } from "../radarr";
+import { createRadarrClient, extractRadarrPoster } from "../radarr";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -73,5 +73,33 @@ describe("RadarrClient", () => {
     const client = makeClient();
 
     await expect(client.deleteMovie(42, true)).rejects.toThrow("Radarr API error: 500");
+  });
+});
+
+describe("extractRadarrPoster", () => {
+  it("extracts relative pathname from TMDB remoteUrl", () => {
+    const images = [
+      { coverType: "poster", remoteUrl: "https://image.tmdb.org/t/p/original/abc123.jpg" },
+    ];
+    expect(extractRadarrPoster(images)).toBe("/t/p/original/abc123.jpg");
+  });
+
+  it("returns null when no poster image exists", () => {
+    const images = [{ coverType: "fanart", remoteUrl: "https://example.com/fanart.jpg" }];
+    expect(extractRadarrPoster(images)).toBeNull();
+  });
+
+  it("returns null when remoteUrl is missing", () => {
+    const images = [{ coverType: "poster" }];
+    expect(extractRadarrPoster(images)).toBeNull();
+  });
+
+  it("returns null for malformed URLs", () => {
+    const images = [{ coverType: "poster", remoteUrl: "not-a-url" }];
+    expect(extractRadarrPoster(images)).toBeNull();
+  });
+
+  it("returns null for empty images array", () => {
+    expect(extractRadarrPoster([])).toBeNull();
   });
 });

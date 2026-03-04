@@ -5,7 +5,7 @@ import { inArray } from "drizzle-orm";
 export interface SyncScheduleSettings {
   enabled: boolean;
   schedule: string;
-  syncType: "overseerr" | "tautulli" | "tracearr" | "full";
+  syncType: "overseerr" | "tautulli" | "tracearr" | "sonarr" | "radarr" | "seerr" | "full";
 }
 
 const DEFAULTS: SyncScheduleSettings = {
@@ -20,7 +20,15 @@ const SETTING_KEYS = {
   syncType: "sync_schedule_type",
 } as const;
 
-const VALID_SYNC_TYPES = new Set<string>(["overseerr", "tautulli", "tracearr", "full"]);
+const VALID_SYNC_TYPES = new Set<string>([
+  "overseerr",
+  "tautulli",
+  "tracearr",
+  "sonarr",
+  "radarr",
+  "seerr",
+  "full",
+]);
 
 export async function getSyncScheduleSettings(): Promise<SyncScheduleSettings> {
   const rows = await db

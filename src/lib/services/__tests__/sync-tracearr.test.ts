@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("../overseerr", () => ({
+vi.mock("../seerr-client", () => ({
   mapMediaStatus: (status: number | null | undefined) => {
     const map: Record<number, string> = {
       1: "unknown",

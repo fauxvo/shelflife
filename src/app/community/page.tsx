@@ -7,18 +7,11 @@ import { getNominationCondition } from "@/lib/db/queries";
 import { CommunityContent } from "@/components/community/CommunityContent";
 import { AppVersion } from "@/components/ui/AppVersion";
 
+export const dynamic = "force-dynamic";
+
 export default async function CommunityPage() {
   const session = await getSession();
   if (!session) redirect("/");
-
-  // Count candidates — uses same condition as the community grid
-  const [candidateResult] = await db
-    .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
-    .from(mediaItems)
-    .innerJoin(userVotes, getNominationCondition());
-
-  // Count total community votes
-  const [voteResult] = await db.select({ total: count() }).from(communityVotes);
 
   // Check for active review round
   const activeRoundResult = await db
@@ -31,6 +24,20 @@ export default async function CommunityPage() {
     .where(eq(reviewRounds.status, "active"))
     .limit(1);
   const activeRound = activeRoundResult[0] || null;
+
+  // Skip candidate/vote counts when no active round (community page will be empty)
+  let totalCandidates = 0;
+  let totalVotes = 0;
+  if (activeRound) {
+    const [candidateResult] = await db
+      .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
+      .from(mediaItems)
+      .innerJoin(userVotes, getNominationCondition());
+    totalCandidates = candidateResult?.total || 0;
+
+    const [voteResult] = await db.select({ total: count() }).from(communityVotes);
+    totalVotes = voteResult?.total || 0;
+  }
 
   return (
     <div className="min-h-screen">
@@ -63,8 +70,8 @@ export default async function CommunityPage() {
       </header>
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
         <CommunityContent
-          totalCandidates={candidateResult?.total || 0}
-          totalVotes={voteResult?.total || 0}
+          totalCandidates={totalCandidates}
+          totalVotes={totalVotes}
           activeRound={activeRound}
         />
       </main>

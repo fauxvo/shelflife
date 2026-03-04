@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-const jellyseerrUserSchema = z.object({
+/**
+ * Unified client for Overseerr/Seerr/Jellyseerr — all three share the same API surface.
+ * The `providerLabel` is used only in error messages (e.g., "Overseerr API error: 500").
+ */
+
+const userSchema = z.object({
   id: z.number(),
   email: z.string().nullish(),
   plexUsername: z.string().nullish(),
@@ -10,16 +15,7 @@ const jellyseerrUserSchema = z.object({
   requestCount: z.number().nullish(),
 });
 
-const jellyseerrMediaInfoSchema = z.object({
-  id: z.number().nullish(),
-  tmdbId: z.number().nullish(),
-  tvdbId: z.number().nullish(),
-  status: z.number().nullish(),
-  ratingKey: z.string().nullish(),
-  externalServiceId: z.number().nullish(),
-});
-
-const jellyseerrRequestSchema = z.object({
+const requestSchema = z.object({
   id: z.number(),
   status: z.number(),
   createdAt: z.string(),
@@ -36,32 +32,40 @@ const jellyseerrRequestSchema = z.object({
       externalServiceSlug: z.string().nullish(),
     })
     .nullish(),
-  requestedBy: jellyseerrUserSchema.nullish(),
-  mediaInfo: jellyseerrMediaInfoSchema.nullish(),
+  requestedBy: userSchema.nullish(),
+  mediaInfo: z
+    .object({
+      id: z.number().nullish(),
+      tmdbId: z.number().nullish(),
+      tvdbId: z.number().nullish(),
+      status: z.number().nullish(),
+      ratingKey: z.string().nullish(),
+      externalServiceId: z.number().nullish(),
+    })
+    .nullish(),
 });
 
-const jellyseerrPageSchema = z.object({
+const pageSchema = z.object({
   pageInfo: z.object({
     pages: z.number(),
     pageSize: z.number(),
     results: z.number(),
     page: z.number(),
   }),
-  results: z.array(jellyseerrRequestSchema),
+  results: z.array(requestSchema),
 });
 
-const jellyseerrUserPageSchema = z.object({
+const userPageSchema = z.object({
   pageInfo: z.object({
     pages: z.number(),
     pageSize: z.number(),
     results: z.number(),
     page: z.number(),
   }),
-  results: z.array(jellyseerrUserSchema),
+  results: z.array(userSchema),
 });
 
-// Media info response with title
-const jellyseerrMediaDetailSchema = z.object({
+const mediaDetailSchema = z.object({
   id: z.number(),
   mediaType: z.string().nullish(),
   title: z.string().nullish(),
@@ -91,8 +95,8 @@ const jellyseerrMediaDetailSchema = z.object({
     .nullish(),
 });
 
-export type JellyseerrRequest = z.infer<typeof jellyseerrRequestSchema>;
-export type JellyseerrUser = z.infer<typeof jellyseerrUserSchema>;
+export type SeerrServiceRequest = z.infer<typeof requestSchema>;
+export type SeerrServiceUser = z.infer<typeof userSchema>;
 
 type MediaStatusValue = "unknown" | "pending" | "processing" | "partial" | "available";
 
@@ -108,13 +112,15 @@ export function mapMediaStatus(status: number | null | undefined): MediaStatusVa
   return MEDIA_STATUS_MAP[status ?? 1] || "unknown";
 }
 
-class JellyseerrClient {
+class SeerrServiceClient {
   private baseUrl: string;
   private apiKey: string;
+  private label: string;
 
-  constructor(config: { url: string; apiKey: string }) {
+  constructor(label: string, config: { url: string; apiKey: string }) {
     this.baseUrl = config.url.replace(/\/$/, "");
     this.apiKey = config.apiKey;
+    this.label = label;
   }
 
   private async fetch(path: string, options?: RequestInit) {
@@ -127,7 +133,7 @@ class JellyseerrClient {
       },
     });
     if (!res.ok) {
-      throw new Error(`Jellyseerr API error: ${res.status} ${res.statusText}`);
+      throw new Error(`${this.label} API error: ${res.status} ${res.statusText}`);
     }
     const contentType = res.headers.get("content-type");
     if (contentType?.includes("application/json")) {
@@ -140,15 +146,15 @@ class JellyseerrClient {
     await this.fetch(`/api/v1/media/${overseerrMediaId}`, { method: "DELETE" });
   }
 
-  async getRequests(take = 20, skip = 0): Promise<z.infer<typeof jellyseerrPageSchema>> {
+  async getRequests(take = 20, skip = 0): Promise<z.infer<typeof pageSchema>> {
     const data = await this.fetch(
       `/api/v1/request?take=${take}&skip=${skip}&sort=added&filter=all`
     );
-    return jellyseerrPageSchema.parse(data);
+    return pageSchema.parse(data);
   }
 
-  async getAllRequests(): Promise<JellyseerrRequest[]> {
-    const allRequests: JellyseerrRequest[] = [];
+  async getAllRequests(): Promise<SeerrServiceRequest[]> {
+    const allRequests: SeerrServiceRequest[] = [];
     let skip = 0;
     const take = 50;
 
@@ -165,18 +171,18 @@ class JellyseerrClient {
   async getMediaDetails(
     tmdbId: number,
     mediaType: string
-  ): Promise<z.infer<typeof jellyseerrMediaDetailSchema>> {
+  ): Promise<z.infer<typeof mediaDetailSchema>> {
     const data = await this.fetch(`/api/v1/${mediaType}/${tmdbId}`);
-    return jellyseerrMediaDetailSchema.parse(data);
+    return mediaDetailSchema.parse(data);
   }
 
-  async getUsers(): Promise<JellyseerrUser[]> {
-    const allUsers: JellyseerrUser[] = [];
+  async getUsers(): Promise<SeerrServiceUser[]> {
+    const allUsers: SeerrServiceUser[] = [];
     let page = 1;
 
     while (true) {
       const data = await this.fetch(`/api/v1/user?take=50&skip=${(page - 1) * 50}`);
-      const parsed = jellyseerrUserPageSchema.parse(data);
+      const parsed = userPageSchema.parse(data);
       allUsers.push(...parsed.results);
       if (page >= parsed.pageInfo.pages) break;
       page++;
@@ -186,6 +192,15 @@ class JellyseerrClient {
   }
 }
 
-export function createJellyseerrClient(config: { url: string; apiKey: string }): JellyseerrClient {
-  return new JellyseerrClient(config);
+const PROVIDER_LABELS: Record<string, string> = {
+  seerr: "Seerr",
+  overseerr: "Overseerr",
+  jellyseerr: "Jellyseerr",
+};
+
+export function createSeerrServiceClient(
+  provider: string,
+  config: { url: string; apiKey: string }
+): SeerrServiceClient {
+  return new SeerrServiceClient(PROVIDER_LABELS[provider] ?? provider, config);
 }

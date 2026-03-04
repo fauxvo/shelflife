@@ -39,8 +39,12 @@ export function ClickablePoster({
   children,
 }: ClickablePosterProps) {
   const config = SIZE_CONFIG[size];
+  // If path starts with 'http' → full URL (for TVDB/Sonarr posters)
+  // If path starts with '/' → TMDB relative path (current behavior)
   const posterUrl = posterPath
-    ? `https://image.tmdb.org/t/p/${config.tmdbWidth}${posterPath}`
+    ? posterPath.startsWith("http")
+      ? posterPath
+      : `https://image.tmdb.org/t/p/${config.tmdbWidth}${posterPath}`
     : null;
 
   return (

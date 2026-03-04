@@ -6,13 +6,14 @@ import {
   useProviderLabel,
   useStatsProviderLabel,
   useStatsProviderId,
+  useConfiguredServices,
 } from "@/lib/provider-context";
 
 interface AutoSyncSettingsProps {
   initialSettings: {
     enabled: boolean;
     schedule: string;
-    syncType: "overseerr" | "tautulli" | "tracearr" | "full";
+    syncType: "overseerr" | "tautulli" | "tracearr" | "sonarr" | "radarr" | "seerr" | "full";
   };
 }
 
@@ -33,9 +34,20 @@ export function AutoSyncSettings({ initialSettings }: AutoSyncSettingsProps) {
   const providerLabel = useProviderLabel();
   const statsLabel = useStatsProviderLabel();
   const statsProviderId = useStatsProviderId();
+  const configuredServices = useConfiguredServices();
+  const hasArr = configuredServices.sonarr || configuredServices.radarr;
   const syncTypes = [
     { label: "Full", value: "full" },
-    { label: `${providerLabel} Only`, value: "overseerr" },
+    ...(configuredServices.sonarr ? [{ label: "Sonarr Only", value: "sonarr" }] : []),
+    ...(configuredServices.radarr ? [{ label: "Radarr Only", value: "radarr" }] : []),
+    ...(configuredServices.seerr
+      ? [
+          {
+            label: `${providerLabel} ${hasArr ? "Enrich" : "Only"}`,
+            value: hasArr ? "seerr" : "overseerr",
+          },
+        ]
+      : []),
     { label: `${statsLabel} Only`, value: statsProviderId },
   ];
   const [enabled, setEnabled] = useState(initialSettings.enabled);

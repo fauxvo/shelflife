@@ -47,6 +47,20 @@ beforeEach(() => {
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
 describe("GET /api/admin/community", () => {
+  it("returns empty list when no active review round", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM review_rounds`);
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.items).toEqual([]);
+    expect(data.pagination.total).toBe(0);
+  });
+
   it("returns community candidates with tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");

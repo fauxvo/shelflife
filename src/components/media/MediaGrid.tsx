@@ -37,6 +37,15 @@ export function MediaGrid({
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [hasActiveRound, setHasActiveRound] = useState(false);
+
+  // Check for active review round on mount
+  useEffect(() => {
+    fetch("/api/media/review-status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setHasActiveRound(!!data?.activeRound))
+      .catch(() => {});
+  }, []);
 
   // Reset page when statsFilter changes
   useEffect(() => {
@@ -91,6 +100,7 @@ export function MediaGrid({
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshKey is an intentional refetch trigger
   }, [page, pageSize, filters, statsFilter, debouncedSearch, refreshKey]);
 
   useEffect(() => {
@@ -219,7 +229,12 @@ export function MediaGrid({
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {items.map((item) => (
-            <MediaCard key={item.id} item={item} onVoteChange={handleVoteChange} />
+            <MediaCard
+              key={item.id}
+              item={item}
+              onVoteChange={handleVoteChange}
+              showVoteButton={hasActiveRound}
+            />
           ))}
         </div>
       )}

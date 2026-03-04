@@ -47,17 +47,17 @@ const userSession = { userId: 1, plexId: "plex-user-1", username: "testuser", is
 const otherSession = { userId: 2, plexId: "plex-user-2", username: "otheruser", isAdmin: false };
 
 describe("GET /api/media/stats", () => {
-  it("defaults to personal scope stats", async () => {
+  it("defaults to all scope stats", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createRequest("http://localhost:3000/api/media/stats");
     const res = await GET(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    // plex-user-1 has 6 items, 2 nominated (items 2,7), 1 watched (item 1)
-    expect(data.total).toBe(6);
+    // all scope: 7 total items, plex-user-1 nominated 2, watched 1
+    expect(data.total).toBe(7);
     expect(data.nominated).toBe(2);
-    expect(data.notNominated).toBe(4);
+    expect(data.notNominated).toBe(5);
     expect(data.watched).toBe(1);
   });
 

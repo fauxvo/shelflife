@@ -3,8 +3,10 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { mediaItems, userVotes, reviewRounds, reviewActions } from "@/lib/db/schema";
+import { eq, and, count, notInArray } from "drizzle-orm";
+
+const MAX_NOMINATIONS_PER_ROUND = 100;
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,16 +23,56 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { vote } = parsed;
     const keepSeasons = vote === "trim" ? (parsed.keepSeasons ?? null) : null;
 
-    // Verify the media item exists (admins can vote on any item; non-admins only their own)
-    const itemConditions = [eq(mediaItems.id, mediaItemId)];
-    if (!session.isAdmin) {
-      itemConditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
-    }
-    const item = await db
-      .select()
-      .from(mediaItems)
-      .where(and(...itemConditions))
+    // Gate on active review round
+    const activeRound = await db
+      .select({ id: reviewRounds.id })
+      .from(reviewRounds)
+      .where(eq(reviewRounds.status, "active"))
       .limit(1);
+
+    if (activeRound.length === 0) {
+      return NextResponse.json({ error: "No active review round" }, { status: 400 });
+    }
+
+    // Rate limit: cap nominations per user per active round.
+    // Votes on items actioned in prior rounds (kept in userVotes for historical
+    // reference) are excluded so they don't count against the current round's cap.
+    if (!session.isAdmin) {
+      // Subquery: item IDs that already have a review action (from prior rounds)
+      const actionedItems = db
+        .select({ mediaItemId: reviewActions.mediaItemId })
+        .from(reviewActions);
+
+      const [existing] = await db
+        .select({ total: count() })
+        .from(userVotes)
+        .where(
+          and(
+            eq(userVotes.userPlexId, session.plexId),
+            notInArray(userVotes.mediaItemId, actionedItems)
+          )
+        );
+
+      // Allow re-voting on already-nominated items (existing vote doesn't count toward cap)
+      const existingVote = await db
+        .select({ id: userVotes.id })
+        .from(userVotes)
+        .where(
+          and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId))
+        )
+        .limit(1);
+
+      if (existing.total >= MAX_NOMINATIONS_PER_ROUND && existingVote.length === 0) {
+        return NextResponse.json(
+          { error: `You can nominate up to ${MAX_NOMINATIONS_PER_ROUND} items per review round` },
+          { status: 429 }
+        );
+      }
+    }
+
+    // Verify the media item exists — any authenticated user can nominate any item
+    // (admin review round is the governance layer, with a per-user nomination cap)
+    const item = await db.select().from(mediaItems).where(eq(mediaItems.id, mediaItemId)).limit(1);
 
     if (item.length === 0) {
       return NextResponse.json({ error: "Media item not found" }, { status: 404 });
@@ -47,7 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           { status: 400 }
         );
       }
-      if (keepSeasons! >= item[0].seasonCount) {
+      if (keepSeasons != null && keepSeasons >= item[0].seasonCount) {
         return NextResponse.json(
           { error: "keepSeasons must be less than the total season count" },
           { status: 400 }
@@ -95,16 +137,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Verify the media item exists and user has permission (admins can un-nominate any; non-admins only their own)
-    const itemConditions = [eq(mediaItems.id, mediaItemId)];
-    if (!session.isAdmin) {
-      itemConditions.push(eq(mediaItems.requestedByPlexId, session.plexId));
-    }
-    const item = await db
-      .select()
-      .from(mediaItems)
-      .where(and(...itemConditions))
-      .limit(1);
+    // Any user can un-nominate their own vote.
+    // Admins manage nominations via review rounds, not direct vote deletion.
+    const item = await db.select().from(mediaItems).where(eq(mediaItems.id, mediaItemId)).limit(1);
 
     if (item.length === 0) {
       return NextResponse.json({ error: "Media item not found" }, { status: 404 });

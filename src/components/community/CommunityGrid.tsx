@@ -8,11 +8,16 @@ import { COMMUNITY_SORT_LABELS } from "@/lib/constants";
 import type { CommunityCandidate, CommunityVoteValue, VoteValue } from "@/types";
 
 interface CommunityGridProps {
+  activeRound: boolean;
   onCandidateRemoved?: () => void;
   onCommunityVoteChange?: (delta: number) => void;
 }
 
-export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: CommunityGridProps) {
+export function CommunityGrid({
+  activeRound,
+  onCandidateRemoved,
+  onCommunityVoteChange,
+}: CommunityGridProps) {
   const [items, setItems] = useState<CommunityCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -71,6 +76,7 @@ export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: Com
               ...item,
               currentUserVote: _vote,
               tally: {
+                ...item.tally,
                 keepCount: item.tally.keepCount + delta.keep,
               },
             }
@@ -155,8 +161,19 @@ export function CommunityGrid({ onCandidateRemoved, onCommunityVoteChange }: Com
         <MediaCardSkeleton />
       ) : items.length === 0 ? (
         <div className="py-12 text-center text-gray-500">
-          <p className="text-lg">Nothing up for review yet</p>
-          <p className="mt-1 text-sm">Head to My Content to nominate items.</p>
+          {activeRound ? (
+            <>
+              <p className="text-lg">Nothing up for review yet</p>
+              <p className="mt-1 text-sm">Head to My Content to nominate items.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg">No active review round</p>
+              <p className="mt-1 text-sm">
+                Community review starts when an admin creates a new round.
+              </p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

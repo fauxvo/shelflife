@@ -7,6 +7,7 @@ import {
   useProviderLabel,
   useStatsProviderLabel,
   useStatsProviderId,
+  useConfiguredServices,
 } from "@/lib/provider-context";
 
 interface SyncStatusProps {
@@ -27,6 +28,9 @@ interface ProgressState {
 }
 
 interface SyncResult {
+  sonarr?: number;
+  radarr?: number;
+  seerr?: number;
   overseerr?: number;
   tautulli?: number;
   tracearr?: number;
@@ -34,8 +38,13 @@ interface SyncResult {
 
 export function formatSyncResult(synced: SyncResult): string {
   const parts: string[] = [];
-  if (synced.overseerr != null) {
-    parts.push(`${synced.overseerr} media item${synced.overseerr !== 1 ? "s" : ""}`);
+  const hasMediaSource = synced.sonarr != null || synced.radarr != null || synced.overseerr != null;
+  if (hasMediaSource) {
+    const mediaCount = (synced.sonarr ?? 0) + (synced.radarr ?? 0) + (synced.overseerr ?? 0);
+    parts.push(`${mediaCount} media item${mediaCount !== 1 ? "s" : ""}`);
+  }
+  if (synced.seerr != null && synced.seerr > 0) {
+    parts.push(`${synced.seerr} enriched`);
   }
   const watchRecords = synced.tautulli ?? synced.tracearr;
   if (watchRecords != null) {
@@ -46,8 +55,10 @@ export function formatSyncResult(synced: SyncResult): string {
 }
 
 function formatSyncType(syncType: string, providerLabel: string, statsLabel: string): string {
-  if (syncType === "overseerr") return providerLabel;
+  if (syncType === "overseerr" || syncType === "seerr") return providerLabel;
   if (syncType === "tautulli" || syncType === "tracearr") return statsLabel;
+  if (syncType === "sonarr") return "Sonarr";
+  if (syncType === "radarr") return "Radarr";
   if (syncType === "full") return "Full";
   return syncType;
 }
@@ -56,6 +67,8 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
   const providerLabel = useProviderLabel();
   const statsLabel = useStatsProviderLabel();
   const statsProviderId = useStatsProviderId();
+  const configuredServices = useConfiguredServices();
+  const hasArr = configuredServices.sonarr || configuredServices.radarr;
   const [syncing, setSyncing] = useState(false);
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -75,7 +88,7 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
         setToast({ message: `Sync failed: ${err.error}`, type: "error" });
         setSyncing(false);
         return;
@@ -104,19 +117,26 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           if (line.startsWith("event: ")) {
             currentEvent = line.slice(7);
           } else if (line.startsWith("data: ")) {
-            const data = JSON.parse(line.slice(6));
+            let data: ProgressState | { synced: SyncResult } | { message: string };
+            try {
+              data = JSON.parse(line.slice(6));
+            } catch {
+              continue; // Skip malformed SSE data lines
+            }
 
             if (currentEvent === "progress") {
-              setProgress(data);
+              setProgress(data as ProgressState);
             } else if (currentEvent === "complete") {
+              const completeData = data as { synced: SyncResult };
               setToast({
-                message: formatSyncResult(data.synced),
+                message: formatSyncResult(completeData.synced),
                 type: "success",
               });
               setProgress(null);
               router.refresh();
             } else if (currentEvent === "error") {
-              setToast({ message: `Sync failed: ${data.message}`, type: "error" });
+              const errorData = data as { message: string };
+              setToast({ message: `Sync failed: ${errorData.message}`, type: "error" });
               setProgress(null);
             }
           }
@@ -174,12 +194,28 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
           <div className="flex items-center gap-2">
             <span
               className={`rounded px-2 py-0.5 text-xs font-medium ${
-                progress.phase === "overseerr"
-                  ? "bg-blue-900/50 text-blue-300"
-                  : "bg-purple-900/50 text-purple-300"
+                (
+                  {
+                    overseerr: "bg-blue-900/50 text-blue-300",
+                    seerr: "bg-blue-900/50 text-blue-300",
+                    sonarr: "bg-orange-900/50 text-orange-300",
+                    radarr: "bg-orange-900/50 text-orange-300",
+                    tautulli: "bg-purple-900/50 text-purple-300",
+                    tracearr: "bg-purple-900/50 text-purple-300",
+                  } as Record<string, string>
+                )[progress.phase] ?? "bg-gray-900/50 text-gray-300"
               }`}
             >
-              {progress.phase === "overseerr" ? providerLabel : statsLabel}
+              {(
+                {
+                  overseerr: providerLabel,
+                  seerr: providerLabel,
+                  sonarr: "Sonarr",
+                  radarr: "Radarr",
+                  tautulli: statsLabel,
+                  tracearr: statsLabel,
+                } as Record<string, string>
+              )[progress.phase] ?? progress.phase}
             </span>
             <span className="text-sm text-gray-300">{progress.step}</span>
           </div>
@@ -245,12 +281,30 @@ export function SyncStatus({ lastSync }: SyncStatusProps) {
             >
               Full Sync
             </button>
-            <button
-              onClick={() => triggerSync("overseerr")}
-              className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
-            >
-              {providerLabel} Only
-            </button>
+            {configuredServices.sonarr && (
+              <button
+                onClick={() => triggerSync("sonarr")}
+                className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
+              >
+                Sonarr Only
+              </button>
+            )}
+            {configuredServices.radarr && (
+              <button
+                onClick={() => triggerSync("radarr")}
+                className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
+              >
+                Radarr Only
+              </button>
+            )}
+            {configuredServices.seerr && (
+              <button
+                onClick={() => triggerSync(hasArr ? "seerr" : "overseerr")}
+                className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"
+              >
+                {providerLabel} {hasArr ? "Enrich" : "Only"}
+              </button>
+            )}
             <button
               onClick={() => triggerSync(statsProviderId)}
               className="rounded-md bg-gray-700 px-4 py-2 text-sm transition-colors hover:bg-gray-600"

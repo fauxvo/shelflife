@@ -23,6 +23,15 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [hasActiveRound, setHasActiveRound] = useState(false);
+
+  // Check for active review round on mount
+  useEffect(() => {
+    fetch("/api/media/review-status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setHasActiveRound(!!data?.activeRound))
+      .catch(() => {});
+  }, []);
 
   // Reset page when statsFilter changes
   useEffect(() => {
@@ -136,22 +145,24 @@ export function AdminUserMedia({ plexId, statsFilter }: AdminUserMediaProps) {
                   User: Not nominated
                 </span>
               )}
-              <div className="mt-1">
-                <p className="mb-1 text-xs text-gray-500">Your nomination:</p>
-                <VoteButton
-                  mediaItemId={item.id}
-                  currentVote={item.adminVote ?? null}
-                  seasonCount={item.seasonCount}
-                  mediaType={item.mediaType}
-                  currentKeepSeasons={item.adminKeepSeasons ?? null}
-                  onVoteChange={(newVote: VoteValue | null) => {
-                    setItems((prev) =>
-                      prev.map((i) => (i.id === item.id ? { ...i, adminVote: newVote } : i))
-                    );
-                    router.refresh();
-                  }}
-                />
-              </div>
+              {hasActiveRound && (
+                <div className="mt-1">
+                  <p className="mb-1 text-xs text-gray-500">Your nomination:</p>
+                  <VoteButton
+                    mediaItemId={item.id}
+                    currentVote={item.adminVote ?? null}
+                    seasonCount={item.seasonCount}
+                    mediaType={item.mediaType}
+                    currentKeepSeasons={item.adminKeepSeasons ?? null}
+                    onVoteChange={(newVote: VoteValue | null) => {
+                      setItems((prev) =>
+                        prev.map((i) => (i.id === item.id ? { ...i, adminVote: newVote } : i))
+                      );
+                      router.refresh();
+                    }}
+                  />
+                </div>
+              )}
             </BaseMediaCard>
           ))}
         </div>
