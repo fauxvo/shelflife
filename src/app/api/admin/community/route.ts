@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       items: items.map((i) => ({
         ...mapBaseMediaFields(i),
-        requestedByUsername: i.requestedByUsername || "Unknown",
+        requestedByUsername: i.requestedByUsername || null,
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus: mapWatchStatus(i),

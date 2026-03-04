@@ -28,7 +28,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       round: round[0],
       candidates: candidates.map((c) => ({
         ...mapBaseMediaFields(c),
-        requestedByUsername: c.requestedByUsername || "Unknown",
+        requestedByUsername: c.requestedByUsername || null,
         nominatedBy: c.nominatedByUsernames ? c.nominatedByUsernames.split(",") : [],
         nominationType: (c.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: c.keepSeasons ? Number(c.keepSeasons) : null,

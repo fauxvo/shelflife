@@ -62,63 +62,70 @@ async function markStaleItemsRemoved(
  * Handles deduplication when a separate *arr item already exists for the same content.
  * Returns true if an existing item was adopted, false if a new upsert is needed.
  */
-async function adoptLegacyItem(opts: {
+function adoptLegacyItem(opts: {
   tmdbId: number;
   mediaType: "tv" | "movie";
   arrIdColumn: "sonarrId" | "radarrId";
   arrId: number;
   fields: Record<string, unknown>;
   now: string;
-}): Promise<boolean> {
+}): boolean {
   const { tmdbId, mediaType, arrIdColumn, arrId, fields, now } = opts;
 
-  const legacyMatch = await db
-    .select({ id: mediaItems.id })
-    .from(mediaItems)
-    .where(
-      and(
-        eq(mediaItems.tmdbId, tmdbId),
-        eq(mediaItems.mediaType, mediaType),
-        sql`${mediaItems[arrIdColumn]} IS NULL`
+  // Use a synchronous transaction so that clear → adopt → delete is atomic.
+  // If the process crashes mid-sequence, the entire transaction rolls back
+  // and the next sync run will retry cleanly.
+  return db.transaction((tx) => {
+    const legacyMatch = tx
+      .select({ id: mediaItems.id })
+      .from(mediaItems)
+      .where(
+        and(
+          eq(mediaItems.tmdbId, tmdbId),
+          eq(mediaItems.mediaType, mediaType),
+          sql`${mediaItems[arrIdColumn]} IS NULL`
+        )
       )
-    )
-    .limit(1);
+      .limit(1)
+      .all();
 
-  if (legacyMatch.length === 0) return false;
+    if (legacyMatch.length === 0) return false;
 
-  const existingArr = await db
-    .select({ id: mediaItems.id })
-    .from(mediaItems)
-    .where(eq(mediaItems[arrIdColumn], arrId))
-    .limit(1);
+    const existingArr = tx
+      .select({ id: mediaItems.id })
+      .from(mediaItems)
+      .where(eq(mediaItems[arrIdColumn], arrId))
+      .limit(1)
+      .all();
 
-  if (existingArr.length > 0 && existingArr[0].id !== legacyMatch[0].id) {
-    // Duplicate: clear *arr ID from the duplicate, merge into legacy, remove duplicate
-    await db
-      .update(mediaItems)
-      .set({ [arrIdColumn]: null, updatedAt: now })
-      .where(eq(mediaItems.id, existingArr[0].id));
-    await db
-      .update(mediaItems)
-      .set({ [arrIdColumn]: arrId, ...fields, updatedAt: now })
-      .where(eq(mediaItems.id, legacyMatch[0].id));
-    try {
-      await db.delete(mediaItems).where(eq(mediaItems.id, existingArr[0].id));
-    } catch {
-      await db
-        .update(mediaItems)
-        .set({ status: "removed", updatedAt: now })
-        .where(eq(mediaItems.id, existingArr[0].id));
+    if (existingArr.length > 0 && existingArr[0].id !== legacyMatch[0].id) {
+      // Duplicate: clear → adopt → delete in one atomic transaction
+      tx.update(mediaItems)
+        .set({ [arrIdColumn]: null, updatedAt: now })
+        .where(eq(mediaItems.id, existingArr[0].id))
+        .run();
+      tx.update(mediaItems)
+        .set({ [arrIdColumn]: arrId, ...fields, updatedAt: now })
+        .where(eq(mediaItems.id, legacyMatch[0].id))
+        .run();
+      try {
+        tx.delete(mediaItems).where(eq(mediaItems.id, existingArr[0].id)).run();
+      } catch {
+        tx.update(mediaItems)
+          .set({ status: "removed", updatedAt: now })
+          .where(eq(mediaItems.id, existingArr[0].id))
+          .run();
+      }
+    } else {
+      // No conflict — adopt the legacy item
+      tx.update(mediaItems)
+        .set({ [arrIdColumn]: arrId, ...fields, updatedAt: now })
+        .where(eq(mediaItems.id, legacyMatch[0].id))
+        .run();
     }
-  } else {
-    // No conflict — adopt the legacy item
-    await db
-      .update(mediaItems)
-      .set({ [arrIdColumn]: arrId, ...fields, updatedAt: now })
-      .where(eq(mediaItems.id, legacyMatch[0].id));
-  }
 
-  return true;
+    return true;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +206,7 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
 
     // Adopt legacy Seerr-sourced item or upsert as new
     const adopted = series.tmdbId
-      ? await adoptLegacyItem({
+      ? adoptLegacyItem({
           tmdbId: series.tmdbId,
           mediaType: "tv",
           arrIdColumn: "sonarrId",
@@ -319,7 +326,7 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
 
     // Adopt legacy Seerr-sourced item or upsert as new
     const adopted = movie.tmdbId
-      ? await adoptLegacyItem({
+      ? adoptLegacyItem({
           tmdbId: movie.tmdbId,
           mediaType: "movie",
           arrIdColumn: "radarrId",
@@ -413,9 +420,10 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     total,
   });
 
-  // Pre-load all media items into a lookup map to avoid N+1 queries per request.
+  // Pre-load active media items into a lookup map to avoid N+1 queries per request.
   // Key: "tmdbId:mediaType" → value: array of matching items (may have duplicates).
-  const allItems = await db.select().from(mediaItems);
+  // Exclude removed items — they can't match active Seerr requests.
+  const allItems = await db.select().from(mediaItems).where(ne(mediaItems.status, "removed"));
   const itemsByTmdbKey = new Map<string, (typeof allItems)[number][]>();
   for (const item of allItems) {
     if (item.tmdbId) {
@@ -523,27 +531,26 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
               ratingKey: req.media?.ratingKey || legacyItem.ratingKey || arrItem.ratingKey || null,
             };
 
-            // 1. Clear UNIQUE *arr identifiers from the duplicate so they can be moved
-            await db
-              .update(mediaItems)
-              .set({ sonarrId: null, radarrId: null, updatedAt: new Date().toISOString() })
-              .where(eq(mediaItems.id, arrItem.id));
-
-            // 2. Merge *arr data into the legacy item
-            await db
-              .update(mediaItems)
-              .set({ ...seerrFields, ...mergeFields })
-              .where(eq(mediaItems.id, legacyItem.id));
-
-            // 3. Remove the duplicate *arr item
-            try {
-              await db.delete(mediaItems).where(eq(mediaItems.id, arrItem.id));
-            } catch {
-              await db
-                .update(mediaItems)
-                .set({ status: "removed", updatedAt: new Date().toISOString() })
-                .where(eq(mediaItems.id, arrItem.id));
-            }
+            // Atomic transaction: clear → merge → delete prevents phantom duplicates
+            // if the process crashes mid-sequence.
+            db.transaction((tx) => {
+              tx.update(mediaItems)
+                .set({ sonarrId: null, radarrId: null, updatedAt: new Date().toISOString() })
+                .where(eq(mediaItems.id, arrItem.id))
+                .run();
+              tx.update(mediaItems)
+                .set({ ...seerrFields, ...mergeFields })
+                .where(eq(mediaItems.id, legacyItem.id))
+                .run();
+              try {
+                tx.delete(mediaItems).where(eq(mediaItems.id, arrItem.id)).run();
+              } catch {
+                tx.update(mediaItems)
+                  .set({ status: "removed", updatedAt: new Date().toISOString() })
+                  .where(eq(mediaItems.id, arrItem.id))
+                  .run();
+              }
+            });
             enriched++;
           } else {
             // Both items are the same type or no clear legacy/arr split — enrich the first
