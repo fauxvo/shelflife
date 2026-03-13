@@ -98,6 +98,9 @@ export const communityVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id)
+      .notNull(),
     vote: text("vote", { enum: ["keep"] }).notNull(),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
@@ -106,7 +109,13 @@ export const communityVotes = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
   },
-  (table) => [uniqueIndex("community_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+  (table) => [
+    uniqueIndex("community_votes_media_user_round_idx").on(
+      table.mediaItemId,
+      table.userPlexId,
+      table.reviewRoundId
+    ),
+  ]
 );
 
 export const reviewRounds = sqliteTable("review_rounds", {

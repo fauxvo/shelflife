@@ -3,6 +3,7 @@ import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { reviewRounds, reviewActions, communityVotes, userVotes } from "@/lib/db/schema";
 import { eq, and, notInArray } from "drizzle-orm";
+import { debug } from "@/lib/debug";
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -43,14 +44,20 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         .all();
       const removedItemIds = removedItemActions.map((a) => a.mediaItemId);
 
-      // Community "keep" votes are round-scoped — they only exist to influence
-      // the current round's admin review. Safe to clear all rows because only one
-      // round can be active at a time (POST /review-rounds enforces this).
-      tx.delete(communityVotes).run();
+      // Community votes are round-scoped — delete only this round's votes.
+      const deletedVotes = tx
+        .delete(communityVotes)
+        .where(eq(communityVotes.reviewRoundId, roundId))
+        .returning({ id: communityVotes.id })
+        .all();
+      debug.sync(
+        `[review-round] Cleared ${deletedVotes.length} community votes on round close ${roundId}`
+      );
 
-      // Clear nominations for surviving items only.
-      // Items marked "remove" keep their nominations for historical reference
-      // (and so their votes don't count against the user's cap in future rounds).
+      // Clean slate: clear ALL nominations for surviving items so the next round
+      // starts fresh. Items marked "remove" keep their nominations for historical
+      // reference (and so their votes don't count against the user's cap in future
+      // rounds). This is intentional — non-actioned items must be re-nominated.
       if (removedItemIds.length > 0) {
         tx.delete(userVotes).where(notInArray(userVotes.mediaItemId, removedItemIds)).run();
       } else {

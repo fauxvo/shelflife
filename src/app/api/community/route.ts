@@ -4,20 +4,14 @@ import { communityQuerySchema } from "@/lib/validators/schemas";
 import {
   buildPagination,
   getNominationCondition,
+  getActiveRound,
   baseMediaColumns,
   watchStatusColumns,
   mapBaseMediaFields,
   mapWatchStatus,
 } from "@/lib/db/queries";
 import { db } from "@/lib/db";
-import {
-  mediaItems,
-  userVotes,
-  communityVotes,
-  watchStatus,
-  users,
-  reviewRounds,
-} from "@/lib/db/schema";
+import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, isNull, desc } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
@@ -26,7 +20,8 @@ async function getCandidateCount(
   dbInstance: typeof db,
   baseCondition: SQL,
   query: { type: string; unvoted?: string },
-  plexId: string
+  plexId: string,
+  roundId: number
 ): Promise<number> {
   const whereConditions: SQL[] = [];
 
@@ -34,14 +29,14 @@ async function getCandidateCount(
     whereConditions.push(eq(mediaItems.mediaType, query.type as "movie" | "tv"));
   }
 
-  // Use LEFT JOIN + IS NULL to match the main query's unvoted filtering
+  // Use LEFT JOIN + IS NULL to match the main query's unvoted filtering — scoped to active round
   const userCvCount = dbInstance
     .select({
       mediaItemId: communityVotes.mediaItemId,
       vote: communityVotes.vote,
     })
     .from(communityVotes)
-    .where(eq(communityVotes.userPlexId, plexId))
+    .where(and(eq(communityVotes.userPlexId, plexId), eq(communityVotes.reviewRoundId, roundId)))
     .as("user_cv_count");
 
   if (query.unvoted === "true") {
@@ -66,13 +61,9 @@ export async function GET(request: NextRequest) {
     const query = communityQuerySchema.parse(params);
 
     // Gate on active review round — community content only exists during rounds
-    const activeRound = await db
-      .select({ id: reviewRounds.id })
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    const activeRound = await getActiveRound();
 
-    if (activeRound.length === 0) {
+    if (!activeRound) {
       return NextResponse.json({
         items: [],
         pagination: buildPagination(query.page, query.limit, 0),
@@ -90,6 +81,8 @@ export async function GET(request: NextRequest) {
       .from(users)
       .as("keep_voter_user");
 
+    const activeRoundId = activeRound.id;
+
     const keepCountSub = db
       .select({
         mediaItemId: communityVotes.mediaItemId,
@@ -100,18 +93,23 @@ export async function GET(request: NextRequest) {
       })
       .from(communityVotes)
       .innerJoin(keepVoterUser, eq(keepVoterUser.plexId, communityVotes.userPlexId))
-      .where(eq(communityVotes.vote, "keep"))
+      .where(and(eq(communityVotes.vote, "keep"), eq(communityVotes.reviewRoundId, activeRoundId)))
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    // Current user's community vote
+    // Current user's community vote — scoped to active round
     const userCommunityVote = db
       .select({
         mediaItemId: communityVotes.mediaItemId,
         vote: communityVotes.vote,
       })
       .from(communityVotes)
-      .where(eq(communityVotes.userPlexId, session.plexId))
+      .where(
+        and(
+          eq(communityVotes.userPlexId, session.plexId),
+          eq(communityVotes.reviewRoundId, activeRoundId)
+        )
+      )
       .as("user_cv");
 
     // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
@@ -196,7 +194,7 @@ export async function GET(request: NextRequest) {
     const items = await baseQuery.groupBy(mediaItems.id).limit(query.limit).offset(offset);
 
     // Count query — separate paths to keep Drizzle types clean
-    const total = await getCandidateCount(db, baseCondition, query, session.plexId);
+    const total = await getCandidateCount(db, baseCondition, query, session.plexId, activeRoundId);
 
     return NextResponse.json({
       items: items.map((i) => ({

@@ -51,6 +51,7 @@ describe("GET /api/community", () => {
   it("returns empty list when no active review round", async () => {
     // Remove the active review round
     const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM community_votes`);
     sqlite.exec(`DELETE FROM review_rounds`);
 
     mockRequireAuth.mockResolvedValue(userSession);

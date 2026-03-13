@@ -78,6 +78,13 @@
       "when": 1772553198520,
       "tag": "0010_flashy_james_howlett",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1773627600000,
+      "tag": "0011_community_votes_round_scope",
+      "breakpoints": true
     }
   ]
 }

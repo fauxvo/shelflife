@@ -3,10 +3,10 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, reviewRounds, reviewActions } from "@/lib/db/schema";
-import { eq, and, count, notInArray } from "drizzle-orm";
-
-const MAX_NOMINATIONS_PER_ROUND = 100;
+import { mediaItems, userVotes, reviewActions } from "@/lib/db/schema";
+import { getActiveRound } from "@/lib/db/queries";
+import { eq, ne, and, count, notInArray } from "drizzle-orm";
+import { MAX_NOMINATIONS_PER_ROUND } from "@/lib/constants";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,52 +24,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const keepSeasons = vote === "trim" ? (parsed.keepSeasons ?? null) : null;
 
     // Gate on active review round
-    const activeRound = await db
-      .select({ id: reviewRounds.id })
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    const activeRound = await getActiveRound();
 
-    if (activeRound.length === 0) {
+    if (!activeRound) {
       return NextResponse.json({ error: "No active review round" }, { status: 400 });
-    }
-
-    // Rate limit: cap nominations per user per active round.
-    // This is implicitly round-scoped because the review round close handler
-    // (POST /admin/review-rounds/[id]/close) clears userVotes for surviving items.
-    // Votes on items actioned in prior rounds (kept in userVotes for historical
-    // reference) are excluded so they don't count against the current round's cap.
-    if (!session.isAdmin) {
-      // Subquery: item IDs that already have a review action (from prior rounds)
-      const actionedItems = db
-        .select({ mediaItemId: reviewActions.mediaItemId })
-        .from(reviewActions);
-
-      const [existing] = await db
-        .select({ total: count() })
-        .from(userVotes)
-        .where(
-          and(
-            eq(userVotes.userPlexId, session.plexId),
-            notInArray(userVotes.mediaItemId, actionedItems)
-          )
-        );
-
-      // Allow re-voting on already-nominated items (existing vote doesn't count toward cap)
-      const existingVote = await db
-        .select({ id: userVotes.id })
-        .from(userVotes)
-        .where(
-          and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId))
-        )
-        .limit(1);
-
-      if (existing.total >= MAX_NOMINATIONS_PER_ROUND && existingVote.length === 0) {
-        return NextResponse.json(
-          { error: `You can nominate up to ${MAX_NOMINATIONS_PER_ROUND} items per review round` },
-          { status: 429 }
-        );
-      }
     }
 
     // Verify the media item exists — any authenticated user can nominate any item
@@ -99,23 +57,69 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    // Upsert vote
-    await db
-      .insert(userVotes)
-      .values({
-        mediaItemId,
-        userPlexId: session.plexId,
-        vote,
-        keepSeasons,
-      })
-      .onConflictDoUpdate({
-        target: [userVotes.mediaItemId, userVotes.userPlexId],
-        set: {
+    // Rate limit check + upsert in a single synchronous transaction to prevent
+    // concurrent requests from both passing the count check and exceeding the cap.
+    const rateLimitExceeded = db.transaction((tx) => {
+      if (!session.isAdmin) {
+        // Subquery: item IDs actioned in prior rounds (not the current active round,
+        // so admin actions during the active round don't free up nomination slots)
+        const actionedItems = tx
+          .select({ mediaItemId: reviewActions.mediaItemId })
+          .from(reviewActions)
+          .where(ne(reviewActions.reviewRoundId, activeRound.id));
+
+        const [existing] = tx
+          .select({ total: count() })
+          .from(userVotes)
+          .where(
+            and(
+              eq(userVotes.userPlexId, session.plexId),
+              notInArray(userVotes.mediaItemId, actionedItems)
+            )
+          )
+          .all();
+
+        // Allow re-voting on already-nominated items (existing vote doesn't count toward cap)
+        const existingVote = tx
+          .select({ id: userVotes.id })
+          .from(userVotes)
+          .where(
+            and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId))
+          )
+          .limit(1)
+          .all();
+
+        if (existing.total >= MAX_NOMINATIONS_PER_ROUND && existingVote.length === 0) {
+          return true;
+        }
+      }
+
+      tx.insert(userVotes)
+        .values({
+          mediaItemId,
+          userPlexId: session.plexId,
           vote,
           keepSeasons,
-          updatedAt: new Date().toISOString(),
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: [userVotes.mediaItemId, userVotes.userPlexId],
+          set: {
+            vote,
+            keepSeasons,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .run();
+
+      return false;
+    });
+
+    if (rateLimitExceeded) {
+      return NextResponse.json(
+        { error: `You can nominate up to ${MAX_NOMINATIONS_PER_ROUND} items per review round` },
+        { status: 429 }
+      );
+    }
 
     return NextResponse.json({ success: true, vote, keepSeasons });
   } catch (error) {
@@ -139,9 +143,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Any user can un-nominate their own vote.
-    // Admins manage nominations via review rounds, not direct vote deletion.
-    const item = await db.select().from(mediaItems).where(eq(mediaItems.id, mediaItemId)).limit(1);
+    // Any user can un-nominate their own vote at any time — no active round
+    // required (unlike POST, which gates on an active round). This lets users
+    // clean up stale nominations between rounds.
+    const item = await db
+      .select({ id: mediaItems.id })
+      .from(mediaItems)
+      .where(eq(mediaItems.id, mediaItemId))
+      .limit(1);
 
     if (item.length === 0) {
       return NextResponse.json({ error: "Media item not found" }, { status: 404 });

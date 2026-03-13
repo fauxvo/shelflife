@@ -49,8 +49,9 @@ const { executeMediaDeletion } = await import("@/lib/services/deletion");
 beforeEach(() => {
   testDb = createTestDb();
   seedTestData(testDb.db);
-  // Clear seed review round — these tests create their own rounds with specific IDs
+  // Clear seed data — these tests create their own rounds with specific IDs
   const sqlite = (testDb.db as any).session.client;
+  sqlite.exec("DELETE FROM community_votes");
   sqlite.exec("DELETE FROM review_rounds");
   mockRequireAdmin.mockReset();
   vi.mocked(executeMediaDeletion).mockReset();

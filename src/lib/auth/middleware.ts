@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "./session";
+import { log } from "@/lib/debug";
 import type { SessionPayload } from "@/types";
 
 export async function requireAuth(): Promise<SessionPayload> {
@@ -30,6 +31,6 @@ export function handleAuthError(error: unknown) {
   if (error instanceof AuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
-  console.error("Unexpected error:", error);
+  log.error("auth", "Unexpected error:", error);
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }

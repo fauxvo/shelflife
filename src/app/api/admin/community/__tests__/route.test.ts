@@ -49,6 +49,7 @@ const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", i
 describe("GET /api/admin/community", () => {
   it("returns empty list when no active review round", async () => {
     const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM community_votes`);
     sqlite.exec(`DELETE FROM review_rounds`);
 
     mockRequireAdmin.mockResolvedValue(adminSession);

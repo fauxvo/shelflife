@@ -64,6 +64,7 @@ function createDeleteRequest(id: string) {
 describe("POST /api/community/:id/vote", () => {
   it("rejects vote when no active review round", async () => {
     const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM community_votes`);
     sqlite.exec(`DELETE FROM review_rounds`);
 
     mockRequireAuth.mockResolvedValue(otherUser);
@@ -180,6 +181,7 @@ describe("POST /api/community/:id/vote", () => {
 describe("DELETE /api/community/:id/vote", () => {
   it("rejects delete when no active review round", async () => {
     const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM community_votes`);
     sqlite.exec(`DELETE FROM review_rounds`);
 
     mockRequireAuth.mockResolvedValue(otherUser);

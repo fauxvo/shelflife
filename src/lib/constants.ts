@@ -1,5 +1,8 @@
 import { COMMON_SORTS, type CommonSort } from "@/lib/db/sorting";
 
+/** Maximum nominations a non-admin user can make per review round. */
+export const MAX_NOMINATIONS_PER_ROUND = 100;
+
 export const STATUS_COLORS: Record<string, string> = {
   available: "bg-green-900/50 text-green-300",
   partial: "bg-yellow-900/50 text-yellow-300",

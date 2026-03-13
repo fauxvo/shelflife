@@ -4,20 +4,14 @@ import { communityQuerySchema } from "@/lib/validators/schemas";
 import {
   buildPagination,
   getNominationCondition,
+  getActiveRound,
   baseMediaColumns,
   watchStatusColumns,
   mapBaseMediaFields,
   mapWatchStatus,
 } from "@/lib/db/queries";
 import { db } from "@/lib/db";
-import {
-  mediaItems,
-  userVotes,
-  communityVotes,
-  watchStatus,
-  users,
-  reviewRounds,
-} from "@/lib/db/schema";
+import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, desc, inArray } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
@@ -30,13 +24,9 @@ export async function GET(request: NextRequest) {
     const query = communityQuerySchema.parse(params);
 
     // Gate on active review round — no community content outside of rounds
-    const activeRound = await db
-      .select({ id: reviewRounds.id })
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    const activeRound = await getActiveRound();
 
-    if (activeRound.length === 0) {
+    if (!activeRound) {
       return NextResponse.json({
         items: [],
         pagination: buildPagination(query.page, query.limit, 0),
@@ -44,18 +34,19 @@ export async function GET(request: NextRequest) {
     }
 
     const offset = (query.page - 1) * query.limit;
+    const activeRoundId = activeRound.id;
 
     // Base condition: items nominated for deletion/trim (self-nominated or admin-nominated)
     const baseCondition = getNominationCondition();
 
-    // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
+    // Tally subqueries — scoped to active round
     const keepCountSub = db
       .select({
         mediaItemId: communityVotes.mediaItemId,
         cnt: count().as("keep_count"),
       })
       .from(communityVotes)
-      .where(eq(communityVotes.vote, "keep"))
+      .where(and(eq(communityVotes.vote, "keep"), eq(communityVotes.reviewRoundId, activeRoundId)))
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
@@ -143,7 +134,12 @@ export async function GET(request: NextRequest) {
         })
         .from(communityVotes)
         .leftJoin(users, eq(users.plexId, communityVotes.userPlexId))
-        .where(inArray(communityVotes.mediaItemId, itemIds));
+        .where(
+          and(
+            inArray(communityVotes.mediaItemId, itemIds),
+            eq(communityVotes.reviewRoundId, activeRoundId)
+          )
+        );
 
       for (const v of votes) {
         if (!voterBreakdown[v.mediaItemId]) {

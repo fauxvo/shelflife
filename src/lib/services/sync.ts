@@ -8,11 +8,18 @@ import { createTracearrClient } from "./tracearr";
 import { createSonarrClient, extractSonarrPoster } from "./sonarr";
 import { createRadarrClient, extractRadarrPoster } from "./radarr";
 import { upsertUser } from "./user-upsert";
-import { debug } from "@/lib/debug";
-import { eq, and, ne, count, isNotNull, notInArray, sql } from "drizzle-orm";
+import { debug, log } from "@/lib/debug";
+import { eq, and, ne, count, isNull, isNotNull, notInArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 type TautulliClientType = ReturnType<typeof createTautulliClient>;
+
+/** Normalize curly quotes/apostrophes to their straight equivalents for matching. */
+function normalizeQuotes(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'") // curly single quotes → straight
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"'); // curly double quotes → straight
+}
 
 export interface SyncProgress {
   phase: "sonarr" | "radarr" | "seerr" | "overseerr" | "tautulli" | "tracearr";
@@ -83,7 +90,7 @@ function adoptLegacyItem(opts: {
         and(
           eq(mediaItems.tmdbId, tmdbId),
           eq(mediaItems.mediaType, mediaType),
-          sql`${mediaItems[arrIdColumn]} IS NULL`
+          isNull(mediaItems[arrIdColumn])
         )
       )
       .limit(1)
@@ -110,7 +117,11 @@ function adoptLegacyItem(opts: {
         .run();
       try {
         tx.delete(mediaItems).where(eq(mediaItems.id, existingArr[0].id)).run();
-      } catch {
+      } catch (err) {
+        log.warn(
+          "sync",
+          `adoptLegacyItem: DELETE failed for id=${existingArr[0].id}, marking removed: ${err instanceof Error ? err.message : err}`
+        );
         tx.update(mediaItems)
           .set({ status: "removed", updatedAt: now })
           .where(eq(mediaItems.id, existingArr[0].id))
@@ -217,7 +228,8 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
           now,
         });
       } catch (err) {
-        debug.sync(
+        log.warn(
+          "sync",
           `adoptLegacyItem failed for sonarrId=${series.id}: ${err instanceof Error ? err.message : err}`
         );
       }
@@ -262,7 +274,7 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.sonarrId)));
 
     if (existing[0]?.total > 0) {
-      console.warn(
+      debug.sync(
         `Sonarr returned 0 series but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
@@ -344,7 +356,8 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
           now,
         });
       } catch (err) {
-        debug.sync(
+        log.warn(
+          "sync",
           `adoptLegacyItem failed for radarrId=${movie.id}: ${err instanceof Error ? err.message : err}`
         );
       }
@@ -388,7 +401,7 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.radarrId)));
 
     if (existing[0]?.total > 0) {
-      console.warn(
+      debug.sync(
         `Radarr returned 0 movies but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
@@ -437,7 +450,24 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
   // Pre-load active media items into a lookup map to avoid N+1 queries per request.
   // Key: "tmdbId:mediaType" → value: array of matching items (may have duplicates).
   // Exclude removed items — they can't match active Seerr requests.
-  const allItems = await db.select().from(mediaItems).where(ne(mediaItems.status, "removed"));
+  const allItems = await db
+    .select({
+      id: mediaItems.id,
+      tmdbId: mediaItems.tmdbId,
+      mediaType: mediaItems.mediaType,
+      title: mediaItems.title,
+      overseerrId: mediaItems.overseerrId,
+      sonarrId: mediaItems.sonarrId,
+      radarrId: mediaItems.radarrId,
+      tvdbId: mediaItems.tvdbId,
+      imdbId: mediaItems.imdbId,
+      fileSize: mediaItems.fileSize,
+      addedAt: mediaItems.addedAt,
+      posterPath: mediaItems.posterPath,
+      ratingKey: mediaItems.ratingKey,
+    })
+    .from(mediaItems)
+    .where(ne(mediaItems.status, "removed"));
   const itemsByTmdbKey = new Map<string, (typeof allItems)[number][]>();
   for (const item of allItems) {
     if (item.tmdbId) {
@@ -597,7 +627,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
               `#${m.id}(overseerrId=${m.overseerrId},sonarrId=${m.sonarrId},radarrId=${m.radarrId})`
           )
           .join(", ");
-        console.error(
+        debug.sync(
           `enrichFromSeerr: failed to enrich "${matches[0]?.title}" ` +
             `tmdbId=${tmdbId} overseerrId=${overseerrId} reqId=${req.id} ` +
             `matches=[${matchSummary}]: ${err instanceof Error ? err.message : err}`
@@ -778,7 +808,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.overseerrId)));
 
     if (existing[0]?.total > 0) {
-      console.warn(
+      debug.sync(
         `Overseerr returned 0 requests but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
@@ -928,7 +958,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
         });
       }
     } catch (err) {
-      console.error("Failed to resolve missing rating keys:", err);
+      debug.sync("Failed to resolve missing rating keys:", err);
     }
   }
 
@@ -1038,7 +1068,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
         synced++;
       }
     } catch (err) {
-      console.error(`Failed to sync watch status for ${item.title}:`, err);
+      debug.sync(`Failed to sync watch status for ${item.title}:`, err);
     }
 
     if (processed % 3 === 0 || processed === total) {
@@ -1064,11 +1094,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
  * Build a title-based lookup key for matching Tracearr sessions to local media items.
  */
 function buildTitleKey(title: string, year?: number | null): string {
-  const normalized = title
-    .trim()
-    .toLowerCase()
-    .replace(/[\u2018\u2019\u201A\u201B]/g, "'") // curly single quotes → straight
-    .replace(/[\u201C\u201D\u201E\u201F]/g, '"'); // curly double quotes → straight
+  const normalized = normalizeQuotes(title.trim().toLowerCase());
   return year ? `${normalized} (${year})` : normalized;
 }
 
@@ -1361,13 +1387,6 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
       if (updatedSize !== undefined && updatedSize > entry.fileSize) {
         titleSizeMap.set(titleKey, { ratingKey: entry.ratingKey, fileSize: updatedSize });
       }
-    }
-
-    // Normalize quotes/apostrophes for matching: curly → straight
-    function normalizeQuotes(s: string): string {
-      return s
-        .replace(/[\u2018\u2019\u201A\u201B]/g, "'") // curly single quotes → straight
-        .replace(/[\u201C\u201D\u201E\u201F]/g, '"'); // curly double quotes → straight
     }
 
     // Build a normalized lookup: normalizeQuotes(title) → same entry

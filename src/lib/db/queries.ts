@@ -6,8 +6,22 @@ import {
   users,
   communityVotes,
   reviewActions,
+  reviewRounds,
 } from "@/lib/db/schema";
 import { eq, and, count, ne, inArray, sql, type SQL } from "drizzle-orm";
+
+/**
+ * Fetch the currently active review round.
+ * Returns { id } or null if no round is active.
+ */
+export async function getActiveRound(): Promise<{ id: number } | null> {
+  const rows = await db
+    .select({ id: reviewRounds.id })
+    .from(reviewRounds)
+    .where(eq(reviewRounds.status, "active"))
+    .limit(1);
+  return rows[0] ?? null;
+}
 
 /** Base media item columns — reusable across any query that selects from mediaItems. */
 export const baseMediaColumns = {
@@ -218,7 +232,7 @@ export async function getCandidatesForRound(roundId: number) {
     })
     .from(communityVotes)
     .innerJoin(keepVoterUser, eq(keepVoterUser.plexId, communityVotes.userPlexId))
-    .where(eq(communityVotes.vote, "keep"))
+    .where(and(eq(communityVotes.vote, "keep"), eq(communityVotes.reviewRoundId, roundId)))
     .groupBy(communityVotes.mediaItemId)
     .as("keep_tally");
 
@@ -244,9 +258,16 @@ export async function getCandidatesForRound(roundId: number) {
   const baseCondition = getNominationCondition();
 
   // Aggregate nomination type: with open nominations, multiple users may nominate the same
-  // item with different types. MAX picks 'trim' over 'delete' alphabetically in SQLite,
-  // giving priority to the more specific action (trim = keep some seasons vs delete = remove all).
-  const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
+  // item with different types. Explicit ordinal weights ensure 'trim' (more specific) wins
+  // over 'delete' regardless of alphabetic collation. Tradeoff: if one user wants full
+  // deletion and another wants trim, the admin sees "trim" — the delete request is not
+  // surfaced. This favors data preservation; admins can still choose to delete.
+  const aggregatedVote = sql<string>`
+    CASE MAX(CASE ${userVotes.vote} WHEN 'trim' THEN 2 WHEN 'delete' THEN 1 ELSE 0 END)
+      WHEN 2 THEN 'trim'
+      WHEN 1 THEN 'delete'
+      ELSE 'delete'
+    END`.as("nomination_type");
 
   const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
     "keep_seasons_agg"

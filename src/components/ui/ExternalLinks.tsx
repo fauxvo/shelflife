@@ -1,4 +1,4 @@
-export function ExternalLinkIcon({ className }: { className: string }) {
+export function ExternalLinkIcon({ className = "h-3 w-3" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path

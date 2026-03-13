@@ -3,8 +3,9 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
-import { eq, and, inArray, ne } from "drizzle-orm";
+import { mediaItems, userVotes, communityVotes } from "@/lib/db/schema";
+import { getActiveRound } from "@/lib/db/queries";
+import { eq, and, inArray } from "drizzle-orm";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,13 +30,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Gate on active review round
-    const activeRound = await db
-      .select({ id: reviewRounds.id })
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    const activeRound = await getActiveRound();
 
-    if (activeRound.length === 0) {
+    if (!activeRound) {
       return NextResponse.json({ error: "No active review round" }, { status: 400 });
     }
 
@@ -76,16 +73,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    // Upsert community vote
+    // Upsert community vote scoped to the active round
     await db
       .insert(communityVotes)
       .values({
         mediaItemId,
         userPlexId: session.plexId,
+        reviewRoundId: activeRound.id,
         vote,
       })
       .onConflictDoUpdate({
-        target: [communityVotes.mediaItemId, communityVotes.userPlexId],
+        target: [
+          communityVotes.mediaItemId,
+          communityVotes.userPlexId,
+          communityVotes.reviewRoundId,
+        ],
         set: {
           vote,
           updatedAt: new Date().toISOString(),
@@ -112,13 +114,9 @@ export async function DELETE(
     }
 
     // Gate on active review round
-    const activeRound = await db
-      .select({ id: reviewRounds.id })
-      .from(reviewRounds)
-      .where(eq(reviewRounds.status, "active"))
-      .limit(1);
+    const activeRound = await getActiveRound();
 
-    if (activeRound.length === 0) {
+    if (!activeRound) {
       return NextResponse.json({ error: "No active review round" }, { status: 400 });
     }
 
@@ -127,7 +125,8 @@ export async function DELETE(
       .where(
         and(
           eq(communityVotes.mediaItemId, mediaItemId),
-          eq(communityVotes.userPlexId, session.plexId)
+          eq(communityVotes.userPlexId, session.plexId),
+          eq(communityVotes.reviewRoundId, activeRound.id)
         )
       );
 

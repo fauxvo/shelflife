@@ -1,10 +1,15 @@
 /**
- * Debug logger that only outputs when DEBUG=true or DEBUG=1 is set.
- * Usage:
- *   import { debug } from "@/lib/debug";
- *   debug.auth("Creating Plex PIN...");
+ * Structured logger with two tiers:
  *
- * Enable by setting the environment variable: DEBUG=true
+ * debug.*  — verbose tracing, only outputs when DEBUG=true/1/* is set.
+ *   import { debug } from "@/lib/debug";
+ *   debug.sync("enriching items...");
+ *
+ * log.*    — important operational events that should ALWAYS be visible
+ *            (errors, warnings, data-integrity issues). Not gated.
+ *   import { log } from "@/lib/debug";
+ *   log.warn("sync", "adoption failed, falling back to upsert");
+ *   log.error("auth", "unexpected error:", err);
  */
 
 const isEnabled =
@@ -21,4 +26,15 @@ function createLogger(prefix: string) {
 export const debug = {
   auth: createLogger("auth"),
   sync: createLogger("sync"),
+  cron: createLogger("cron"),
+};
+
+/** Always-on logger for production-visible events */
+export const log = {
+  warn: (prefix: string, ...args: unknown[]) => {
+    console.warn(`[${prefix}]`, ...args);
+  },
+  error: (prefix: string, ...args: unknown[]) => {
+    console.error(`[${prefix}]`, ...args);
+  },
 };
