@@ -139,14 +139,23 @@ export function ServiceSettings() {
   }, [loadSettings]);
 
   const updateService = (type: ServiceType, field: "url" | "apiKey", value: string) => {
-    setServices((prev) => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        [field]: value,
-        status: prev[type].url || value ? "configured" : "unconfigured",
-      },
-    }));
+    setServices((prev) => {
+      // Compute the effective URL after applying this change to detect
+      // whether the service has any configuration at all.
+      const newUrl = field === "url" ? value : prev[type].url;
+      const newApiKey = field === "apiKey" ? value : prev[type].apiKey;
+      return {
+        ...prev,
+        [type]: {
+          ...prev[type],
+          [field]: value,
+          // Reset to "configured" when fields change so stale "connected" or
+          // "error" states don't persist after the user edits credentials.
+          status: newUrl || newApiKey ? "configured" : "unconfigured",
+          errorMessage: undefined,
+        },
+      };
+    });
   };
 
   const testConnection = async (type: ServiceType) => {
@@ -381,6 +390,9 @@ export function ServiceSettings() {
                         />
                       </div>
 
+                      {service.status === "connected" && !service.testing && (
+                        <p className="text-xs text-green-400">Connection successful</p>
+                      )}
                       {service.errorMessage && (
                         <p className="text-xs text-red-400">{service.errorMessage}</p>
                       )}

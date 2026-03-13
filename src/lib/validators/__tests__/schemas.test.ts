@@ -206,6 +206,8 @@ describe("mediaQuerySchema", () => {
       "requested_oldest",
       "added_newest",
       "added_oldest",
+      "size_largest",
+      "size_smallest",
     ]) {
       expect(mediaQuerySchema.parse({ sort }).sort).toBe(sort);
     }
@@ -269,6 +271,8 @@ describe("communityQuerySchema", () => {
       "requested_oldest",
       "added_newest",
       "added_oldest",
+      "size_largest",
+      "size_smallest",
     ]) {
       expect(communityQuerySchema.parse({ sort }).sort).toBe(sort);
     }

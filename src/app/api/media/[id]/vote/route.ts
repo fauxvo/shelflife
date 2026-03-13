@@ -35,6 +35,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Rate limit: cap nominations per user per active round.
+    // This is implicitly round-scoped because the review round close handler
+    // (POST /admin/review-rounds/[id]/close) clears userVotes for surviving items.
     // Votes on items actioned in prior rounds (kept in userVotes for historical
     // reference) are excluded so they don't count against the current round's cap.
     if (!session.isAdmin) {

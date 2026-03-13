@@ -1242,7 +1242,6 @@ export async function syncWatchHistory(onProgress?: ProgressCallback): Promise<n
 }
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // File size gap-fill — runs after all provider syncs to fill in missing sizes
 // ---------------------------------------------------------------------------
 
@@ -1507,7 +1506,8 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
       total: itemsMissingSize.length,
     });
   } catch (err) {
-    console.error("Failed to sync file sizes:", err);
+    debug.sync("[file-sizes] Failed to sync file sizes:", err);
+    throw err;
   }
 }
 
@@ -1585,7 +1585,11 @@ export async function runFullSync(onProgress?: ProgressCallback): Promise<FullSy
     }
 
     // Layer 4: Fill in missing file sizes via Tautulli/Plex (if Tautulli is available)
-    await syncMissingFileSizes(onProgress);
+    try {
+      await syncMissingFileSizes(onProgress);
+    } catch {
+      // Tautulli/Plex unavailable — file sizes are non-critical for full sync
+    }
 
     const totalSynced = Object.values(result).reduce((sum, n) => sum + (n || 0), 0);
     await db
