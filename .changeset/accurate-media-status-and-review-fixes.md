@@ -16,3 +16,6 @@ Accurate media status from Sonarr/Radarr sync and code review fixes
 - Replaced nested ternaries in SyncStatus with Record lookups
 - Fixed ExternalLinkIcon to require className prop
 - Improved mapWatchStatus typing (removed Record<string, any>)
+- Review round close now runs all mutations in a single synchronous transaction
+- Service settings "Test Connection" button now shows green success message and resets status when fields change
+- File size sync errors no longer silently swallowed — re-thrown for orchestrator fault tolerance
