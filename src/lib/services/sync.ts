@@ -205,16 +205,23 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
     };
 
     // Adopt legacy Seerr-sourced item or upsert as new
-    const adopted = series.tmdbId
-      ? adoptLegacyItem({
+    let adopted = false;
+    if (series.tmdbId) {
+      try {
+        adopted = adoptLegacyItem({
           tmdbId: series.tmdbId,
           mediaType: "tv",
           arrIdColumn: "sonarrId",
           arrId: series.id,
           fields,
           now,
-        })
-      : false;
+        });
+      } catch (err) {
+        debug.sync(
+          `adoptLegacyItem failed for sonarrId=${series.id}: ${err instanceof Error ? err.message : err}`
+        );
+      }
+    }
 
     if (!adopted) {
       await db
@@ -325,16 +332,23 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
     };
 
     // Adopt legacy Seerr-sourced item or upsert as new
-    const adopted = movie.tmdbId
-      ? adoptLegacyItem({
+    let adopted = false;
+    if (movie.tmdbId) {
+      try {
+        adopted = adoptLegacyItem({
           tmdbId: movie.tmdbId,
           mediaType: "movie",
           arrIdColumn: "radarrId",
           arrId: movie.id,
           fields,
           now,
-        })
-      : false;
+        });
+      } catch (err) {
+        debug.sync(
+          `adoptLegacyItem failed for radarrId=${movie.id}: ${err instanceof Error ? err.message : err}`
+        );
+      }
+    }
 
     if (!adopted) {
       await db
@@ -533,7 +547,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
 
             // Atomic transaction: clear → merge → delete prevents phantom duplicates
             // if the process crashes mid-sequence.
-            db.transaction((tx) => {
+            await db.transaction((tx) => {
               tx.update(mediaItems)
                 .set({ sonarrId: null, radarrId: null, updatedAt: new Date().toISOString() })
                 .where(eq(mediaItems.id, arrItem.id))
