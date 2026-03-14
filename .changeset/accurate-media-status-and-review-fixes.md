@@ -1,5 +1,5 @@
 ---
-"shelflife": patch
+"shelflife": minor
 ---
 
 Accurate media status from Sonarr/Radarr sync and code review fixes

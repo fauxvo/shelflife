@@ -135,9 +135,7 @@ export function mapWatchStatus(i: WatchStatusRow & Record<string, unknown>) {
     : null;
 }
 
-export function mapMediaItemRow(
-  i: typeof mediaItemColumns extends infer T ? { [K in keyof T]: any } : never
-) {
+export function mapMediaItemRow(i: { [K in keyof typeof mediaItemColumns]: unknown }) {
   return {
     ...mapBaseMediaFields(i),
     requestedByUsername: i.requestedByUsername || null,
@@ -300,7 +298,6 @@ export async function getCandidatesForRound(roundId: number) {
     .from(users)
     .as("nominator_user");
 
-  // Collect distinct nominator usernames (comma-separated if multiple)
   const nominatedByUsernames = sql<string>`GROUP_CONCAT(DISTINCT ${nominatorUser.username})`.as(
     "nominated_by_usernames"
   );

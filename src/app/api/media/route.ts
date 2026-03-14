@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
 
     const offset = (query.page - 1) * query.limit;
 
-    // Get active round for vote scoping (no round = no votes shown, which is correct)
+    // Get active round for vote scoping (no round = joins preserved round-close
+    // votes only, which attach to removed items hidden from the default view)
     const activeRound = await getActiveRound();
     const roundId = activeRound?.id;
 
