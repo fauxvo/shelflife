@@ -16,6 +16,7 @@ export default async function CommunityPage() {
   // Check for active review round
   const activeRoundResult = await db
     .select({
+      id: reviewRounds.id,
       name: reviewRounds.name,
       startedAt: reviewRounds.startedAt,
       endDate: reviewRounds.endDate,
@@ -32,7 +33,7 @@ export default async function CommunityPage() {
     const [candidateResult] = await db
       .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
       .from(mediaItems)
-      .innerJoin(userVotes, getNominationCondition());
+      .innerJoin(userVotes, getNominationCondition(activeRound.id));
     totalCandidates = candidateResult?.total || 0;
 
     const [voteResult] = await db.select({ total: count() }).from(communityVotes);

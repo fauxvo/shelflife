@@ -53,7 +53,6 @@ beforeEach(() => {
   seedTestData(testDb.db);
   // Clear seed data — these tests create their own rounds
   const sqlite = (testDb.db as any).session.client;
-  sqlite.exec("DELETE FROM community_votes");
   sqlite.exec("DELETE FROM review_rounds");
   mockRequireAdmin.mockReset();
 });
@@ -271,19 +270,19 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
   it("includes admin-nominated items as candidates", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
-    // Admin nominates item 6 (belongs to plex-user-1) for deletion
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
-    );
-
-    // Create a review round
+    // Create a review round first (votes need a round FK)
     const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
       method: "POST",
       body: { name: "Admin Nomination Round" },
     });
     const createRes = await POST(createReq);
     const { round } = await createRes.json();
+
+    // Admin nominates item 6 (belongs to plex-user-1) for deletion
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (6, 'plex-admin', ${round.id}, 'delete')`
+    );
 
     // Get candidates
     const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`);
@@ -299,19 +298,21 @@ describe("GET /api/admin/review-rounds/:id (candidates)", () => {
   it("does not duplicate candidates when both self and admin nominate", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
 
-    // Admin also votes delete on item 2 (already self-nominated by plex-user-1)
-    const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
-    );
-
-    // Create a review round
+    // Create a review round first (votes need a round FK)
     const createReq = createRequest("http://localhost:3000/api/admin/review-rounds", {
       method: "POST",
       body: { name: "Dedup Round" },
     });
     const createRes = await POST(createReq);
     const { round } = await createRes.json();
+
+    // Both users nominate item 2 in this round
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES
+        (2, 'plex-user-1', ${round.id}, 'delete'),
+        (2, 'plex-admin', ${round.id}, 'delete')`
+    );
 
     // Get candidates
     const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}`);
@@ -414,6 +415,15 @@ describe("GET /api/admin/review-rounds/:id/export", () => {
     const createRes = await POST(createReq);
     const { round } = await createRes.json();
 
+    // Re-insert nominations for this round (seed votes were cascade-deleted with seed round)
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote, keep_seasons) VALUES
+        (2, 'plex-user-1', ${round.id}, 'delete', NULL),
+        (5, 'plex-user-2', ${round.id}, 'delete', NULL),
+        (7, 'plex-user-1', ${round.id}, 'trim', 1)`
+    );
+
     const req = createRequest(`http://localhost:3000/api/admin/review-rounds/${round.id}/export`);
     const res = await exportModule.GET(req, {
       params: Promise.resolve({ id: String(round.id) }),
@@ -422,7 +432,7 @@ describe("GET /api/admin/review-rounds/:id/export", () => {
     const csv = await res.text();
     const lines = csv.split("\n");
 
-    // Seed data has 3 nominated items: item 2 (Test Movie 2), item 5 (Other Movie), item 7 (Big Brother trim)
+    // 3 nominated items: item 2 (Test Movie 2), item 5 (Other Movie), item 7 (Big Brother trim)
     expect(lines.length).toBeGreaterThanOrEqual(4); // header + at least 3 data rows
     expect(csv).toContain("Test Movie 2");
     expect(csv).toContain("Other Movie");

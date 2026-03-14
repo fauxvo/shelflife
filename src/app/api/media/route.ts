@@ -6,6 +6,7 @@ import {
   mediaCountWithJoins,
   mapMediaItemRow,
   buildPagination,
+  getActiveRound,
 } from "@/lib/db/queries";
 import { mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
 import { getCommonSortOrder, DEFAULT_SORT_ORDER } from "@/lib/db/sorting";
@@ -19,6 +20,10 @@ export async function GET(request: NextRequest) {
     const query = mediaQuerySchema.parse(params);
 
     const offset = (query.page - 1) * query.limit;
+
+    // Get active round for vote scoping (no round = no votes shown, which is correct)
+    const activeRound = await getActiveRound();
+    const roundId = activeRound?.id;
 
     // Build conditions - all filtering happens in SQL
     // SECURITY: scope=all (default) intentionally shows all library items to any authenticated user.
@@ -59,13 +64,13 @@ export async function GET(request: NextRequest) {
 
     const orderExpr = getCommonSortOrder(query.sort) ?? DEFAULT_SORT_ORDER;
 
-    const items = await mediaQueryWithJoins(session.plexId)
+    const items = await mediaQueryWithJoins(session.plexId, roundId)
       .where(whereClause)
       .orderBy(orderExpr)
       .limit(query.limit)
       .offset(offset);
 
-    const totalResult = await mediaCountWithJoins(session.plexId).where(whereClause);
+    const totalResult = await mediaCountWithJoins(session.plexId, roundId).where(whereClause);
     const total = totalResult[0]?.total || 0;
 
     return NextResponse.json({

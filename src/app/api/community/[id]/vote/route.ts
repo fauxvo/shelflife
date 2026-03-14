@@ -36,63 +36,77 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "No active review round" }, { status: 400 });
     }
 
-    // Verify the item exists and has at least one nomination
-    const item = await db
-      .select({
-        id: mediaItems.id,
-      })
-      .from(mediaItems)
-      .innerJoin(
-        userVotes,
-        and(eq(userVotes.mediaItemId, mediaItems.id), inArray(userVotes.vote, ["delete", "trim"]))
-      )
-      .where(eq(mediaItems.id, mediaItemId))
-      .limit(1);
-
-    if (item.length === 0) {
-      return NextResponse.json({ error: "Item not found or not nominated" }, { status: 404 });
-    }
-
-    // Can't community-vote on an item you nominated yourself
-    const ownNomination = await db
-      .select({ id: userVotes.id })
-      .from(userVotes)
-      .where(
-        and(
-          eq(userVotes.mediaItemId, mediaItemId),
-          eq(userVotes.userPlexId, session.plexId),
-          inArray(userVotes.vote, ["delete", "trim"])
+    // Wrap checks + upsert in a synchronous transaction to prevent TOCTOU races
+    // (e.g., nomination deleted between check and vote insert)
+    const result = db.transaction((tx) => {
+      // Verify the item exists and has at least one nomination in this round
+      const item = tx
+        .select({
+          id: mediaItems.id,
+        })
+        .from(mediaItems)
+        .innerJoin(
+          userVotes,
+          and(
+            eq(userVotes.mediaItemId, mediaItems.id),
+            inArray(userVotes.vote, ["delete", "trim"]),
+            eq(userVotes.reviewRoundId, activeRound.id)
+          )
         )
-      )
-      .limit(1);
+        .where(eq(mediaItems.id, mediaItemId))
+        .limit(1)
+        .all();
 
-    if (ownNomination.length > 0) {
-      return NextResponse.json(
-        { error: "Cannot community-vote on your own nomination" },
-        { status: 403 }
-      );
-    }
+      if (item.length === 0) {
+        return { error: "Item not found or not nominated", status: 404 } as const;
+      }
 
-    // Upsert community vote scoped to the active round
-    await db
-      .insert(communityVotes)
-      .values({
-        mediaItemId,
-        userPlexId: session.plexId,
-        reviewRoundId: activeRound.id,
-        vote,
-      })
-      .onConflictDoUpdate({
-        target: [
-          communityVotes.mediaItemId,
-          communityVotes.userPlexId,
-          communityVotes.reviewRoundId,
-        ],
-        set: {
+      // Can't community-vote on an item you nominated yourself in this round
+      const ownNomination = tx
+        .select({ id: userVotes.id })
+        .from(userVotes)
+        .where(
+          and(
+            eq(userVotes.mediaItemId, mediaItemId),
+            eq(userVotes.userPlexId, session.plexId),
+            eq(userVotes.reviewRoundId, activeRound.id),
+            inArray(userVotes.vote, ["delete", "trim"])
+          )
+        )
+        .limit(1)
+        .all();
+
+      if (ownNomination.length > 0) {
+        return { error: "Cannot community-vote on your own nomination", status: 403 } as const;
+      }
+
+      // Upsert community vote scoped to the active round
+      tx.insert(communityVotes)
+        .values({
+          mediaItemId,
+          userPlexId: session.plexId,
+          reviewRoundId: activeRound.id,
           vote,
-          updatedAt: new Date().toISOString(),
-        },
-      });
+        })
+        .onConflictDoUpdate({
+          target: [
+            communityVotes.mediaItemId,
+            communityVotes.userPlexId,
+            communityVotes.reviewRoundId,
+          ],
+          set: {
+            vote,
+            updatedAt: new Date().toISOString(),
+          },
+        })
+        .run();
+
+      return { success: true } as const;
+    });
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
 
     return NextResponse.json({ success: true, vote });
   } catch (error) {

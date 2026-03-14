@@ -51,7 +51,6 @@ describe("GET /api/community", () => {
   it("returns empty list when no active review round", async () => {
     // Remove the active review round
     const sqlite = (testDb.db as any).session.client;
-    sqlite.exec(`DELETE FROM community_votes`);
     sqlite.exec(`DELETE FROM review_rounds`);
 
     mockRequireAuth.mockResolvedValue(userSession);
@@ -246,7 +245,7 @@ describe("GET /api/community", () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (6, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAuth.mockResolvedValue(userSession);
@@ -263,7 +262,7 @@ describe("GET /api/community", () => {
     // Admin also votes delete
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (2, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAuth.mockResolvedValue(userSession);
@@ -279,7 +278,7 @@ describe("GET /api/community", () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (6, 'plex-admin', 1, 'delete')`
     );
 
     // plex-user-1 sees the item — isRequestor=true, isNominator=false (admin nominated, not them)
@@ -303,7 +302,7 @@ describe("GET /api/community", () => {
     // Admin nominates item 6 for deletion
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (6, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAuth.mockResolvedValue(adminSession);

@@ -14,6 +14,19 @@ import type { SQL } from "drizzle-orm";
 
 type TautulliClientType = ReturnType<typeof createTautulliClient>;
 
+/** Derive available season count from Sonarr statistics.
+ *  Returns the full season count only when all episodes are downloaded;
+ *  partial shows get null — Seerr enrichment has per-season status data
+ *  for more accurate counts when available. */
+function deriveAvailableSeasonCount(
+  stats: { episodeFileCount: number; episodeCount: number } | undefined,
+  seasonCount: number | null | undefined
+): number | null {
+  if (!stats || stats.episodeFileCount === 0) return null;
+  if (stats.episodeFileCount >= stats.episodeCount) return seasonCount ?? null;
+  return null;
+}
+
 /** Normalize curly quotes/apostrophes to their straight equivalents for matching. */
 function normalizeQuotes(s: string): string {
   return s
@@ -197,15 +210,7 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
       fileSize: series.sizeOnDisk ?? null,
       addedAt: series.added || null,
       seasonCount: series.seasonCount ?? null,
-      availableSeasonCount: (() => {
-        const stats = series.statistics;
-        if (!stats || stats.episodeFileCount === 0) return null;
-        // Only report full season count when all episodes are downloaded;
-        // partial shows get null — Seerr enrichment has per-season status data
-        // for more accurate counts when available.
-        if (stats.episodeFileCount >= stats.episodeCount) return series.seasonCount ?? null;
-        return null;
-      })(),
+      availableSeasonCount: deriveAvailableSeasonCount(series.statistics, series.seasonCount),
       status: (() => {
         const stats = series.statistics;
         if (!stats || stats.episodeFileCount === 0) return "pending" as const;
@@ -257,7 +262,10 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
     }
   }
 
-  // Stale removal: items with sonarrId NOT IN seen AND sonarrId IS NOT NULL
+  // Stale removal: items with sonarrId NOT IN seen AND sonarrId IS NOT NULL.
+  // Note: SQLite's SQLITE_MAX_VARIABLE_NUMBER defaults to 999 (32766 in recent builds).
+  // Typical Sonarr libraries are well under this limit, but very large libraries (1000+
+  // series) may need chunked NOT IN clauses if this becomes an issue.
   if (seenSonarrIds.length > 0) {
     await markStaleItemsRemoved(
       [notInArray(mediaItems.sonarrId, seenSonarrIds), isNotNull(mediaItems.sonarrId)],
@@ -385,7 +393,8 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
     }
   }
 
-  // Stale removal: items with radarrId NOT IN seen AND radarrId IS NOT NULL
+  // Stale removal: items with radarrId NOT IN seen AND radarrId IS NOT NULL.
+  // Same SQLite parameter limit caveat as Sonarr — see comment above.
   if (seenRadarrIds.length > 0) {
     await markStaleItemsRemoved(
       [notInArray(mediaItems.radarrId, seenRadarrIds), isNotNull(mediaItems.radarrId)],
@@ -627,7 +636,8 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
               `#${m.id}(overseerrId=${m.overseerrId},sonarrId=${m.sonarrId},radarrId=${m.radarrId})`
           )
           .join(", ");
-        debug.sync(
+        log.warn(
+          "sync",
           `enrichFromSeerr: failed to enrich "${matches[0]?.title}" ` +
             `tmdbId=${tmdbId} overseerrId=${overseerrId} reqId=${req.id} ` +
             `matches=[${matchSummary}]: ${err instanceof Error ? err.message : err}`
@@ -958,7 +968,7 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
         });
       }
     } catch (err) {
-      debug.sync("Failed to resolve missing rating keys:", err);
+      log.warn("sync", "Failed to resolve missing rating keys:", err);
     }
   }
 
@@ -991,6 +1001,16 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
     throw err;
   }
 
+  // Pre-build lookup maps to avoid N+1 queries inside the item loop.
+  // tautulliUserById: Tautulli user_id → Tautulli user record
+  const tautulliUserById = new Map(tautulliUsers.map((u) => [u.user_id, u]));
+
+  // localUserByName: username → plexId (resolve Tautulli friendly_name to local user)
+  const allLocalUsers = await db
+    .select({ plexId: users.plexId, username: users.username })
+    .from(users);
+  const localUserByName = new Map(allLocalUsers.map((u) => [u.username, u.plexId]));
+
   let processed = 0;
   for (const item of items) {
     if (!item.ratingKey) continue;
@@ -1007,18 +1027,11 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
       for (const record of history) {
         if (!record.user_id) continue;
 
-        const tautulliUser = tautulliUsers.find((u) => u.user_id === record.user_id);
+        const tautulliUser = tautulliUserById.get(record.user_id);
         if (!tautulliUser) continue;
 
-        const localUser = await db
-          .select()
-          .from(users)
-          .where(eq(users.username, tautulliUser.friendly_name || tautulliUser.username))
-          .limit(1);
-
-        if (localUser.length === 0) continue;
-
-        const userPlexId = localUser[0].plexId;
+        const userPlexId = localUserByName.get(tautulliUser.friendly_name || tautulliUser.username);
+        if (!userPlexId) continue;
 
         const existing = byUser.get(userPlexId) || {
           watched: false,
@@ -1539,7 +1552,7 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
       total: itemsMissingSize.length,
     });
   } catch (err) {
-    debug.sync("[file-sizes] Failed to sync file sizes:", err);
+    log.warn("sync", "[file-sizes] Failed to sync file sizes:", err);
     throw err;
   }
 }

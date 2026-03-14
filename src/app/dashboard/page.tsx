@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { computeMediaStats } from "@/lib/db/queries";
+import { computeMediaStats, getActiveRound } from "@/lib/db/queries";
 import { DashboardContent } from "@/components/dashboard/DashboardContent";
 import { AppVersion } from "@/components/ui/AppVersion";
 
@@ -8,9 +8,11 @@ export default async function DashboardPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
+  const activeRound = await getActiveRound();
   const { total, nominated, notNominated, watched } = await computeMediaStats(
     session.plexId,
-    "personal"
+    "personal",
+    activeRound?.id
   );
 
   return (

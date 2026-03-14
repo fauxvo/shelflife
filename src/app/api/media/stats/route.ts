@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
-import { computeMediaStats } from "@/lib/db/queries";
+import { computeMediaStats, getActiveRound } from "@/lib/db/queries";
 import { statsQuerySchema } from "@/lib/validators/schemas";
 
 export async function GET(request: NextRequest) {
@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const query = statsQuerySchema.parse(params);
 
-    const stats = await computeMediaStats(session.plexId, query.scope);
+    const activeRound = await getActiveRound();
+    const stats = await computeMediaStats(session.plexId, query.scope, activeRound?.id);
 
     return NextResponse.json(stats);
   } catch (error) {

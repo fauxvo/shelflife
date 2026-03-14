@@ -31,9 +31,9 @@ export function getCommonSortOrder(sortKey: string): SQL | null {
     case "added_oldest":
       return asc(mediaItems.addedAt);
     case "size_largest":
-      return sql`COALESCE(${mediaItems.fileSize}, 0) DESC`;
+      return sql`${mediaItems.fileSize} DESC NULLS LAST`;
     case "size_smallest":
-      return sql`COALESCE(${mediaItems.fileSize}, 0) ASC`;
+      return sql`${mediaItems.fileSize} ASC NULLS LAST`;
     default:
       return null;
   }

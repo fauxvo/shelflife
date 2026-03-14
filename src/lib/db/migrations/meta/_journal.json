@@ -85,6 +85,20 @@
       "when": 1773627600000,
       "tag": "0011_community_votes_round_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1773714000000,
+      "tag": "0012_user_votes_round_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1773800400000,
+      "tag": "0013_community_votes_cascade_fix",
+      "breakpoints": true
     }
   ]
 }

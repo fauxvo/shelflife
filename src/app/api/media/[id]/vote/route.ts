@@ -3,9 +3,9 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, reviewActions } from "@/lib/db/schema";
+import { mediaItems, userVotes } from "@/lib/db/schema";
 import { getActiveRound } from "@/lib/db/queries";
-import { eq, ne, and, count, notInArray } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { MAX_NOMINATIONS_PER_ROUND } from "@/lib/constants";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -61,20 +61,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // concurrent requests from both passing the count check and exceeding the cap.
     const rateLimitExceeded = db.transaction((tx) => {
       if (!session.isAdmin) {
-        // Subquery: item IDs actioned in prior rounds (not the current active round,
-        // so admin actions during the active round don't free up nomination slots)
-        const actionedItems = tx
-          .select({ mediaItemId: reviewActions.mediaItemId })
-          .from(reviewActions)
-          .where(ne(reviewActions.reviewRoundId, activeRound.id));
-
+        // Count nominations in the current round only (round-scoped via FK)
         const [existing] = tx
           .select({ total: count() })
           .from(userVotes)
           .where(
             and(
               eq(userVotes.userPlexId, session.plexId),
-              notInArray(userVotes.mediaItemId, actionedItems)
+              eq(userVotes.reviewRoundId, activeRound.id)
             )
           )
           .all();
@@ -84,7 +78,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           .select({ id: userVotes.id })
           .from(userVotes)
           .where(
-            and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId))
+            and(
+              eq(userVotes.mediaItemId, mediaItemId),
+              eq(userVotes.userPlexId, session.plexId),
+              eq(userVotes.reviewRoundId, activeRound.id)
+            )
           )
           .limit(1)
           .all();
@@ -98,11 +96,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .values({
           mediaItemId,
           userPlexId: session.plexId,
+          reviewRoundId: activeRound.id,
           vote,
           keepSeasons,
         })
         .onConflictDoUpdate({
-          target: [userVotes.mediaItemId, userVotes.userPlexId],
+          target: [userVotes.mediaItemId, userVotes.userPlexId, userVotes.reviewRoundId],
           set: {
             vote,
             keepSeasons,
@@ -143,9 +142,13 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Any user can un-nominate their own vote at any time — no active round
-    // required (unlike POST, which gates on an active round). This lets users
-    // clean up stale nominations between rounds.
+    // Gate on active review round — votes are round-scoped
+    const activeRound = await getActiveRound();
+
+    if (!activeRound) {
+      return NextResponse.json({ error: "No active review round" }, { status: 400 });
+    }
+
     const item = await db
       .select({ id: mediaItems.id })
       .from(mediaItems)
@@ -158,7 +161,13 @@ export async function DELETE(
 
     const result = await db
       .delete(userVotes)
-      .where(and(eq(userVotes.mediaItemId, mediaItemId), eq(userVotes.userPlexId, session.plexId)))
+      .where(
+        and(
+          eq(userVotes.mediaItemId, mediaItemId),
+          eq(userVotes.userPlexId, session.plexId),
+          eq(userVotes.reviewRoundId, activeRound.id)
+        )
+      )
       .returning({ id: userVotes.id });
 
     return NextResponse.json({ success: true, deleted: result.length > 0 });

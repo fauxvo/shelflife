@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
     const offset = (query.page - 1) * query.limit;
     const activeRoundId = activeRound.id;
 
-    // Base condition: items nominated for deletion/trim (self-nominated or admin-nominated)
-    const baseCondition = getNominationCondition();
+    // Base condition: items nominated for deletion/trim in this round
+    const baseCondition = getNominationCondition(activeRoundId);
 
     // Tally subqueries — scoped to active round
     const keepCountSub = db
@@ -50,9 +50,14 @@ export async function GET(request: NextRequest) {
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
-    // which correctly preserves the more specific vote.
-    const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
+    // Aggregate nomination type: explicit ordinal weights ensure 'trim' (more specific) wins
+    // over 'delete' regardless of alphabetic collation. Matches getCandidatesForRound pattern.
+    const aggregatedVote = sql<string>`
+      CASE MAX(CASE ${userVotes.vote} WHEN 'trim' THEN 2 WHEN 'delete' THEN 1 ELSE 0 END)
+        WHEN 2 THEN 'trim'
+        WHEN 1 THEN 'delete'
+        ELSE 'delete'
+      END`.as("nomination_type");
     const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
       "keep_seasons_agg"
     );
@@ -69,6 +74,8 @@ export async function GET(request: NextRequest) {
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+      // Intentional: admin view shows the requester's watch status (not the admin's),
+      // so admins can see whether the person who requested the content has watched it.
       .leftJoin(
         watchStatus,
         and(
@@ -90,6 +97,8 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
     } else if (query.sort === "least_keep") {
       baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`) as typeof baseQuery;
+    } else if (query.sort === "most_keep") {
+      baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) DESC`) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
         sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`

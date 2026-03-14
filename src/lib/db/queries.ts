@@ -60,14 +60,19 @@ const mediaItemColumns = {
   requestedByUsername: users.username,
 };
 
-export function mediaQueryWithJoins(plexId: string) {
+export function mediaQueryWithJoins(plexId: string, roundId?: number) {
+  const voteConditions = [
+    eq(userVotes.mediaItemId, mediaItems.id),
+    eq(userVotes.userPlexId, plexId),
+  ];
+  if (roundId !== undefined) {
+    voteConditions.push(eq(userVotes.reviewRoundId, roundId));
+  }
+
   return db
     .select(mediaItemColumns)
     .from(mediaItems)
-    .leftJoin(
-      userVotes,
-      and(eq(userVotes.mediaItemId, mediaItems.id), eq(userVotes.userPlexId, plexId))
-    )
+    .leftJoin(userVotes, and(...voteConditions))
     .leftJoin(
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
@@ -75,14 +80,19 @@ export function mediaQueryWithJoins(plexId: string) {
     .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId));
 }
 
-export function mediaCountWithJoins(plexId: string) {
+export function mediaCountWithJoins(plexId: string, roundId?: number) {
+  const voteConditions = [
+    eq(userVotes.mediaItemId, mediaItems.id),
+    eq(userVotes.userPlexId, plexId),
+  ];
+  if (roundId !== undefined) {
+    voteConditions.push(eq(userVotes.reviewRoundId, roundId));
+  }
+
   return db
     .select({ total: count() })
     .from(mediaItems)
-    .leftJoin(
-      userVotes,
-      and(eq(userVotes.mediaItemId, mediaItems.id), eq(userVotes.userPlexId, plexId))
-    )
+    .leftJoin(userVotes, and(...voteConditions))
     .leftJoin(
       watchStatus,
       and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, plexId))
@@ -145,20 +155,29 @@ export function mapMediaItemRow(
  * Shared condition for community nomination queries.
  * An item is nominated if any user voted delete/trim on it.
  * With *arr-sourced content, items may have no requester — any nomination counts.
+ * When roundId is provided, scopes to that round's nominations only.
  */
-export function getNominationCondition(): SQL {
-  // and() with concrete args always returns SQL, never undefined
-  return and(
+export function getNominationCondition(roundId?: number): SQL {
+  const conditions = [
     eq(userVotes.mediaItemId, mediaItems.id),
-    inArray(userVotes.vote, ["delete", "trim"])
-  )!;
+    inArray(userVotes.vote, ["delete", "trim"]),
+  ];
+  if (roundId !== undefined) {
+    conditions.push(eq(userVotes.reviewRoundId, roundId));
+  }
+  // and() with concrete args always returns SQL, never undefined
+  return and(...conditions)!;
 }
 
 /**
  * Shared stats computation used by both the stats API endpoint
  * and the dashboard page server-side rendering.
  */
-export async function computeMediaStats(plexId: string, scope: "personal" | "all") {
+export async function computeMediaStats(
+  plexId: string,
+  scope: "personal" | "all",
+  roundId?: number
+) {
   const scopeCondition: SQL | undefined =
     scope === "personal" ? eq(mediaItems.requestedByPlexId, plexId) : undefined;
 
@@ -167,13 +186,18 @@ export async function computeMediaStats(plexId: string, scope: "personal" | "all
     .from(mediaItems)
     .where(and(ne(mediaItems.status, "removed"), scopeCondition));
 
+  const voteJoinConditions = [
+    eq(userVotes.mediaItemId, mediaItems.id),
+    eq(userVotes.userPlexId, plexId),
+  ];
+  if (roundId !== undefined) {
+    voteJoinConditions.push(eq(userVotes.reviewRoundId, roundId));
+  }
+
   const [nominatedResult] = await db
     .select({ total: count() })
     .from(mediaItems)
-    .innerJoin(
-      userVotes,
-      and(eq(userVotes.mediaItemId, mediaItems.id), eq(userVotes.userPlexId, plexId))
-    )
+    .innerJoin(userVotes, and(...voteJoinConditions))
     .where(
       and(
         ne(mediaItems.status, "removed"),
@@ -255,7 +279,7 @@ export async function getCandidatesForRound(roundId: number) {
     .from(users)
     .as("action_by_user");
 
-  const baseCondition = getNominationCondition();
+  const baseCondition = getNominationCondition(roundId);
 
   // Aggregate nomination type: with open nominations, multiple users may nominate the same
   // item with different types. Explicit ordinal weights ensure 'trim' (more specific) wins

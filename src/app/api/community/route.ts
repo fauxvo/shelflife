@@ -71,17 +71,16 @@ export async function GET(request: NextRequest) {
     }
 
     const offset = (query.page - 1) * query.limit;
+    const activeRoundId = activeRound.id;
 
-    // Base query: items nominated for deletion/trim (self-nominated or admin-nominated)
-    const baseCondition = getNominationCondition();
+    // Base query: items nominated for deletion/trim in this round
+    const baseCondition = getNominationCondition(activeRoundId);
 
     // Keep voter subquery — includes count and comma-separated voter names
     const keepVoterUser = db
       .select({ plexId: users.plexId, username: users.username })
       .from(users)
       .as("keep_voter_user");
-
-    const activeRoundId = activeRound.id;
 
     const keepCountSub = db
       .select({
@@ -112,9 +111,14 @@ export async function GET(request: NextRequest) {
       )
       .as("user_cv");
 
-    // Aggregate nomination type: MAX picks 'trim' over 'delete' (alphabetical in SQLite),
-    // which correctly preserves the more specific vote.
-    const aggregatedVote = sql<string>`MAX(${userVotes.vote})`.as("nomination_type");
+    // Aggregate nomination type: explicit ordinal weights ensure 'trim' (more specific) wins
+    // over 'delete' regardless of alphabetic collation. Matches getCandidatesForRound pattern.
+    const aggregatedVote = sql<string>`
+      CASE MAX(CASE ${userVotes.vote} WHEN 'trim' THEN 2 WHEN 'delete' THEN 1 ELSE 0 END)
+        WHEN 2 THEN 'trim'
+        WHEN 1 THEN 'delete'
+        ELSE 'delete'
+      END`.as("nomination_type");
 
     const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
       "keep_seasons_agg"

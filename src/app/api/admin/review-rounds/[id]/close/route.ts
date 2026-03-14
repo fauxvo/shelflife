@@ -54,14 +54,20 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         `[review-round] Cleared ${deletedVotes.length} community votes on round close ${roundId}`
       );
 
-      // Clean slate: clear ALL nominations for surviving items so the next round
-      // starts fresh. Items marked "remove" keep their nominations for historical
-      // reference (and so their votes don't count against the user's cap in future
-      // rounds). This is intentional — non-actioned items must be re-nominated.
+      // Nominations are round-scoped via FK — delete this round's nominations.
+      // Items marked "remove" keep their nominations for historical reference.
+      // Non-actioned items must be re-nominated in the next round.
       if (removedItemIds.length > 0) {
-        tx.delete(userVotes).where(notInArray(userVotes.mediaItemId, removedItemIds)).run();
+        tx.delete(userVotes)
+          .where(
+            and(
+              eq(userVotes.reviewRoundId, roundId),
+              notInArray(userVotes.mediaItemId, removedItemIds)
+            )
+          )
+          .run();
       } else {
-        tx.delete(userVotes).run();
+        tx.delete(userVotes).where(eq(userVotes.reviewRoundId, roundId)).run();
       }
 
       return false;

@@ -224,13 +224,13 @@ describe("Rate limiting", () => {
     const insertVotes: string[] = [];
     for (let i = 10; i < 110; i++) {
       insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
-      insertVotes.push(`(${i}, '${userSession.plexId}', 'delete')`);
+      insertVotes.push(`(${i}, '${userSession.plexId}', 1, 'delete')`);
     }
     sqlite.exec(
       `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
     );
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES ${insertVotes.join(",")}`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
     );
 
     // 101st nomination should be rejected
@@ -251,13 +251,13 @@ describe("Rate limiting", () => {
     const insertVotes: string[] = [];
     for (let i = 10; i < 110; i++) {
       insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
-      insertVotes.push(`(${i}, '${userSession.plexId}', 'delete')`);
+      insertVotes.push(`(${i}, '${userSession.plexId}', 1, 'delete')`);
     }
     sqlite.exec(
       `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
     );
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES ${insertVotes.join(",")}`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
     );
 
     // Re-voting on item 10 (already nominated) should succeed
@@ -278,13 +278,13 @@ describe("Rate limiting", () => {
     const insertVotes: string[] = [];
     for (let i = 10; i < 110; i++) {
       insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
-      insertVotes.push(`(${i}, '${adminSession.plexId}', 'delete')`);
+      insertVotes.push(`(${i}, '${adminSession.plexId}', 1, 'delete')`);
     }
     sqlite.exec(
       `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
     );
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES ${insertVotes.join(",")}`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
     );
 
     // Admin can exceed the cap

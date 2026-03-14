@@ -59,19 +59,20 @@ export function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
       vote TEXT NOT NULL CHECK(vote IN ('delete', 'trim')),
       keep_seasons INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE UNIQUE INDEX user_votes_media_user_idx ON user_votes(media_item_id, user_plex_id);
+    CREATE UNIQUE INDEX user_votes_media_user_round_idx ON user_votes(media_item_id, user_plex_id, review_round_id);
 
     CREATE TABLE community_votes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
-      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id),
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
       vote TEXT NOT NULL CHECK(vote IN ('keep')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -175,14 +176,6 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
       (7, 106, 1006, 'tv', 'Big Brother', 'available', 'plex-user-1', 'rk-7', '2024-01-07', 8);
   `);
 
-  // Votes
-  sqlite.exec(`
-    INSERT INTO user_votes (media_item_id, user_plex_id, vote, keep_seasons) VALUES
-      (2, 'plex-user-1', 'delete', NULL),
-      (5, 'plex-user-2', 'delete', NULL),
-      (7, 'plex-user-1', 'trim', 1);
-  `);
-
   // Watch status
   sqlite.exec(`
     INSERT INTO watch_status (media_item_id, user_plex_id, watched, play_count, last_watched_at) VALUES
@@ -191,10 +184,18 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
       (5, 'plex-user-2', 1, 2, '2024-06-15T00:00:00Z');
   `);
 
-  // Active review round — community content is gated on this
+  // Active review round — must come before user_votes and community_votes (FK)
   sqlite.exec(`
     INSERT INTO review_rounds (id, name, status, started_at, created_by_plex_id) VALUES
       (1, 'Test Round', 'active', datetime('now'), 'plex-admin');
+  `);
+
+  // Votes — scoped to the active review round (id=1)
+  sqlite.exec(`
+    INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote, keep_seasons) VALUES
+      (2, 'plex-user-1', 1, 'delete', NULL),
+      (5, 'plex-user-2', 1, 'delete', NULL),
+      (7, 'plex-user-1', 1, 'trim', 1);
   `);
 
   // Community votes on items that have been self-nominated for deletion (items 2 and 5)

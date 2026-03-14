@@ -76,6 +76,9 @@ export const userVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id, { onDelete: "cascade" })
+      .notNull(),
     vote: text("vote", { enum: ["delete", "trim"] }).notNull(),
     keepSeasons: integer("keep_seasons"),
     createdAt: text("created_at")
@@ -85,7 +88,13 @@ export const userVotes = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
   },
-  (table) => [uniqueIndex("user_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+  (table) => [
+    uniqueIndex("user_votes_media_user_round_idx").on(
+      table.mediaItemId,
+      table.userPlexId,
+      table.reviewRoundId
+    ),
+  ]
 );
 
 export const communityVotes = sqliteTable(
@@ -99,7 +108,7 @@ export const communityVotes = sqliteTable(
       .references(() => users.plexId)
       .notNull(),
     reviewRoundId: integer("review_round_id")
-      .references(() => reviewRounds.id)
+      .references(() => reviewRounds.id, { onDelete: "cascade" })
       .notNull(),
     vote: text("vote", { enum: ["keep"] }).notNull(),
     createdAt: text("created_at")

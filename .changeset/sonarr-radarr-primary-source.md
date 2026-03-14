@@ -12,3 +12,12 @@ Add Sonarr/Radarr as primary content source with layered sync architecture
 - New sort options: "added_newest", "added_oldest" using \*arr's added date, and "size_largest", "size_smallest" for file size sorting across media and community grids
 - Poster handling updated to support full TVDB URLs from Sonarr alongside TMDB relative paths
 - Deletion service now uses direct sonarrId/radarrId when available, falling back to TMDB/TVDB lookup for legacy items
+
+### ⚠️ Breaking: Database migrations
+
+Migrations 0011–0013 add `review_round_id` to both `user_votes` and `community_votes` for proper round scoping, and add `ON DELETE CASCADE` for automatic cleanup when rounds are deleted.
+
+**All existing nominations and community votes are cleared during migration.** These are ephemeral round-scoped data, so this is expected — but if you have an active review round in progress, you should close it before upgrading.
+
+- **Migrated databases** (`bun run db:migrate`): migrations run automatically and clear vote data
+- **Fresh installs** (`bun run db:push`): schema is created correctly from scratch, no data loss
