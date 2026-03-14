@@ -111,7 +111,7 @@ function adoptLegacyItem(opts: {
   mediaType: "tv" | "movie";
   arrIdColumn: "sonarrId" | "radarrId";
   arrId: number;
-  fields: Record<string, unknown>;
+  fields: Partial<typeof mediaItems.$inferInsert>;
   now: string;
 }): boolean {
   const { tmdbId, mediaType, arrIdColumn, arrId, fields, now } = opts;

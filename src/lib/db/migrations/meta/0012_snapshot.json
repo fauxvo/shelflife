@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "cb28d94d-4abd-4aab-8047-ea463e85cfe3",
-  "prevId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "prevId": "3078a91c-ce52-4a02-82f7-a41c6331a6b4",
   "tables": {
     "app_settings": {
       "name": "app_settings",
@@ -139,7 +139,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

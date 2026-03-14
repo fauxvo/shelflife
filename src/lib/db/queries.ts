@@ -142,7 +142,7 @@ export function mapMediaItemRow(
     ...mapBaseMediaFields(i),
     requestedByUsername: i.requestedByUsername || null,
     vote: i.vote || null,
-    keepSeasons: i.keepSeasons || null,
+    keepSeasons: i.keepSeasons ?? null,
     watchStatus: mapWatchStatus(i),
   };
 }
