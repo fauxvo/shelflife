@@ -83,8 +83,8 @@ export async function executeMediaDeletion(params: {
 
   // Sonarr deletion for TV shows
   // Prefer direct sonarrId (from *arr sync) over tvdbId lookup
-  const sonarrConfig = await getServiceConfig("sonarr");
-  if (mediaItem.mediaType === "tv" && sonarrConfig && (mediaItem.sonarrId || mediaItem.tvdbId)) {
+  const sonarrConfig = mediaItem.mediaType === "tv" ? await getServiceConfig("sonarr") : null;
+  if (sonarrConfig && (mediaItem.sonarrId || mediaItem.tvdbId)) {
     result.sonarr.attempted = true;
     try {
       const client = createSonarrClient(sonarrConfig);
@@ -106,8 +106,8 @@ export async function executeMediaDeletion(params: {
 
   // Radarr deletion for movies
   // Prefer direct radarrId (from *arr sync) over tmdbId lookup
-  const radarrConfig = await getServiceConfig("radarr");
-  if (mediaItem.mediaType === "movie" && radarrConfig && (mediaItem.radarrId || mediaItem.tmdbId)) {
+  const radarrConfig = mediaItem.mediaType === "movie" ? await getServiceConfig("radarr") : null;
+  if (radarrConfig && (mediaItem.radarrId || mediaItem.tmdbId)) {
     result.radarr.attempted = true;
     try {
       const client = createRadarrClient(radarrConfig);
