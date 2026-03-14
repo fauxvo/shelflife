@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.14.0
+
+### Minor Changes
+
+- [#76](https://github.com/fauxvo/shelflife/pull/76) [`52b305e`](https://github.com/fauxvo/shelflife/commit/52b305ebfe33c8bea6e6fb166c26f979c493879b) Thanks [@fauxvo](https://github.com/fauxvo)! - Accurate media status from Sonarr/Radarr sync and code review fixes
+  - Sonarr sync now derives status from episodeFileCount: "pending" (0 episodes), "partial" (some missing), "available" (all present)
+  - Radarr sync now includes all movies (not just downloaded) with status from hasFile
+  - Status badge labels are now capitalized in the UI
+  - Nomination button hidden when no active review round exists (both user and admin views)
+  - Rate limit: non-admin users capped at 100 nominations per review round
+  - Community vote self-nomination check returns proper 403 instead of 404
+  - Extracted shared adoption helper for Sonarr/Radarr legacy item deduplication
+  - Replaced excessive console.log calls with debug.sync (gated by DEBUG env var)
+  - Added debug logging when enrichFromSeerr clears conflicting overseerrId references
+  - Replaced nested ternaries in SyncStatus with Record lookups
+  - Fixed ExternalLinkIcon to require className prop
+  - Improved mapWatchStatus typing (removed Record<string, any>)
+  - Review round close now runs all mutations in a single synchronous transaction
+  - Service settings "Test Connection" button now shows green success message and resets status when fields change
+  - File size sync errors no longer silently swallowed — re-thrown for orchestrator fault tolerance
+
+- [#76](https://github.com/fauxvo/shelflife/pull/76) [`52b305e`](https://github.com/fauxvo/shelflife/commit/52b305ebfe33c8bea6e6fb166c26f979c493879b) Thanks [@fauxvo](https://github.com/fauxvo)! - Add Sonarr/Radarr as primary content source with layered sync architecture
+  - Sonarr and Radarr now serve as the primary library source (Layer 1), with Seerr as optional enrichment (Layer 2) and Tautulli/Tracearr for watch history (Layer 3)
+  - Auto-detection: if \*arr services are configured, they're used as primary; otherwise falls back to legacy Seerr-only mode for backward compatibility
+  - Any authenticated user can now nominate any item (not just their own requests), with admin review rounds as the governance layer
+  - Default scope changed from "personal" to "all" to better support libraries without request tracking
+  - Transparent voting: community vote tallies now show voter usernames
+  - New sort options: "added_newest", "added_oldest" using \*arr's added date, and "size_largest", "size_smallest" for file size sorting across media and community grids
+  - Poster handling updated to support full TVDB URLs from Sonarr alongside TMDB relative paths
+  - Deletion service now uses direct sonarrId/radarrId when available, falling back to TMDB/TVDB lookup for legacy items
+
+  ### ⚠️ Breaking: Database migrations
+
+  Migrations 0011–0013 add `review_round_id` to both `user_votes` and `community_votes` for proper round scoping, and add `ON DELETE CASCADE` for automatic cleanup when rounds are deleted.
+
+  **All existing nominations and community votes are cleared during migration.** These are ephemeral round-scoped data, so this is expected — but if you have an active review round in progress, you should close it before upgrading.
+  - **Migrated databases** (`bun run db:migrate`): migrations run automatically and clear vote data
+  - **Fresh installs** (`bun run db:push`): schema is created correctly from scratch, no data loss
+
+### Patch Changes
+
+- [#74](https://github.com/fauxvo/shelflife/pull/74) [`c3590f4`](https://github.com/fauxvo/shelflife/commit/c3590f4f49e38ffb75e75cd3f6fe510289f8b9da) Thanks [@fauxvo](https://github.com/fauxvo)! - Fix Tracearr sync failing when sessions include unexpected media types like "trailer"
+
 ## 1.13.0
 
 ### Minor Changes
