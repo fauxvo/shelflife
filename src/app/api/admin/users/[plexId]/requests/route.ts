@@ -5,6 +5,7 @@ import {
   mediaCountWithJoins,
   mapMediaItemRow,
   buildPagination,
+  getActiveRound,
 } from "@/lib/db/queries";
 import { adminUserRequestsQuerySchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
@@ -22,6 +23,10 @@ export async function GET(
     const rawParams = Object.fromEntries(request.nextUrl.searchParams);
     const query = adminUserRequestsQuerySchema.parse(rawParams);
     const offset = (query.page - 1) * query.limit;
+
+    // Get active round for vote scoping
+    const activeRound = await getActiveRound();
+    const roundId = activeRound?.id;
 
     // Build conditions - all filtering happens in SQL
     const conditions: SQL[] = [eq(mediaItems.requestedByPlexId, plexId)];
@@ -41,17 +46,24 @@ export async function GET(
 
     const whereClause = and(...conditions)!;
 
-    const items = await mediaQueryWithJoins(plexId)
+    const items = await mediaQueryWithJoins(plexId, roundId)
       .where(whereClause)
       .orderBy(mediaItems.title)
       .limit(query.limit)
       .offset(offset);
 
-    const totalResult = await mediaCountWithJoins(plexId).where(whereClause);
+    const totalResult = await mediaCountWithJoins(plexId, roundId).where(whereClause);
     const total = totalResult[0]?.total || 0;
 
-    // Fetch admin's own votes for these items
+    // Fetch admin's own votes for these items (scoped to active round)
     const itemIds = items.map((i) => i.id);
+    const adminVoteConditions = [
+      eq(userVotes.userPlexId, adminSession.plexId),
+      inArray(userVotes.mediaItemId, itemIds),
+    ];
+    if (roundId !== undefined) {
+      adminVoteConditions.push(eq(userVotes.reviewRoundId, roundId));
+    }
     const adminVotes =
       itemIds.length > 0
         ? await db
@@ -61,12 +73,7 @@ export async function GET(
               keepSeasons: userVotes.keepSeasons,
             })
             .from(userVotes)
-            .where(
-              and(
-                eq(userVotes.userPlexId, adminSession.plexId),
-                inArray(userVotes.mediaItemId, itemIds)
-              )
-            )
+            .where(and(...adminVoteConditions))
         : [];
     const adminVoteMap = Object.fromEntries(adminVotes.map((v) => [v.mediaItemId, v]));
 

@@ -38,6 +38,9 @@ export const mediaItems = sqliteTable("media_items", {
   seasonCount: integer("season_count"),
   availableSeasonCount: integer("available_season_count"),
   fileSize: integer("file_size"),
+  sonarrId: integer("sonarr_id").unique(),
+  radarrId: integer("radarr_id").unique(),
+  addedAt: text("added_at"),
   lastSyncedAt: text("last_synced_at"),
   createdAt: text("created_at")
     .default(sql`(datetime('now'))`)
@@ -73,6 +76,9 @@ export const userVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id, { onDelete: "cascade" })
+      .notNull(),
     vote: text("vote", { enum: ["delete", "trim"] }).notNull(),
     keepSeasons: integer("keep_seasons"),
     createdAt: text("created_at")
@@ -82,7 +88,13 @@ export const userVotes = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
   },
-  (table) => [uniqueIndex("user_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+  (table) => [
+    uniqueIndex("user_votes_media_user_round_idx").on(
+      table.mediaItemId,
+      table.userPlexId,
+      table.reviewRoundId
+    ),
+  ]
 );
 
 export const communityVotes = sqliteTable(
@@ -95,6 +107,9 @@ export const communityVotes = sqliteTable(
     userPlexId: text("user_plex_id")
       .references(() => users.plexId)
       .notNull(),
+    reviewRoundId: integer("review_round_id")
+      .references(() => reviewRounds.id, { onDelete: "cascade" })
+      .notNull(),
     vote: text("vote", { enum: ["keep"] }).notNull(),
     createdAt: text("created_at")
       .default(sql`(datetime('now'))`)
@@ -103,7 +118,13 @@ export const communityVotes = sqliteTable(
       .default(sql`(datetime('now'))`)
       .notNull(),
   },
-  (table) => [uniqueIndex("community_votes_media_user_idx").on(table.mediaItemId, table.userPlexId)]
+  (table) => [
+    uniqueIndex("community_votes_media_user_round_idx").on(
+      table.mediaItemId,
+      table.userPlexId,
+      table.reviewRoundId
+    ),
+  ]
 );
 
 export const reviewRounds = sqliteTable("review_rounds", {
@@ -200,7 +221,7 @@ export const deletionLog = sqliteTable("deletion_log", {
 export const syncLog = sqliteTable("sync_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   syncType: text("sync_type", {
-    enum: ["overseerr", "tautulli", "tracearr", "full"],
+    enum: ["overseerr", "tautulli", "tracearr", "sonarr", "radarr", "seerr", "full"],
   }).notNull(),
   status: text("status", {
     enum: ["running", "completed", "failed"],

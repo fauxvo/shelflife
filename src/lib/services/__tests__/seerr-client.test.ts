@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapMediaStatus, createSeerrClient } from "../seerr";
+import { mapMediaStatus, createSeerrServiceClient } from "../seerr-client";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -8,47 +8,39 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
-describe("mapMediaStatus (seerr)", () => {
+describe("mapMediaStatus", () => {
   it("maps 1 to 'unknown'", () => {
     expect(mapMediaStatus(1)).toBe("unknown");
   });
-
   it("maps 2 to 'pending'", () => {
     expect(mapMediaStatus(2)).toBe("pending");
   });
-
   it("maps 3 to 'processing'", () => {
     expect(mapMediaStatus(3)).toBe("processing");
   });
-
   it("maps 4 to 'partial'", () => {
     expect(mapMediaStatus(4)).toBe("partial");
   });
-
   it("maps 5 to 'available'", () => {
     expect(mapMediaStatus(5)).toBe("available");
   });
-
   it("returns 'unknown' for null", () => {
     expect(mapMediaStatus(null)).toBe("unknown");
   });
-
   it("returns 'unknown' for undefined", () => {
     expect(mapMediaStatus(undefined)).toBe("unknown");
   });
-
   it("returns 'unknown' for 0", () => {
     expect(mapMediaStatus(0)).toBe("unknown");
   });
-
   it("returns 'unknown' for unmapped values", () => {
     expect(mapMediaStatus(99)).toBe("unknown");
   });
 });
 
-describe("SeerrClient", () => {
-  function makeClient() {
-    return createSeerrClient({ url: "http://seerr:5055", apiKey: "test-key" });
+describe("SeerrServiceClient", () => {
+  function makeClient(provider = "overseerr") {
+    return createSeerrServiceClient(provider, { url: "http://seerr:5055", apiKey: "test-key" });
   }
 
   it("getRequests returns parsed page with pagination", async () => {
@@ -139,12 +131,7 @@ describe("SeerrClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
-      json: () =>
-        Promise.resolve({
-          id: 100,
-          title: "Test Movie",
-          posterPath: "/poster.jpg",
-        }),
+      json: () => Promise.resolve({ id: 100, title: "Test Movie", posterPath: "/poster.jpg" }),
     });
 
     const client = makeClient();
@@ -160,11 +147,7 @@ describe("SeerrClient", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       headers: { get: () => "application/json" },
-      json: () =>
-        Promise.resolve({
-          id: 200,
-          name: "Test Show",
-        }),
+      json: () => Promise.resolve({ id: 200, name: "Test Show" }),
     });
 
     const client = makeClient();
@@ -176,15 +159,58 @@ describe("SeerrClient", () => {
     );
   });
 
-  it("throws on non-200 response", async () => {
+  it("getMediaDetails parses numberOfSeasons for TV shows", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: () => Promise.resolve({ id: 300, name: "Big Brother", numberOfSeasons: 25 }),
+    });
+
+    const client = makeClient();
+    const details = await client.getMediaDetails(300, "tv");
+    expect(details.numberOfSeasons).toBe(25);
+  });
+
+  it("getUsers paginates through multiple pages", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: () =>
+        Promise.resolve({
+          pageInfo: { pages: 2, pageSize: 50, results: 75, page: 1 },
+          results: Array.from({ length: 50 }, (_, i) => ({ id: i + 1, username: `user${i + 1}` })),
+        }),
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: () =>
+        Promise.resolve({
+          pageInfo: { pages: 2, pageSize: 50, results: 75, page: 2 },
+          results: Array.from({ length: 25 }, (_, i) => ({
+            id: i + 51,
+            username: `user${i + 51}`,
+          })),
+        }),
+    });
+
+    const client = makeClient();
+    const users = await client.getUsers();
+    expect(users).toHaveLength(75);
+  });
+
+  it.each([
+    ["overseerr", "Overseerr"],
+    ["seerr", "Seerr"],
+    ["jellyseerr", "Jellyseerr"],
+  ])("throws with %s label on non-200 response", async (provider, label) => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
       statusText: "Internal Server Error",
     });
-
-    const client = makeClient();
-    await expect(client.getRequests()).rejects.toThrow("Seerr API error: 500");
+    const client = makeClient(provider);
+    await expect(client.getRequests()).rejects.toThrow(`${label} API error: 500`);
   });
 
   it("throws on Zod validation failure", async () => {
@@ -193,7 +219,6 @@ describe("SeerrClient", () => {
       headers: { get: () => "application/json" },
       json: () => Promise.resolve({ totally: "wrong" }),
     });
-
     const client = makeClient();
     await expect(client.getRequests()).rejects.toThrow();
   });

@@ -1,15 +1,30 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, users } from "@/lib/db/schema";
-import { count, desc, inArray, sql } from "drizzle-orm";
+import { mediaItems, userVotes, users, reviewRounds } from "@/lib/db/schema";
+import { count, desc, eq, and, inArray, sql } from "drizzle-orm";
 
 export default async function AdminPage() {
   const [totalMedia] = await db.select({ total: count() }).from(mediaItems);
   const [totalUsers] = await db.select({ total: count() }).from(users);
-  const [totalNominations] = await db
-    .select({ total: count() })
-    .from(userVotes)
-    .where(inArray(userVotes.vote, ["delete", "trim"]));
+
+  // Scope nomination count to active round
+  const [activeRound] = await db
+    .select({ id: reviewRounds.id })
+    .from(reviewRounds)
+    .where(eq(reviewRounds.status, "active"))
+    .limit(1);
+
+  const [totalNominations] = activeRound
+    ? await db
+        .select({ total: count() })
+        .from(userVotes)
+        .where(
+          and(
+            inArray(userVotes.vote, ["delete", "trim"]),
+            eq(userVotes.reviewRoundId, activeRound.id)
+          )
+        )
+    : [{ total: 0 }];
 
   const userStats = await db
     .select({

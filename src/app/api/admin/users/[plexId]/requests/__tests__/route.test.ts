@@ -173,7 +173,7 @@ describe("GET /api/admin/users/:plexId/requests", () => {
     // Admin votes on item 1 (belongs to plex-user-1)
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (1, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (1, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAdmin.mockResolvedValue(adminSession);

@@ -12,32 +12,14 @@ vi.mock("../service-config", () => ({
   getClientGeneration: () => mockGetClientGeneration(),
 }));
 
-vi.mock("../seerr", () => ({
-  createSeerrClient: (config: { url: string; apiKey: string }) => ({
-    _provider: "seerr",
+vi.mock("../seerr-client", () => ({
+  createSeerrServiceClient: (provider: string, config: { url: string; apiKey: string }) => ({
+    _provider: provider,
     _config: config,
     getAllRequests: vi.fn(),
+    getRequests: vi.fn(),
     getMediaDetails: vi.fn(),
-    deleteMedia: vi.fn(),
-  }),
-}));
-
-vi.mock("../overseerr", () => ({
-  createOverseerrClient: (config: { url: string; apiKey: string }) => ({
-    _provider: "overseerr",
-    _config: config,
-    getAllRequests: vi.fn(),
-    getMediaDetails: vi.fn(),
-    deleteMedia: vi.fn(),
-  }),
-}));
-
-vi.mock("../jellyseerr", () => ({
-  createJellyseerrClient: (config: { url: string; apiKey: string }) => ({
-    _provider: "jellyseerr",
-    _config: config,
-    getAllRequests: vi.fn(),
-    getMediaDetails: vi.fn(),
+    getUsers: vi.fn(),
     deleteMedia: vi.fn(),
   }),
 }));

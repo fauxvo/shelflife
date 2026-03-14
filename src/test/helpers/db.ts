@@ -27,12 +27,15 @@ export function createTestDb() {
       tmdb_id INTEGER,
       tvdb_id INTEGER,
       imdb_id TEXT,
+      sonarr_id INTEGER UNIQUE,
+      radarr_id INTEGER UNIQUE,
       media_type TEXT NOT NULL CHECK(media_type IN ('movie', 'tv')),
       title TEXT NOT NULL,
       poster_path TEXT,
       status TEXT NOT NULL DEFAULT 'unknown' CHECK(status IN ('unknown', 'pending', 'processing', 'partial', 'available', 'removed')),
       requested_by_plex_id TEXT REFERENCES users(plex_id),
       requested_at TEXT,
+      added_at TEXT,
       rating_key TEXT,
       season_count INTEGER,
       available_season_count INTEGER,
@@ -56,24 +59,26 @@ export function createTestDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
       vote TEXT NOT NULL CHECK(vote IN ('delete', 'trim')),
       keep_seasons INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE UNIQUE INDEX user_votes_media_user_idx ON user_votes(media_item_id, user_plex_id);
+    CREATE UNIQUE INDEX user_votes_media_user_round_idx ON user_votes(media_item_id, user_plex_id, review_round_id);
 
     CREATE TABLE community_votes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       media_item_id INTEGER NOT NULL REFERENCES media_items(id),
       user_plex_id TEXT NOT NULL REFERENCES users(plex_id),
+      review_round_id INTEGER NOT NULL REFERENCES review_rounds(id) ON DELETE CASCADE,
       vote TEXT NOT NULL CHECK(vote IN ('keep')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE UNIQUE INDEX community_votes_media_user_idx ON community_votes(media_item_id, user_plex_id);
+    CREATE UNIQUE INDEX community_votes_media_user_round_idx ON community_votes(media_item_id, user_plex_id, review_round_id);
 
     CREATE TABLE review_rounds (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,7 +135,7 @@ export function createTestDb() {
 
     CREATE TABLE sync_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'tracearr', 'full')),
+      sync_type TEXT NOT NULL CHECK(sync_type IN ('overseerr', 'tautulli', 'tracearr', 'sonarr', 'radarr', 'seerr', 'full')),
       status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
       items_synced INTEGER NOT NULL DEFAULT 0,
       errors TEXT,
@@ -143,8 +148,13 @@ export function createTestDb() {
   return { db, sqlite };
 }
 
+/** Access the underlying better-sqlite3 Database handle for raw SQL in tests. */
+export function getRawSqlite(db: ReturnType<typeof createTestDb>["db"]): Database.Database {
+  return (db as any).session.client as Database.Database;
+}
+
 export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
-  const sqlite = (db as any).session.client as Database.Database;
+  const sqlite = getRawSqlite(db);
 
   // Users
   sqlite.exec(`
@@ -166,14 +176,6 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
       (7, 106, 1006, 'tv', 'Big Brother', 'available', 'plex-user-1', 'rk-7', '2024-01-07', 8);
   `);
 
-  // Votes
-  sqlite.exec(`
-    INSERT INTO user_votes (media_item_id, user_plex_id, vote, keep_seasons) VALUES
-      (2, 'plex-user-1', 'delete', NULL),
-      (5, 'plex-user-2', 'delete', NULL),
-      (7, 'plex-user-1', 'trim', 1);
-  `);
-
   // Watch status
   sqlite.exec(`
     INSERT INTO watch_status (media_item_id, user_plex_id, watched, play_count, last_watched_at) VALUES
@@ -182,11 +184,26 @@ export function seedTestData(db: ReturnType<typeof createTestDb>["db"]) {
       (5, 'plex-user-2', 1, 2, '2024-06-15T00:00:00Z');
   `);
 
-  // Community votes on items that have been self-nominated for deletion (items 2 and 5)
+  // Active review round — must come before user_votes and community_votes (FK)
   sqlite.exec(`
-    INSERT INTO community_votes (media_item_id, user_plex_id, vote) VALUES
-      (2, 'plex-user-2', 'keep'),
-      (2, 'plex-admin', 'keep'),
-      (5, 'plex-user-1', 'keep');
+    INSERT INTO review_rounds (id, name, status, started_at, created_by_plex_id) VALUES
+      (1, 'Test Round', 'active', datetime('now'), 'plex-admin');
+  `);
+
+  // Votes — scoped to the active review round (id=1)
+  sqlite.exec(`
+    INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote, keep_seasons) VALUES
+      (2, 'plex-user-1', 1, 'delete', NULL),
+      (5, 'plex-user-2', 1, 'delete', NULL),
+      (7, 'plex-user-1', 1, 'trim', 1);
+  `);
+
+  // Community votes on items that have been self-nominated for deletion (items 2 and 5)
+  // Scoped to the active review round (id=1)
+  sqlite.exec(`
+    INSERT INTO community_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES
+      (2, 'plex-user-2', 1, 'keep'),
+      (2, 'plex-admin', 1, 'keep'),
+      (5, 'plex-user-1', 1, 'keep');
   `);
 }

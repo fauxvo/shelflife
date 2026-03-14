@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createTestDb, seedTestData } from "@/test/helpers/db";
+import { createTestDb, seedTestData, getRawSqlite } from "@/test/helpers/db";
 import { createRequest } from "@/test/helpers/request";
 import { NextResponse } from "next/server";
 
@@ -118,12 +118,15 @@ describe("POST /api/media/:id/vote", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects vote on another user's item (404)", async () => {
+  it("allows vote on another user's item (any user can nominate)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createVoteRequest("5", "delete");
     const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.vote).toBe("delete");
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -190,12 +193,14 @@ describe("POST /api/media/:id/vote", () => {
     expect(data.keepSeasons).toBe(2);
   });
 
-  it("non-admin still cannot vote on another user's item (404)", async () => {
+  it("non-admin can also vote on another user's item", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createVoteRequest("5", "delete");
     const res = await POST(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
   });
 
   it("rejects 'trim' with keepSeasons >= seasonCount (400)", async () => {
@@ -206,6 +211,89 @@ describe("POST /api/media/:id/vote", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("less than");
+  });
+});
+
+describe("Rate limiting", () => {
+  it("enforces MAX_NOMINATIONS_PER_ROUND cap for non-admins", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const sqlite = getRawSqlite(testDb.db);
+
+    // Insert 100 media items and nominations to fill the cap
+    const insertItems: string[] = [];
+    const insertVotes: string[] = [];
+    for (let i = 10; i < 110; i++) {
+      insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
+      insertVotes.push(`(${i}, '${userSession.plexId}', 1, 'delete')`);
+    }
+    sqlite.exec(
+      `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
+    );
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
+    );
+
+    // 101st nomination should be rejected
+    const req = createVoteRequest("1", "delete");
+    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
+
+    expect(res.status).toBe(429);
+    const data = await res.json();
+    expect(data.error).toContain("100");
+  });
+
+  it("allows re-voting on existing nomination (does not count toward cap)", async () => {
+    mockRequireAuth.mockResolvedValue(userSession);
+    const sqlite = getRawSqlite(testDb.db);
+
+    // Fill to cap
+    const insertItems: string[] = [];
+    const insertVotes: string[] = [];
+    for (let i = 10; i < 110; i++) {
+      insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
+      insertVotes.push(`(${i}, '${userSession.plexId}', 1, 'delete')`);
+    }
+    sqlite.exec(
+      `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
+    );
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
+    );
+
+    // Re-voting on item 10 (already nominated) should succeed
+    const req = createVoteRequest("10", "delete");
+    const res = await POST(req, { params: Promise.resolve({ id: "10" }) });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+  });
+
+  it("exempts admins from nomination cap", async () => {
+    mockRequireAuth.mockResolvedValue(adminSession);
+    const sqlite = getRawSqlite(testDb.db);
+
+    // Fill to cap with admin nominations
+    const insertItems: string[] = [];
+    const insertVotes: string[] = [];
+    for (let i = 10; i < 110; i++) {
+      insertItems.push(`(${i}, ${i + 1000}, 'movie', 'Cap Movie ${i}', 'available')`);
+      insertVotes.push(`(${i}, '${adminSession.plexId}', 1, 'delete')`);
+    }
+    sqlite.exec(
+      `INSERT INTO media_items (id, tmdb_id, media_type, title, status) VALUES ${insertItems.join(",")}`
+    );
+    sqlite.exec(
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES ${insertVotes.join(",")}`
+    );
+
+    // Admin can exceed the cap
+    const req = createVoteRequest("1", "delete");
+    const res = await POST(req, { params: Promise.resolve({ id: "1" }) });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
   });
 });
 
@@ -242,12 +330,16 @@ describe("DELETE /api/media/:id/vote", () => {
     expect(res.status).toBe(404);
   });
 
-  it("rejects un-nominate on another user's item (404) for non-admin", async () => {
+  it("allows un-nominate on another user's item (any user can manage their own votes)", async () => {
     mockRequireAuth.mockResolvedValue(userSession);
     const req = createDeleteRequest("5");
     const res = await DELETE(req, { params: Promise.resolve({ id: "5" }) });
+    const data = await res.json();
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    // No vote exists from this user on item 5, so deleted=false
+    expect(data.deleted).toBe(false);
   });
 
   it("allows admin to un-nominate on any item", async () => {

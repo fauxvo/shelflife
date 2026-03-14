@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { users, mediaItems, userVotes, watchStatus } from "@/lib/db/schema";
+import { users, mediaItems, userVotes, watchStatus, reviewRounds } from "@/lib/db/schema";
 import { eq, and, count, countDistinct, inArray, ne } from "drizzle-orm";
 import { AdminUserContent } from "@/components/admin/AdminUserContent";
 
@@ -27,13 +27,26 @@ export default async function AdminUserPage({ params }: { params: Promise<{ plex
     .from(mediaItems)
     .where(and(eq(mediaItems.requestedByPlexId, plexId), ne(mediaItems.status, "removed")));
 
-  const [nominatedResult] = await db
-    .select({ total: countDistinct(userVotes.mediaItemId) })
-    .from(userVotes)
-    .innerJoin(mediaItems, eq(userVotes.mediaItemId, mediaItems.id))
-    .where(
-      and(eq(mediaItems.requestedByPlexId, plexId), inArray(userVotes.vote, ["delete", "trim"]))
-    );
+  // Scope nomination count to active round
+  const [activeRound] = await db
+    .select({ id: reviewRounds.id })
+    .from(reviewRounds)
+    .where(eq(reviewRounds.status, "active"))
+    .limit(1);
+
+  const [nominatedResult] = activeRound
+    ? await db
+        .select({ total: countDistinct(userVotes.mediaItemId) })
+        .from(userVotes)
+        .innerJoin(mediaItems, eq(userVotes.mediaItemId, mediaItems.id))
+        .where(
+          and(
+            eq(mediaItems.requestedByPlexId, plexId),
+            inArray(userVotes.vote, ["delete", "trim"]),
+            eq(userVotes.reviewRoundId, activeRound.id)
+          )
+        )
+    : [{ total: 0 }];
 
   const [watchedResult] = await db
     .select({ total: count() })

@@ -92,7 +92,7 @@ describe("mediaQuerySchema", () => {
   it("applies all defaults for empty input", () => {
     const result = mediaQuerySchema.parse({});
     expect(result).toEqual({
-      scope: "personal",
+      scope: "all",
       type: "all",
       status: "all",
       vote: "all",
@@ -199,7 +199,16 @@ describe("mediaQuerySchema", () => {
   });
 
   it("accepts all valid sort values", () => {
-    for (const sort of ["title_asc", "title_desc", "requested_newest", "requested_oldest"]) {
+    for (const sort of [
+      "title_asc",
+      "title_desc",
+      "requested_newest",
+      "requested_oldest",
+      "added_newest",
+      "added_oldest",
+      "size_largest",
+      "size_smallest",
+    ]) {
       expect(mediaQuerySchema.parse({ sort }).sort).toBe(sort);
     }
   });
@@ -255,7 +264,16 @@ describe("communityQuerySchema", () => {
   });
 
   it("accepts common sort values", () => {
-    for (const sort of ["title_asc", "title_desc", "requested_newest", "requested_oldest"]) {
+    for (const sort of [
+      "title_asc",
+      "title_desc",
+      "requested_newest",
+      "requested_oldest",
+      "added_newest",
+      "added_oldest",
+      "size_largest",
+      "size_smallest",
+    ]) {
       expect(communityQuerySchema.parse({ sort }).sort).toBe(sort);
     }
   });

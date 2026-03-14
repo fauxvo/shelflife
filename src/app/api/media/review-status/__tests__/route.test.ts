@@ -53,6 +53,9 @@ function createActiveRound() {
 beforeEach(() => {
   testDb = createTestDb();
   seedTestData(testDb.db);
+  // Clear seed data — these tests use their own createActiveRound() helper
+  const sqlite = (testDb.db as any).session.client;
+  sqlite.exec("DELETE FROM review_rounds");
   mockRequireAuth.mockReset();
 });
 

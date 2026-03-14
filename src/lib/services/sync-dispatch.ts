@@ -1,7 +1,15 @@
 import { db } from "@/lib/db";
 import { syncLog } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { runFullSync, syncOverseerr, syncTautulli, syncTracearr } from "./sync";
+import {
+  runFullSync,
+  syncOverseerr,
+  syncTautulli,
+  syncTracearr,
+  syncSonarr,
+  syncRadarr,
+  enrichFromSeerr,
+} from "./sync";
 import type { SyncProgress } from "./sync";
 
 // In-process lock — valid because Shelflife runs as a single long-lived Node.js
@@ -18,7 +26,7 @@ export function isSyncInProgress(): boolean {
  * Creates a log entry, runs the sync, updates the log on success/failure.
  */
 async function runWithSyncLog(
-  syncType: "overseerr" | "tautulli" | "tracearr",
+  syncType: "overseerr" | "tautulli" | "tracearr" | "sonarr" | "radarr" | "seerr",
   syncFn: (onProgress?: (progress: SyncProgress) => void) => Promise<number>,
   onProgress?: (progress: SyncProgress) => void
 ): Promise<Record<string, number>> {
@@ -56,6 +64,12 @@ export async function dispatchSync(type: string, onProgress?: (progress: SyncPro
   isSyncing = true;
   try {
     switch (type) {
+      case "sonarr":
+        return await runWithSyncLog("sonarr", syncSonarr, onProgress);
+      case "radarr":
+        return await runWithSyncLog("radarr", syncRadarr, onProgress);
+      case "seerr":
+        return await runWithSyncLog("seerr", enrichFromSeerr, onProgress);
       case "overseerr":
         return await runWithSyncLog("overseerr", syncOverseerr, onProgress);
       case "tautulli":

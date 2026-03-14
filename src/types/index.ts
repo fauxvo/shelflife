@@ -51,7 +51,14 @@ export type MediaStatus =
   | "partial"
   | "available"
   | "removed";
-export type SyncType = "overseerr" | "tautulli" | "full";
+export type SyncType =
+  | "overseerr"
+  | "tautulli"
+  | "tracearr"
+  | "sonarr"
+  | "radarr"
+  | "seerr"
+  | "full";
 export type SyncStatus = "running" | "completed" | "failed";
 
 export interface DeletionResult {
@@ -81,6 +88,7 @@ export interface WatchStatusSummary {
 }
 
 export interface MediaItemWithVote extends MediaItem {
+  requestedByUsername: string | null;
   vote: VoteValue | null;
   keepSeasons: number | null;
   adminVote?: VoteValue | null;
@@ -111,7 +119,7 @@ export interface CommunityCandidate {
   tvdbId: number | null;
   imdbId: string | null;
   overseerrId: number | null;
-  requestedByUsername: string;
+  requestedByUsername: string | null;
   requestedAt: string | null;
   seasonCount: number | null;
   availableSeasonCount: number | null;
@@ -119,7 +127,9 @@ export interface CommunityCandidate {
   nominationType: "delete" | "trim";
   keepSeasons: number | null;
   watchStatus: WatchStatusSummary | null;
-  tally: { keepCount: number };
+  addedAt: string | null;
+  nominatedBy: string[];
+  tally: { keepCount: number; keepVoters: string[] };
   currentUserVote: CommunityVoteValue | null;
   isRequestor: boolean;
   isNominator: boolean;

@@ -13,15 +13,17 @@ export const voteSchema = z
   });
 
 export const statsQuerySchema = z.object({
-  scope: z.enum(["personal", "all"]).default("personal"),
+  scope: z.enum(["personal", "all"]).default("all"),
 });
 
 export const syncRequestSchema = z.object({
-  type: z.enum(["overseerr", "tautulli", "tracearr", "full"]).default("full"),
+  type: z
+    .enum(["overseerr", "tautulli", "tracearr", "sonarr", "radarr", "seerr", "full"])
+    .default("full"),
 });
 
 export const mediaQuerySchema = z.object({
-  scope: z.enum(["personal", "all"]).default("personal"),
+  scope: z.enum(["personal", "all"]).default("all"),
   type: z.enum(["movie", "tv", "all"]).default("all"),
   status: z
     .enum(["available", "pending", "processing", "partial", "unknown", "removed", "all"])
@@ -116,7 +118,9 @@ export const mediaDetailsQuerySchema = z.object({
 export const syncScheduleSchema = z.object({
   enabled: z.boolean(),
   schedule: z.string().min(1),
-  syncType: z.enum(["overseerr", "tautulli", "tracearr", "full"]).default("full"),
+  syncType: z
+    .enum(["overseerr", "tautulli", "tracearr", "sonarr", "radarr", "seerr", "full"])
+    .default("full"),
 });
 
 const serviceConfigValueSchema = z.object({

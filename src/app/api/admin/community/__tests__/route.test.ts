@@ -47,6 +47,20 @@ beforeEach(() => {
 const adminSession = { userId: 3, plexId: "plex-admin", username: "adminuser", isAdmin: true };
 
 describe("GET /api/admin/community", () => {
+  it("returns empty list when no active review round", async () => {
+    const sqlite = (testDb.db as any).session.client;
+    sqlite.exec(`DELETE FROM review_rounds`);
+
+    mockRequireAdmin.mockResolvedValue(adminSession);
+    const req = createRequest("http://localhost:3000/api/admin/community");
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.items).toEqual([]);
+    expect(data.pagination.total).toBe(0);
+  });
+
   it("returns community candidates with tallies", async () => {
     mockRequireAdmin.mockResolvedValue(adminSession);
     const req = createRequest("http://localhost:3000/api/admin/community");
@@ -101,7 +115,7 @@ describe("GET /api/admin/community", () => {
     // Admin also votes delete
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (2, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (2, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAdmin.mockResolvedValue(adminSession);
@@ -117,7 +131,7 @@ describe("GET /api/admin/community", () => {
     // Admin nominates item 6 (belongs to plex-user-1) for deletion
     const sqlite = (testDb.db as any).session.client;
     sqlite.exec(
-      `INSERT INTO user_votes (media_item_id, user_plex_id, vote) VALUES (6, 'plex-admin', 'delete')`
+      `INSERT INTO user_votes (media_item_id, user_plex_id, review_round_id, vote) VALUES (6, 'plex-admin', 1, 'delete')`
     );
 
     mockRequireAdmin.mockResolvedValue(adminSession);

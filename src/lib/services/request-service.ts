@@ -1,6 +1,4 @@
-import { createOverseerrClient } from "./overseerr";
-import { createSeerrClient } from "./seerr";
-import { createJellyseerrClient } from "./jellyseerr";
+import { createSeerrServiceClient } from "./seerr-client";
 import {
   getAllServiceConfigs,
   getServiceConfig,
@@ -121,13 +119,7 @@ export async function getRequestServiceClient(): Promise<RequestClient> {
     throw new Error(`${provider} is the active provider but has no configuration`);
   }
 
-  if (provider === "seerr") {
-    cachedClient = createSeerrClient(config);
-  } else if (provider === "jellyseerr") {
-    cachedClient = createJellyseerrClient(config);
-  } else {
-    cachedClient = createOverseerrClient(config);
-  }
+  cachedClient = createSeerrServiceClient(provider, config);
   cachedGeneration = generation;
   return cachedClient;
 }
@@ -177,6 +169,44 @@ export async function getProviderLabel(): Promise<"Seerr" | "Overseerr" | "Jelly
  */
 export async function getProviderUrl(): Promise<string | undefined> {
   return (await getProviderInfo()).url;
+}
+
+/**
+ * Returns which key service categories are configured (for UI button rendering).
+ * Uses same TTL cache pattern as getProviderInfo().
+ */
+let cachedConfiguredServices: { sonarr: boolean; radarr: boolean; seerr: boolean } | null = null;
+let configuredServicesCachedAt = 0;
+let configuredServicesGeneration = -1;
+
+export async function getConfiguredServices(): Promise<{
+  sonarr: boolean;
+  radarr: boolean;
+  seerr: boolean;
+}> {
+  const generation = getClientGeneration();
+  const now = Date.now();
+  if (
+    cachedConfiguredServices &&
+    configuredServicesGeneration === generation &&
+    now - configuredServicesCachedAt < PROVIDER_INFO_TTL_MS
+  ) {
+    return cachedConfiguredServices;
+  }
+
+  try {
+    const configs = await getAllServiceConfigs();
+    cachedConfiguredServices = {
+      sonarr: configs.sonarr !== null,
+      radarr: configs.radarr !== null,
+      seerr: configs.seerr !== null || configs.overseerr !== null || configs.jellyseerr !== null,
+    };
+  } catch {
+    cachedConfiguredServices = { sonarr: false, radarr: false, seerr: false };
+  }
+  configuredServicesCachedAt = now;
+  configuredServicesGeneration = generation;
+  return cachedConfiguredServices;
 }
 
 export type StatsProvider = "tautulli" | "tracearr";

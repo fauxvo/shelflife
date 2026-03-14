@@ -64,7 +64,7 @@ export function BaseMediaCard({
           <span
             className={`rounded px-2 py-0.5 text-xs ${STATUS_COLORS[status] || STATUS_COLORS.unknown}`}
           >
-            {status}
+            {status.charAt(0).toUpperCase() + status.slice(1)}
           </span>
         </div>
         {watchStatus?.watched && (

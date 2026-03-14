@@ -42,6 +42,7 @@ export function CommunityContent({
         </div>
       </div>
       <CommunityGrid
+        activeRound={!!activeRound}
         onCandidateRemoved={handleCandidateRemoved}
         onCommunityVoteChange={handleCommunityVoteChange}
       />

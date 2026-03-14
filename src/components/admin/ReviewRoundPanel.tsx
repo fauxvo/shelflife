@@ -20,7 +20,7 @@ export interface RoundCandidate {
   mediaType: "movie" | "tv";
   status: MediaStatus;
   posterPath: string | null;
-  requestedByUsername: string;
+  requestedByUsername: string | null;
   nominatedBy: string[];
   seasonCount: number | null;
   availableSeasonCount: number | null;
@@ -303,10 +303,14 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                     <MediaTypeBadge mediaType={c.mediaType} />
                   </div>
                   <p className="text-xs text-gray-400">
-                    <span className="text-gray-500">Requested by</span> {c.requestedByUsername}
+                    {c.requestedByUsername && (
+                      <>
+                        <span className="text-gray-500">Requested by</span> {c.requestedByUsername}
+                      </>
+                    )}
                     {c.nominatedBy.length > 0 && (
                       <>
-                        <span className="mx-1.5 text-gray-600">·</span>
+                        {c.requestedByUsername && <span className="mx-1.5 text-gray-600">·</span>}
                         <span className="text-gray-500">Nominated by</span>{" "}
                         {c.nominatedBy.join(", ")}
                       </>
@@ -392,7 +396,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   posterPath={c.posterPath}
                   seasonCount={c.seasonCount}
                   availableSeasonCount={c.availableSeasonCount}
-                  requestedByUsername={c.requestedByUsername}
+                  requestedByUsername={c.requestedByUsername ?? undefined}
                   nominatedBy={c.nominatedBy}
                   tmdbId={c.tmdbId}
                   tvdbId={c.tvdbId}

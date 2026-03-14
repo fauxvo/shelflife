@@ -1,5 +1,8 @@
 import { COMMON_SORTS, type CommonSort } from "@/lib/db/sorting";
 
+/** Maximum nominations a non-admin user can make per review round. */
+export const MAX_NOMINATIONS_PER_ROUND = 100;
+
 export const STATUS_COLORS: Record<string, string> = {
   available: "bg-green-900/50 text-green-300",
   partial: "bg-yellow-900/50 text-yellow-300",
@@ -27,6 +30,10 @@ export const SORT_LABELS: Record<CommonSort, string> = {
   title_desc: "Title (Z-A)",
   requested_newest: "Date Requested (Newest)",
   requested_oldest: "Date Requested (Oldest)",
+  added_newest: "Date Added (Newest)",
+  added_oldest: "Date Added (Oldest)",
+  size_largest: "File Size (Largest)",
+  size_smallest: "File Size (Smallest)",
 };
 
 export const COMMUNITY_SORTS = [

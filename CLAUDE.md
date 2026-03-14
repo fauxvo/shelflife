@@ -57,7 +57,7 @@ npm test -- --watch      # Run tests in watch mode
 
 ### Sync-Based Data Model
 
-- External APIs (Overseerr, Tautulli) are read-only data sources
+- External APIs (Sonarr, Radarr, Seerr/Overseerr, Tautulli, Tracearr) are read-only data sources
 - Data is synced into local SQLite -- the app works even if external services are down
 - Votes and user data are stored locally, never pushed to external services
 - All sync operations go through `src/lib/services/sync.ts`
@@ -73,11 +73,13 @@ npm test -- --watch      # Run tests in watch mode
 ### Data Access
 
 - The media endpoint supports a `scope` param: `scope=personal` (default) filters to only the current user's requests; `scope=all` shows all users' library items
-- Vote and watch status data is always scoped to the current user via LEFT JOINs — users never see other users' votes
-- Write endpoints (`POST /api/media/[id]/vote`) enforce ownership — non-admins can only vote on their own items
-- Admins can nominate (delete/trim) ANY user's content — this is an intentional privilege for curating the library
-- Admin nominations are shown separately in the UI ("Your nomination:" label) and included in community review alongside self-nominations
-- The shared `getNominationCondition()` helper in `lib/db/queries.ts` encapsulates the nomination visibility rule: self-nominations OR admin nominations
+- Voting is public and transparent — nomination attribution (who nominated), community vote tallies, and voter usernames are visible to all authenticated users in the community view
+- Watch status data is scoped to the current user via LEFT JOINs (users see their own watch history, not others')
+- Any authenticated user can nominate any library item for deletion/trim — ownership is NOT enforced (supports libraries without request tracking, e.g., Sonarr/Radarr-primary mode where `requestedByPlexId` is often null)
+- Non-admin users are rate-limited to `MAX_NOMINATIONS_PER_ROUND` (100) nominations per review round; admins are exempt
+- The rate limit check + vote upsert run inside a single synchronous transaction to prevent concurrent requests from exceeding the cap
+- Admin review rounds are the governance layer — nominations only exist during active rounds, and admins decide final actions
+- The shared `getNominationCondition()` helper in `lib/db/queries.ts` encapsulates the nomination visibility rule: any user's nominations in the active round
 - Vote/watched filtering happens in SQL WHERE clauses, not post-query in JS
 
 ## Code Conventions

@@ -5,17 +5,25 @@ import type { DeletionResult, DeletionServiceStatus } from "@/types";
 import { getServiceConfig } from "./service-config";
 import { createSonarrClient } from "./sonarr";
 import { createRadarrClient } from "./radarr";
-import { getRequestServiceClient } from "./request-service";
+import { getRequestServiceClient, getActiveProvider } from "./request-service";
 
 export async function getDeletionServiceStatus(): Promise<DeletionServiceStatus> {
   const [sonarrConfig, radarrConfig] = await Promise.all([
     getServiceConfig("sonarr"),
     getServiceConfig("radarr"),
   ]);
+  // Check if Seerr is actually configured
+  let seerrConfigured = false;
+  try {
+    await getActiveProvider();
+    seerrConfigured = true;
+  } catch {
+    // No Seerr configured
+  }
   return {
     sonarr: sonarrConfig !== null,
     radarr: radarrConfig !== null,
-    overseerr: true,
+    overseerr: seerrConfigured,
   };
 }
 
@@ -74,14 +82,19 @@ export async function executeMediaDeletion(params: {
   };
 
   // Sonarr deletion for TV shows
-  const sonarrConfig = await getServiceConfig("sonarr");
-  if (mediaItem.mediaType === "tv" && sonarrConfig && mediaItem.tvdbId) {
+  // Prefer direct sonarrId (from *arr sync) over tvdbId lookup
+  const sonarrConfig = mediaItem.mediaType === "tv" ? await getServiceConfig("sonarr") : null;
+  if (sonarrConfig && (mediaItem.sonarrId || mediaItem.tvdbId)) {
     result.sonarr.attempted = true;
     try {
       const client = createSonarrClient(sonarrConfig);
-      const series = await client.lookupByTvdbId(mediaItem.tvdbId);
-      if (series) {
-        await client.deleteSeries(series.id, deleteFiles);
+      if (mediaItem.sonarrId) {
+        await client.deleteSeries(mediaItem.sonarrId, deleteFiles);
+      } else if (mediaItem.tvdbId) {
+        const series = await client.lookupByTvdbId(mediaItem.tvdbId);
+        if (series) {
+          await client.deleteSeries(series.id, deleteFiles);
+        }
       }
       // If lookup returns null, the series is already gone -- treat as success
       result.sonarr.success = true;
@@ -92,14 +105,19 @@ export async function executeMediaDeletion(params: {
   }
 
   // Radarr deletion for movies
-  const radarrConfig = await getServiceConfig("radarr");
-  if (mediaItem.mediaType === "movie" && radarrConfig && mediaItem.tmdbId) {
+  // Prefer direct radarrId (from *arr sync) over tmdbId lookup
+  const radarrConfig = mediaItem.mediaType === "movie" ? await getServiceConfig("radarr") : null;
+  if (radarrConfig && (mediaItem.radarrId || mediaItem.tmdbId)) {
     result.radarr.attempted = true;
     try {
       const client = createRadarrClient(radarrConfig);
-      const movie = await client.lookupByTmdbId(mediaItem.tmdbId);
-      if (movie) {
-        await client.deleteMovie(movie.id, deleteFiles);
+      if (mediaItem.radarrId) {
+        await client.deleteMovie(mediaItem.radarrId, deleteFiles);
+      } else if (mediaItem.tmdbId) {
+        const movie = await client.lookupByTmdbId(mediaItem.tmdbId);
+        if (movie) {
+          await client.deleteMovie(movie.id, deleteFiles);
+        }
       }
       // If lookup returns null, the movie is already gone -- treat as success
       result.radarr.success = true;

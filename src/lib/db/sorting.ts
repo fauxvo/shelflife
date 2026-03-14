@@ -1,4 +1,4 @@
-import { asc, desc, type SQL } from "drizzle-orm";
+import { asc, desc, sql, type SQL } from "drizzle-orm";
 import { mediaItems } from "./schema";
 
 export const COMMON_SORTS = [
@@ -6,6 +6,10 @@ export const COMMON_SORTS = [
   "title_desc",
   "requested_newest",
   "requested_oldest",
+  "added_newest",
+  "added_oldest",
+  "size_largest",
+  "size_smallest",
 ] as const;
 export type CommonSort = (typeof COMMON_SORTS)[number];
 
@@ -22,6 +26,14 @@ export function getCommonSortOrder(sortKey: string): SQL | null {
       return desc(mediaItems.requestedAt);
     case "requested_oldest":
       return asc(mediaItems.requestedAt);
+    case "added_newest":
+      return desc(mediaItems.addedAt);
+    case "added_oldest":
+      return asc(mediaItems.addedAt);
+    case "size_largest":
+      return sql`${mediaItems.fileSize} DESC NULLS LAST`;
+    case "size_smallest":
+      return sql`${mediaItems.fileSize} ASC NULLS LAST`;
     default:
       return null;
   }

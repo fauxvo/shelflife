@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, handleAuthError } from "@/lib/auth/middleware";
 import { communityQuerySchema } from "@/lib/validators/schemas";
-import { buildPagination, getNominationCondition } from "@/lib/db/queries";
+import {
+  buildPagination,
+  getNominationCondition,
+  getActiveRound,
+  baseMediaColumns,
+  watchStatusColumns,
+  mapBaseMediaFields,
+  mapWatchStatus,
+} from "@/lib/db/queries";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, watchStatus, users } from "@/lib/db/schema";
 import { eq, and, count, sql, desc, inArray } from "drizzle-orm";
@@ -15,57 +23,72 @@ export async function GET(request: NextRequest) {
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const query = communityQuerySchema.parse(params);
 
+    // Gate on active review round — no community content outside of rounds
+    const activeRound = await getActiveRound();
+
+    if (!activeRound) {
+      return NextResponse.json({
+        items: [],
+        pagination: buildPagination(query.page, query.limit, 0),
+      });
+    }
+
     const offset = (query.page - 1) * query.limit;
+    const activeRoundId = activeRound.id;
 
-    // Base condition: items nominated for deletion/trim (self-nominated or admin-nominated)
-    const baseCondition = getNominationCondition();
+    // Base condition: items nominated for deletion/trim in this round
+    const baseCondition = getNominationCondition(activeRoundId);
 
-    // Tally subqueries — separate counts avoid raw SQL SUM(CASE WHEN)
+    // Tally subqueries — scoped to active round
     const keepCountSub = db
       .select({
         mediaItemId: communityVotes.mediaItemId,
         cnt: count().as("keep_count"),
       })
       .from(communityVotes)
-      .where(eq(communityVotes.vote, "keep"))
+      .where(and(eq(communityVotes.vote, "keep"), eq(communityVotes.reviewRoundId, activeRoundId)))
       .groupBy(communityVotes.mediaItemId)
       .as("keep_tally");
 
-    // Use aggregates to resolve GROUP BY non-determinism:
-    // Prefer self-nomination over admin nomination for type and keepSeasons
-    const selfPreferredVote = sql<string>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.vote} END),
-      MAX(${userVotes.vote})
-    )`.as("nomination_type");
+    // Aggregate nomination type: explicit ordinal weights ensure 'trim' (more specific) wins
+    // over 'delete' regardless of alphabetic collation. Matches getCandidatesForRound pattern.
+    const aggregatedVote = sql<string>`
+      CASE MAX(CASE ${userVotes.vote} WHEN 'trim' THEN 2 WHEN 'delete' THEN 1 ELSE 0 END)
+        WHEN 2 THEN 'trim'
+        WHEN 1 THEN 'delete'
+        ELSE 'delete'
+      END`.as("nomination_type");
+    // MAX = keep the most seasons (least aggressive trim) when multiple users disagree.
+    const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
+      "keep_seasons_agg"
+    );
 
-    const selfPreferredKeepSeasons = sql<number | null>`COALESCE(
-      MAX(CASE WHEN ${userVotes.userPlexId} = ${mediaItems.requestedByPlexId} THEN ${userVotes.keepSeasons} END),
-      MAX(${userVotes.keepSeasons})
-    )`.as("keep_seasons_agg");
+    // Resolve nominator usernames (who voted delete/trim)
+    const nominatorUser = db
+      .select({ plexId: users.plexId, username: users.username })
+      .from(users)
+      .as("nominator_user");
+
+    const nominatedByUsernames = sql<string>`GROUP_CONCAT(DISTINCT ${nominatorUser.username})`.as(
+      "nominated_by_usernames"
+    );
 
     let baseQuery = db
       .select({
-        id: mediaItems.id,
-        title: mediaItems.title,
-        mediaType: mediaItems.mediaType,
-        posterPath: mediaItems.posterPath,
-        status: mediaItems.status,
-        tmdbId: mediaItems.tmdbId,
-        imdbId: mediaItems.imdbId,
-        requestedAt: mediaItems.requestedAt,
-        requestedByPlexId: mediaItems.requestedByPlexId,
+        ...baseMediaColumns,
+        ...watchStatusColumns,
         requestedByUsername: users.username,
-        seasonCount: mediaItems.seasonCount,
-        nominationType: selfPreferredVote,
-        keepSeasons: selfPreferredKeepSeasons,
-        watched: watchStatus.watched,
-        playCount: watchStatus.playCount,
-        lastWatchedAt: watchStatus.lastWatchedAt,
+        nominationType: aggregatedVote,
+        keepSeasons: aggregatedKeepSeasons,
         keepCount: keepCountSub.cnt,
+        nominatedByUsernames,
       })
       .from(mediaItems)
-      .innerJoin(userVotes, baseCondition!)
+      .innerJoin(userVotes, baseCondition)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+      .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
+      // Intentional: admin view shows the requester's watch status (not the admin's),
+      // so admins can see whether the person who requested the content has watched it.
       .leftJoin(
         watchStatus,
         and(
@@ -87,6 +110,8 @@ export async function GET(request: NextRequest) {
       baseQuery = baseQuery.orderBy(commonSort) as typeof baseQuery;
     } else if (query.sort === "least_keep") {
       baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) ASC`) as typeof baseQuery;
+    } else if (query.sort === "most_keep") {
+      baseQuery = baseQuery.orderBy(sql`COALESCE(${keepCountSub.cnt}, 0) DESC`) as typeof baseQuery;
     } else if (query.sort === "oldest_unwatched") {
       baseQuery = baseQuery.orderBy(
         sql`${watchStatus.lastWatchedAt} ASC NULLS FIRST`
@@ -108,7 +133,7 @@ export async function GET(request: NextRequest) {
     const countQuery = db
       .select({ total: sql<number>`COUNT(DISTINCT ${mediaItems.id})` })
       .from(mediaItems)
-      .innerJoin(userVotes, baseCondition!)
+      .innerJoin(userVotes, baseCondition)
       .where(and(...countWhere));
 
     const totalResult = await countQuery;
@@ -131,7 +156,12 @@ export async function GET(request: NextRequest) {
         })
         .from(communityVotes)
         .leftJoin(users, eq(users.plexId, communityVotes.userPlexId))
-        .where(inArray(communityVotes.mediaItemId, itemIds));
+        .where(
+          and(
+            inArray(communityVotes.mediaItemId, itemIds),
+            eq(communityVotes.reviewRoundId, activeRoundId)
+          )
+        );
 
       for (const v of votes) {
         if (!voterBreakdown[v.mediaItemId]) {
@@ -147,26 +177,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       items: items.map((i) => ({
-        id: i.id,
-        title: i.title,
-        mediaType: i.mediaType,
-        posterPath: i.posterPath,
-        status: i.status,
-        tmdbId: i.tmdbId,
-        imdbId: i.imdbId,
-        requestedByUsername: i.requestedByUsername || "Unknown",
-        requestedAt: i.requestedAt,
-        seasonCount: i.seasonCount || null,
+        ...mapBaseMediaFields(i),
+        requestedByUsername: i.requestedByUsername || null,
+        nominatedBy: i.nominatedByUsernames ? i.nominatedByUsernames.split(",") : [],
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
-        watchStatus:
-          i.watched !== null && i.watched !== undefined
-            ? {
-                watched: !!i.watched,
-                playCount: i.playCount || 0,
-                lastWatchedAt: i.lastWatchedAt,
-              }
-            : null,
+        watchStatus: mapWatchStatus(i),
         tally: {
           keepCount: Number(i.keepCount) || 0,
         },
