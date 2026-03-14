@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         WHEN 1 THEN 'delete'
         ELSE 'delete'
       END`.as("nomination_type");
+    // MAX = keep the most seasons (least aggressive trim) when multiple users disagree.
     const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
       "keep_seasons_agg"
     );

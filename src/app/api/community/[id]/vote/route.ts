@@ -17,7 +17,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Body is optional — the only valid community vote is "keep"
+    // The only valid community vote is "keep" — hardcoded, not derived from body.
+    // Schema parse validates shape only (rejects malformed payloads with 400);
+    // the parsed value is intentionally ignored.
     const vote = "keep" as const;
     try {
       const body = await request.json();

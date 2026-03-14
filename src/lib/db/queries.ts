@@ -289,6 +289,9 @@ export async function getCandidatesForRound(roundId: number) {
       ELSE 'delete'
     END`.as("nomination_type");
 
+  // MAX picks the highest keepSeasons value when multiple users vote "trim" with
+  // different counts — i.e., keep the most seasons (least aggressive trim).
+  // This favors data preservation, consistent with nomination type aggregation.
   const aggregatedKeepSeasons = sql<number | null>`MAX(${userVotes.keepSeasons})`.as(
     "keep_seasons_agg"
   );
