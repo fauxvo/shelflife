@@ -498,7 +498,8 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
       ratingKey: mediaItems.ratingKey,
     })
     .from(mediaItems)
-    .where(ne(mediaItems.status, "removed"));
+    .where(ne(mediaItems.status, "removed"))
+    .orderBy(mediaItems.id);
   const itemsByTmdbKey = new Map<string, (typeof allItems)[number][]>();
   for (const item of allItems) {
     if (item.tmdbId) {

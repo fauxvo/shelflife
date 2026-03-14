@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes } from "@/lib/db/schema";
+import { mediaItems, userVotes, reviewRounds } from "@/lib/db/schema";
 import { getActiveRound } from "@/lib/db/queries";
 import { eq, and, count } from "drizzle-orm";
 import { MAX_NOMINATIONS_PER_ROUND } from "@/lib/constants";
@@ -23,53 +23,65 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { vote } = parsed;
     const keepSeasons = vote === "trim" ? (parsed.keepSeasons ?? null) : null;
 
-    // Gate on active review round
-    const activeRound = await getActiveRound();
+    // All checks + upsert in a single synchronous transaction to prevent TOCTOU
+    // races (e.g., round closed between check and insert, or concurrent requests
+    // both passing the rate limit count check).
+    const result = db.transaction((tx) => {
+      // Gate on active review round — inside transaction to prevent round
+      // being closed between check and vote insert
+      const rounds = tx
+        .select({ id: reviewRounds.id })
+        .from(reviewRounds)
+        .where(eq(reviewRounds.status, "active"))
+        .limit(1)
+        .all();
 
-    if (!activeRound) {
-      return NextResponse.json({ error: "No active review round" }, { status: 400 });
-    }
-
-    // Verify the media item exists — any authenticated user can nominate any item
-    // (admin review round is the governance layer, with a per-user nomination cap)
-    const item = await db.select().from(mediaItems).where(eq(mediaItems.id, mediaItemId)).limit(1);
-
-    if (item.length === 0) {
-      return NextResponse.json({ error: "Media item not found" }, { status: 404 });
-    }
-
-    // Trim-specific validations
-    if (vote === "trim") {
-      if (item[0].mediaType !== "tv") {
-        return NextResponse.json({ error: "Trim is only available for TV shows" }, { status: 400 });
+      if (rounds.length === 0) {
+        return { error: "No active review round", status: 400 } as const;
       }
-      if (!item[0].seasonCount || item[0].seasonCount <= 1) {
-        return NextResponse.json(
-          { error: "Trim requires a show with more than one season" },
-          { status: 400 }
-        );
-      }
-      if (keepSeasons != null && keepSeasons >= item[0].seasonCount) {
-        return NextResponse.json(
-          { error: "keepSeasons must be less than the total season count" },
-          { status: 400 }
-        );
-      }
-    }
+      const roundId = rounds[0].id;
 
-    // Rate limit check + upsert in a single synchronous transaction to prevent
-    // concurrent requests from both passing the count check and exceeding the cap.
-    const rateLimitExceeded = db.transaction((tx) => {
+      // Verify the media item exists — any authenticated user can nominate any item
+      // (admin review round is the governance layer, with a per-user nomination cap)
+      const item = tx
+        .select({
+          id: mediaItems.id,
+          mediaType: mediaItems.mediaType,
+          seasonCount: mediaItems.seasonCount,
+        })
+        .from(mediaItems)
+        .where(eq(mediaItems.id, mediaItemId))
+        .limit(1)
+        .all();
+
+      if (item.length === 0) {
+        return { error: "Media item not found", status: 404 } as const;
+      }
+
+      // Trim-specific validations
+      if (vote === "trim") {
+        if (item[0].mediaType !== "tv") {
+          return { error: "Trim is only available for TV shows", status: 400 } as const;
+        }
+        if (!item[0].seasonCount || item[0].seasonCount <= 1) {
+          return { error: "Trim requires a show with more than one season", status: 400 } as const;
+        }
+        if (keepSeasons != null && keepSeasons >= item[0].seasonCount) {
+          return {
+            error: "keepSeasons must be less than the total season count",
+            status: 400,
+          } as const;
+        }
+      }
+
+      // Rate limit for non-admins
       if (!session.isAdmin) {
         // Count nominations in the current round only (round-scoped via FK)
         const [existing] = tx
           .select({ total: count() })
           .from(userVotes)
           .where(
-            and(
-              eq(userVotes.userPlexId, session.plexId),
-              eq(userVotes.reviewRoundId, activeRound.id)
-            )
+            and(eq(userVotes.userPlexId, session.plexId), eq(userVotes.reviewRoundId, roundId))
           )
           .all();
 
@@ -81,14 +93,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             and(
               eq(userVotes.mediaItemId, mediaItemId),
               eq(userVotes.userPlexId, session.plexId),
-              eq(userVotes.reviewRoundId, activeRound.id)
+              eq(userVotes.reviewRoundId, roundId)
             )
           )
           .limit(1)
           .all();
 
         if (existing.total >= MAX_NOMINATIONS_PER_ROUND && existingVote.length === 0) {
-          return true;
+          return {
+            error: `You can nominate up to ${MAX_NOMINATIONS_PER_ROUND} items per review round`,
+            status: 429,
+          } as const;
         }
       }
 
@@ -96,7 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .values({
           mediaItemId,
           userPlexId: session.plexId,
-          reviewRoundId: activeRound.id,
+          reviewRoundId: roundId,
           vote,
           keepSeasons,
         })
@@ -110,14 +125,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         })
         .run();
 
-      return false;
+      return { success: true } as const;
     });
 
-    if (rateLimitExceeded) {
-      return NextResponse.json(
-        { error: `You can nominate up to ${MAX_NOMINATIONS_PER_ROUND} items per review round` },
-        { status: 429 }
-      );
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     return NextResponse.json({ success: true, vote, keepSeasons });
