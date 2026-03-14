@@ -9,7 +9,7 @@ import { createSonarrClient, extractSonarrPoster } from "./sonarr";
 import { createRadarrClient, extractRadarrPoster } from "./radarr";
 import { upsertUser } from "./user-upsert";
 import { debug, log } from "@/lib/debug";
-import { eq, and, ne, count, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, and, or, ne, count, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 type TautulliClientType = ReturnType<typeof createTautulliClient>;
@@ -939,9 +939,9 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
     .from(mediaItems)
     .where(
       and(
-        sql`${mediaItems.ratingKey} IS NULL`,
+        isNull(mediaItems.ratingKey),
         ne(mediaItems.status, "removed"),
-        sql`(${mediaItems.sonarrId} IS NOT NULL OR ${mediaItems.radarrId} IS NOT NULL)`
+        or(isNotNull(mediaItems.sonarrId), isNotNull(mediaItems.radarrId))
       )
     );
 
@@ -1121,8 +1121,13 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
 
   // Also update file sizes — standalone Tautulli sync should include this
   // (runFullSync calls it as Layer 4, but users triggering "Tautulli Only"
-  // expect file sizes to be updated too).
-  await syncMissingFileSizes(onProgress);
+  // expect file sizes to be updated too). Non-critical: don't discard
+  // the watch history already synced above if file sizes fail.
+  try {
+    await syncMissingFileSizes(onProgress);
+  } catch {
+    // File sizes are non-critical; watch history was already synced successfully
+  }
 
   return synced;
 }

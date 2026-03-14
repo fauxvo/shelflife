@@ -40,8 +40,6 @@ export const baseMediaColumns = {
   seasonCount: mediaItems.seasonCount,
   availableSeasonCount: mediaItems.availableSeasonCount,
   fileSize: mediaItems.fileSize,
-  sonarrId: mediaItems.sonarrId,
-  radarrId: mediaItems.radarrId,
   addedAt: mediaItems.addedAt,
 };
 
@@ -119,8 +117,6 @@ export function mapBaseMediaFields(i: BaseMediaRow & Record<string, unknown>) {
     seasonCount: i.seasonCount ?? null,
     availableSeasonCount: i.availableSeasonCount ?? null,
     fileSize: i.fileSize ?? null,
-    sonarrId: i.sonarrId ?? null,
-    radarrId: i.radarrId ?? null,
     addedAt: i.addedAt ?? null,
   };
 }

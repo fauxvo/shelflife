@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
-import { eq, count, sql } from "drizzle-orm";
+import { eq, and, count, sql } from "drizzle-orm";
 import { getNominationCondition } from "@/lib/db/queries";
 import { CommunityContent } from "@/components/community/CommunityContent";
 import { AppVersion } from "@/components/ui/AppVersion";
@@ -36,7 +36,10 @@ export default async function CommunityPage() {
       .innerJoin(userVotes, getNominationCondition(activeRound.id));
     totalCandidates = candidateResult?.total || 0;
 
-    const [voteResult] = await db.select({ total: count() }).from(communityVotes);
+    const [voteResult] = await db
+      .select({ total: count() })
+      .from(communityVotes)
+      .where(eq(communityVotes.reviewRoundId, activeRound.id));
     totalVotes = voteResult?.total || 0;
   }
 
