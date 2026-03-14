@@ -156,6 +156,8 @@ export async function GET(request: NextRequest) {
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+      // User view shows the viewer's own watch status ("did I watch this?"),
+      // unlike the admin view which shows the requester's watch status.
       .leftJoin(
         watchStatus,
         and(eq(watchStatus.mediaItemId, mediaItems.id), eq(watchStatus.userPlexId, session.plexId))

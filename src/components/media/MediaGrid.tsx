@@ -37,7 +37,7 @@ export function MediaGrid({
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [hasActiveRound, setHasActiveRound] = useState(false);
+  const [hasActiveRound, setHasActiveRound] = useState<boolean | null>(null);
 
   // Check for active review round on mount
   useEffect(() => {
@@ -233,7 +233,7 @@ export function MediaGrid({
               key={item.id}
               item={item}
               onVoteChange={handleVoteChange}
-              showVoteButton={hasActiveRound}
+              showVoteButton={hasActiveRound === true}
             />
           ))}
         </div>

@@ -529,6 +529,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
 
   let enriched = 0;
   let processed = 0;
+  const upsertedUsers = new Set<string>();
 
   for (const req of requests) {
     processed++;
@@ -553,7 +554,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
 
     if (matches.length > 0) {
       // Upsert the requesting user only when the request maps to a local item
-      if (requestedByPlexId && req.requestedBy) {
+      if (requestedByPlexId && req.requestedBy && !upsertedUsers.has(requestedByPlexId)) {
         await upsertUser({
           plexId: requestedByPlexId,
           username:
@@ -564,6 +565,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
           email: req.requestedBy.email || null,
           avatarUrl: req.requestedBy.avatar || null,
         });
+        upsertedUsers.add(requestedByPlexId);
       }
 
       const overseerrId = req.media?.id ?? req.id;
@@ -750,6 +752,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
   });
 
   let synced = 0;
+  const upsertedUsers = new Set<string>();
 
   for (const req of requests) {
     const tmdbId = req.media?.tmdbId;
@@ -790,7 +793,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
     const requestedByPlexId = req.requestedBy?.plexId ? String(req.requestedBy.plexId) : null;
 
     // Upsert the requesting user if we have their info
-    if (requestedByPlexId && req.requestedBy) {
+    if (requestedByPlexId && req.requestedBy && !upsertedUsers.has(requestedByPlexId)) {
       await upsertUser({
         plexId: requestedByPlexId,
         username:
@@ -801,6 +804,7 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
         email: req.requestedBy.email || null,
         avatarUrl: req.requestedBy.avatar || null,
       });
+      upsertedUsers.add(requestedByPlexId);
     }
 
     // Upsert media item
@@ -1613,7 +1617,6 @@ export async function syncMissingFileSizes(onProgress?: ProgressCallback): Promi
     });
   } catch (err) {
     log.warn("sync", "[file-sizes] Failed to sync file sizes:", err);
-    throw err;
   }
 }
 
