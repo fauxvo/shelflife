@@ -311,7 +311,8 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.sonarrId)));
 
     if (existing[0]?.total > 0) {
-      debug.sync(
+      log.warn(
+        "sync",
         `Sonarr returned 0 series but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
@@ -439,7 +440,8 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.radarrId)));
 
     if (existing[0]?.total > 0) {
-      debug.sync(
+      log.warn(
+        "sync",
         `Radarr returned 0 movies but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
@@ -865,7 +867,8 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
       .where(and(ne(mediaItems.status, "removed"), isNotNull(mediaItems.overseerrId)));
 
     if (existing[0]?.total > 0) {
-      debug.sync(
+      log.warn(
+        "sync",
         `Overseerr returned 0 requests but ${existing[0].total} items exist locally. Skipping stale removal.`
       );
     }
