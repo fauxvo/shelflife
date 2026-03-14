@@ -4,7 +4,6 @@ import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { voteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, reviewRounds } from "@/lib/db/schema";
-import { getActiveRound } from "@/lib/db/queries";
 import { eq, and, count } from "drizzle-orm";
 import { MAX_NOMINATIONS_PER_ROUND } from "@/lib/constants";
 
@@ -154,35 +153,49 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Gate on active review round — votes are round-scoped
-    const activeRound = await getActiveRound();
+    const result = db.transaction((tx) => {
+      const rounds = tx
+        .select({ id: reviewRounds.id })
+        .from(reviewRounds)
+        .where(eq(reviewRounds.status, "active"))
+        .limit(1)
+        .all();
 
-    if (!activeRound) {
-      return NextResponse.json({ error: "No active review round" }, { status: 400 });
-    }
+      if (rounds.length === 0) {
+        return { error: "No active review round", status: 400 } as const;
+      }
 
-    const item = await db
-      .select({ id: mediaItems.id })
-      .from(mediaItems)
-      .where(eq(mediaItems.id, mediaItemId))
-      .limit(1);
+      const item = tx
+        .select({ id: mediaItems.id })
+        .from(mediaItems)
+        .where(eq(mediaItems.id, mediaItemId))
+        .limit(1)
+        .all();
 
-    if (item.length === 0) {
-      return NextResponse.json({ error: "Media item not found" }, { status: 404 });
-    }
+      if (item.length === 0) {
+        return { error: "Media item not found", status: 404 } as const;
+      }
 
-    const result = await db
-      .delete(userVotes)
-      .where(
-        and(
-          eq(userVotes.mediaItemId, mediaItemId),
-          eq(userVotes.userPlexId, session.plexId),
-          eq(userVotes.reviewRoundId, activeRound.id)
+      const deleted = tx
+        .delete(userVotes)
+        .where(
+          and(
+            eq(userVotes.mediaItemId, mediaItemId),
+            eq(userVotes.userPlexId, session.plexId),
+            eq(userVotes.reviewRoundId, rounds[0].id)
+          )
         )
-      )
-      .returning({ id: userVotes.id });
+        .returning({ id: userVotes.id })
+        .all();
 
-    return NextResponse.json({ success: true, deleted: result.length > 0 });
+      return { success: true, deleted: deleted.length > 0 } as const;
+    });
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({ success: true, deleted: result.deleted });
   } catch (error) {
     return handleAuthError(error);
   }

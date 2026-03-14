@@ -149,20 +149,15 @@ export function mapMediaItemRow(
 
 /**
  * Shared condition for community nomination queries.
- * An item is nominated if any user voted delete/trim on it.
+ * An item is nominated if any user voted delete/trim on it in a specific round.
  * With *arr-sourced content, items may have no requester — any nomination counts.
- * When roundId is provided, scopes to that round's nominations only.
  */
-export function getNominationCondition(roundId?: number): SQL {
-  const conditions = [
+export function getNominationCondition(roundId: number): SQL {
+  return and(
     eq(userVotes.mediaItemId, mediaItems.id),
     inArray(userVotes.vote, ["delete", "trim"]),
-  ];
-  if (roundId !== undefined) {
-    conditions.push(eq(userVotes.reviewRoundId, roundId));
-  }
-  // and() with concrete args always returns SQL, never undefined
-  return and(...conditions)!;
+    eq(userVotes.reviewRoundId, roundId)
+  )!;
 }
 
 /**

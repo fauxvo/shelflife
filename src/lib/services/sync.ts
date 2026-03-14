@@ -155,6 +155,13 @@ function adoptLegacyItem(opts: {
       try {
         tx.delete(mediaItems).where(eq(mediaItems.id, existingArr[0].id)).run();
       } catch (err) {
+        // DELETE can fail if the duplicate has FK dependents (user_votes, community_votes,
+        // watch_status). Falling back to "removed" is intentional: the legacy item (which
+        // has the user's votes and watch history) keeps the *arr ID, while the orphaned
+        // duplicate becomes invisible to queries. Any votes referencing the removed item
+        // are harmless — they're round-scoped and cascade-deleted when the round closes.
+        // Letting the FK error propagate would roll back the entire adoption, leaving both
+        // items in a broken state until the next sync.
         log.warn(
           "sync",
           `adoptLegacyItem: DELETE failed for id=${existingArr[0].id}, marking removed: ${err instanceof Error ? err.message : err}`
@@ -522,20 +529,6 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     const mediaType = req.type;
     const requestedByPlexId = req.requestedBy?.plexId ? String(req.requestedBy.plexId) : null;
 
-    // Upsert the requesting user if we have their info
-    if (requestedByPlexId && req.requestedBy) {
-      await upsertUser({
-        plexId: requestedByPlexId,
-        username:
-          req.requestedBy.plexUsername ||
-          req.requestedBy.username ||
-          req.requestedBy.email ||
-          "Unknown",
-        email: req.requestedBy.email || null,
-        avatarUrl: req.requestedBy.avatar || null,
-      });
-    }
-
     if (!tmdbId) {
       if (processed % 5 === 0 || processed === total) {
         onProgress?.({
@@ -552,6 +545,20 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
     const matches = itemsByTmdbKey.get(`${tmdbId}:${mediaType}`) ?? [];
 
     if (matches.length > 0) {
+      // Upsert the requesting user only when the request maps to a local item
+      if (requestedByPlexId && req.requestedBy) {
+        await upsertUser({
+          plexId: requestedByPlexId,
+          username:
+            req.requestedBy.plexUsername ||
+            req.requestedBy.username ||
+            req.requestedBy.email ||
+            "Unknown",
+          email: req.requestedBy.email || null,
+          avatarUrl: req.requestedBy.avatar || null,
+        });
+      }
+
       const overseerrId = req.media?.id ?? req.id;
 
       // Free overseerrId from any other item that holds it — tmdbId match is the source of truth.
@@ -1671,8 +1678,12 @@ export async function runFullSync(onProgress?: ProgressCallback): Promise<FullSy
     try {
       const statsCount = await syncWatchHistory(onProgress);
       result[resolvedStatsProvider] = statsCount;
-    } catch {
-      // No stats provider configured — that's fine for full sync
+    } catch (err) {
+      // Only suppress "not configured" — surface real failures (connectivity, auth, DB)
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("No stats provider")) {
+        log.warn("sync", `Watch history sync failed: ${msg}`);
+      }
     }
 
     // Layer 4: Fill in missing file sizes via Tautulli/Plex (if Tautulli is available)

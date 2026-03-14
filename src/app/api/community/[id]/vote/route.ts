@@ -4,7 +4,6 @@ import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
 import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
-import { getActiveRound } from "@/lib/db/queries";
 import { eq, and, inArray } from "drizzle-orm";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -137,22 +136,34 @@ export async function DELETE(
       return NextResponse.json({ error: "Invalid media item ID" }, { status: 400 });
     }
 
-    // Gate on active review round
-    const activeRound = await getActiveRound();
+    const result = db.transaction((tx) => {
+      const rounds = tx
+        .select({ id: reviewRounds.id })
+        .from(reviewRounds)
+        .where(eq(reviewRounds.status, "active"))
+        .limit(1)
+        .all();
 
-    if (!activeRound) {
-      return NextResponse.json({ error: "No active review round" }, { status: 400 });
-    }
+      if (rounds.length === 0) {
+        return { error: "No active review round", status: 400 } as const;
+      }
 
-    await db
-      .delete(communityVotes)
-      .where(
-        and(
-          eq(communityVotes.mediaItemId, mediaItemId),
-          eq(communityVotes.userPlexId, session.plexId),
-          eq(communityVotes.reviewRoundId, activeRound.id)
+      tx.delete(communityVotes)
+        .where(
+          and(
+            eq(communityVotes.mediaItemId, mediaItemId),
+            eq(communityVotes.userPlexId, session.plexId),
+            eq(communityVotes.reviewRoundId, rounds[0].id)
+          )
         )
-      );
+        .run();
+
+      return { success: true } as const;
+    });
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
