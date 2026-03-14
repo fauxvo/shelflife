@@ -130,10 +130,15 @@ function adoptLegacyItem(opts: {
           isNull(mediaItems[arrIdColumn])
         )
       )
-      .limit(1)
       .all();
 
     if (legacyMatch.length === 0) return false;
+    if (legacyMatch.length > 1) {
+      log.warn(
+        "sync",
+        `adoptLegacyItem: ${legacyMatch.length} legacy duplicates for tmdbId=${tmdbId} type=${mediaType} — adopting #${legacyMatch[0].id}, leaving others`
+      );
+    }
 
     const existingArr = tx
       .select({ id: mediaItems.id })
@@ -224,11 +229,11 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
   });
 
   let synced = 0;
-  const seenSonarrIds: number[] = [];
+  const seenSonarrIds = new Set<number>();
   const now = new Date().toISOString();
 
   for (const series of allSeries) {
-    seenSonarrIds.push(series.id);
+    seenSonarrIds.add(series.id);
 
     const posterPath = extractSonarrPoster(series.images);
     const fields = {
@@ -294,10 +299,10 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
   }
 
   // Stale removal: mark items no longer present in Sonarr as removed
-  if (seenSonarrIds.length > 0) {
+  if (seenSonarrIds.size > 0) {
     await markStaleItemsRemoved(
       mediaItems.sonarrId,
-      new Set(seenSonarrIds),
+      seenSonarrIds,
       synced,
       total,
       "sonarr",
@@ -362,11 +367,11 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
   });
 
   let synced = 0;
-  const seenRadarrIds: number[] = [];
+  const seenRadarrIds = new Set<number>();
   const now = new Date().toISOString();
 
   for (const movie of allMovies) {
-    seenRadarrIds.push(movie.id);
+    seenRadarrIds.add(movie.id);
 
     const posterPath = extractRadarrPoster(movie.images);
     const fields = {
@@ -424,10 +429,10 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
   }
 
   // Stale removal: mark items no longer present in Radarr as removed
-  if (seenRadarrIds.length > 0) {
+  if (seenRadarrIds.size > 0) {
     await markStaleItemsRemoved(
       mediaItems.radarrId,
-      new Set(seenRadarrIds),
+      seenRadarrIds,
       synced,
       total,
       "radarr",
@@ -618,7 +623,7 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
 
             // Atomic transaction: clear → merge → delete prevents phantom duplicates
             // if the process crashes mid-sequence.
-            await db.transaction((tx) => {
+            db.transaction((tx) => {
               tx.update(mediaItems)
                 .set({ sonarrId: null, radarrId: null, updatedAt: new Date().toISOString() })
                 .where(eq(mediaItems.id, arrItem.id))

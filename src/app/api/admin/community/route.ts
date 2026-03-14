@@ -63,6 +63,16 @@ export async function GET(request: NextRequest) {
       "keep_seasons_agg"
     );
 
+    // Resolve nominator usernames (who voted delete/trim)
+    const nominatorUser = db
+      .select({ plexId: users.plexId, username: users.username })
+      .from(users)
+      .as("nominator_user");
+
+    const nominatedByUsernames = sql<string>`GROUP_CONCAT(DISTINCT ${nominatorUser.username})`.as(
+      "nominated_by_usernames"
+    );
+
     let baseQuery = db
       .select({
         ...baseMediaColumns,
@@ -71,10 +81,12 @@ export async function GET(request: NextRequest) {
         nominationType: aggregatedVote,
         keepSeasons: aggregatedKeepSeasons,
         keepCount: keepCountSub.cnt,
+        nominatedByUsernames,
       })
       .from(mediaItems)
       .innerJoin(userVotes, baseCondition)
       .leftJoin(users, eq(users.plexId, mediaItems.requestedByPlexId))
+      .leftJoin(nominatorUser, eq(nominatorUser.plexId, userVotes.userPlexId))
       // Intentional: admin view shows the requester's watch status (not the admin's),
       // so admins can see whether the person who requested the content has watched it.
       .leftJoin(
@@ -167,6 +179,7 @@ export async function GET(request: NextRequest) {
       items: items.map((i) => ({
         ...mapBaseMediaFields(i),
         requestedByUsername: i.requestedByUsername || null,
+        nominatedBy: i.nominatedByUsernames ? i.nominatedByUsernames.split(",") : [],
         nominationType: (i.nominationType === "trim" ? "trim" : "delete") as "delete" | "trim",
         keepSeasons: i.keepSeasons ? Number(i.keepSeasons) : null,
         watchStatus: mapWatchStatus(i),

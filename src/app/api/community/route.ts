@@ -151,7 +151,6 @@ export async function GET(request: NextRequest) {
         keepVoterUsernames: keepCountSub.voterUsernames,
         nominatedByUsernames,
         currentUserVote: userCommunityVote.vote,
-        selfVoteUpdatedAt: sql<string>`MAX(${userVotes.updatedAt})`.as("self_vote_updated_at"),
         isNominator,
       })
       .from(mediaItems)

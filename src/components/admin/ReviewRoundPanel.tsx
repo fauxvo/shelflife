@@ -396,7 +396,7 @@ export function ReviewRoundPanel({ round, onClosed, onUpdated }: ReviewRoundPane
                   posterPath={c.posterPath}
                   seasonCount={c.seasonCount}
                   availableSeasonCount={c.availableSeasonCount}
-                  requestedByUsername={c.requestedByUsername}
+                  requestedByUsername={c.requestedByUsername ?? undefined}
                   nominatedBy={c.nominatedBy}
                   tmdbId={c.tmdbId}
                   tvdbId={c.tvdbId}

@@ -17,17 +17,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // The only valid community vote is "keep" — hardcoded, not derived from body.
-    // Schema parse validates shape only (rejects malformed payloads with 400);
-    // the parsed value is intentionally ignored.
     const vote = "keep" as const;
+    let body: unknown;
     try {
-      const body = await request.json();
-      communityVoteSchema.parse(body);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
+      body = await request.json();
+    } catch {
+      // Empty or non-JSON body is fine — vote is hardcoded to "keep"
+      body = null;
+    }
+    if (body !== null) {
+      try {
+        communityVoteSchema.parse(body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
+        }
       }
-      // JSON parse error (empty body) is fine — vote defaults to "keep"
     }
 
     // Wrap all checks + upsert in a synchronous transaction to prevent TOCTOU races
