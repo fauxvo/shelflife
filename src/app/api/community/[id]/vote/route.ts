@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { requireAuth, handleAuthError } from "@/lib/auth/middleware";
 import { communityVoteSchema } from "@/lib/validators/schemas";
 import { db } from "@/lib/db";
-import { mediaItems, userVotes, communityVotes } from "@/lib/db/schema";
+import { mediaItems, userVotes, communityVotes, reviewRounds } from "@/lib/db/schema";
 import { getActiveRound } from "@/lib/db/queries";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -29,16 +29,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // JSON parse error (empty body) is fine — vote defaults to "keep"
     }
 
-    // Gate on active review round
-    const activeRound = await getActiveRound();
-
-    if (!activeRound) {
-      return NextResponse.json({ error: "No active review round" }, { status: 400 });
-    }
-
-    // Wrap checks + upsert in a synchronous transaction to prevent TOCTOU races
-    // (e.g., nomination deleted between check and vote insert)
+    // Wrap all checks + upsert in a synchronous transaction to prevent TOCTOU races
+    // (e.g., round closed between check and insert, or nomination deleted between
+    // check and vote insert)
     const result = db.transaction((tx) => {
+      // Gate on active review round — inside transaction to prevent round
+      // being closed between check and vote insert
+      const rounds = tx
+        .select({ id: reviewRounds.id })
+        .from(reviewRounds)
+        .where(eq(reviewRounds.status, "active"))
+        .limit(1)
+        .all();
+
+      if (rounds.length === 0) {
+        return { error: "No active review round", status: 400 } as const;
+      }
+      const roundId = rounds[0].id;
+
       // Verify the item exists and has at least one nomination in this round
       const item = tx
         .select({
@@ -50,7 +58,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           and(
             eq(userVotes.mediaItemId, mediaItems.id),
             inArray(userVotes.vote, ["delete", "trim"]),
-            eq(userVotes.reviewRoundId, activeRound.id)
+            eq(userVotes.reviewRoundId, roundId)
           )
         )
         .where(eq(mediaItems.id, mediaItemId))
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           and(
             eq(userVotes.mediaItemId, mediaItemId),
             eq(userVotes.userPlexId, session.plexId),
-            eq(userVotes.reviewRoundId, activeRound.id),
+            eq(userVotes.reviewRoundId, roundId),
             inArray(userVotes.vote, ["delete", "trim"])
           )
         )
@@ -85,7 +93,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .values({
           mediaItemId,
           userPlexId: session.plexId,
-          reviewRoundId: activeRound.id,
+          reviewRoundId: roundId,
           vote,
         })
         .onConflictDoUpdate({

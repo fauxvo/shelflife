@@ -629,8 +629,24 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
             });
             enriched++;
           } else {
-            // Both items are the same type or no clear legacy/arr split — enrich the first
+            // Both items are the same type or no clear legacy/arr split — enrich the first.
+            // The non-target duplicate(s) remain in the DB and will re-trigger this branch
+            // on subsequent syncs; log a warning so the operator can investigate.
             const target = legacyItem || matches[0];
+            const others = matches.filter((m) => m.id !== target.id);
+            if (others.length > 0) {
+              log.warn(
+                "sync",
+                `enrichFromSeerr: unresolved duplicate(s) for "${target.title}" tmdbId=${tmdbId} — ` +
+                  `enriching #${target.id}, leaving: ` +
+                  others
+                    .map(
+                      (m) =>
+                        `#${m.id}(overseerrId=${m.overseerrId},sonarrId=${m.sonarrId},radarrId=${m.radarrId})`
+                    )
+                    .join(", ")
+              );
+            }
             await db
               .update(mediaItems)
               .set({
