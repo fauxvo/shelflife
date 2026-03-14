@@ -1664,12 +1664,17 @@ export async function runFullSync(onProgress?: ProgressCallback): Promise<FullSy
         result.radarr = await syncRadarr(onProgress);
       }
 
-      // Layer 2: Seerr enrichment (optional)
+      // Layer 2: Seerr enrichment (optional — skip if not configured,
+      // but let real enrichment errors propagate to the outer catch)
+      let seerrConfigured = false;
       try {
         await getActiveProvider();
-        result.seerr = await enrichFromSeerr(onProgress);
+        seerrConfigured = true;
       } catch {
-        // No Seerr configured — that's fine, it's optional
+        // No Seerr configured — skip enrichment
+      }
+      if (seerrConfigured) {
+        result.seerr = await enrichFromSeerr(onProgress);
       }
     } else {
       // Legacy mode: Seerr as primary content source (backward compatible)

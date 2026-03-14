@@ -32,6 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         if (error instanceof ZodError) {
           return NextResponse.json({ error: "Invalid vote value" }, { status: 400 });
         }
+        throw error;
       }
     }
 
