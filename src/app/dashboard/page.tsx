@@ -48,6 +48,7 @@ export default async function DashboardPage() {
           nominatedCount={nominated}
           notNominatedCount={notNominated}
           watchedCount={watched}
+          hasActiveRound={!!activeRound}
         />
       </main>
     </div>

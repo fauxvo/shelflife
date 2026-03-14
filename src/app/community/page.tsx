@@ -13,7 +13,8 @@ export default async function CommunityPage() {
   const session = await getSession();
   if (!session) redirect("/");
 
-  // Check for active review round
+  // Inline active round query (not using getActiveRound()) because we need
+  // extra fields (name, startedAt, endDate) for the community page header.
   const activeRoundResult = await db
     .select({
       id: reviewRounds.id,

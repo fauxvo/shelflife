@@ -601,7 +601,9 @@ export async function enrichFromSeerr(onProgress?: ProgressCallback): Promise<nu
 
       try {
         if (matches.length > 1) {
-          // Duplicate detected — merge *arr identifiers into the legacy item and remove duplicate
+          // Duplicate detected — merge *arr identifiers into the legacy item and remove duplicate.
+          // If legacyItem is undefined (all matches are arr-sourced, none have overseerrId),
+          // we can't identify a canonical merge target — falls through to "unresolved" branch below.
           const legacyItem = matches.find((m) => m.overseerrId != null);
           const arrItem = matches.find((m) => m.sonarrId != null || m.radarrId != null);
 
@@ -1160,8 +1162,9 @@ export async function syncTautulli(onProgress?: ProgressCallback): Promise<numbe
   // the watch history already synced above if file sizes fail.
   try {
     await syncMissingFileSizes(onProgress);
-  } catch {
-    // File sizes are non-critical; watch history was already synced successfully
+  } catch (err) {
+    // File sizes are non-critical; watch history was already synced successfully.
+    log.warn("sync", `File size sync failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   return synced;
@@ -1700,8 +1703,12 @@ export async function runFullSync(onProgress?: ProgressCallback): Promise<FullSy
     // Layer 4: Fill in missing file sizes via Tautulli/Plex (if Tautulli is available)
     try {
       await syncMissingFileSizes(onProgress);
-    } catch {
-      // Tautulli/Plex unavailable — file sizes are non-critical for full sync
+    } catch (err) {
+      // Tautulli/Plex unavailable — file sizes are non-critical for full sync.
+      log.warn(
+        "sync",
+        `File size sync failed: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
     const totalSynced = Object.values(result).reduce((sum, n) => sum + (n || 0), 0);

@@ -11,6 +11,7 @@ interface DashboardContentProps {
   nominatedCount: number;
   notNominatedCount: number;
   watchedCount: number;
+  hasActiveRound: boolean;
 }
 
 export function DashboardContent({
@@ -18,6 +19,7 @@ export function DashboardContent({
   nominatedCount: initialNominated,
   notNominatedCount: initialNotNominated,
   watchedCount: initialWatched,
+  hasActiveRound,
 }: DashboardContentProps) {
   const [statsFilter, setStatsFilter] = useState<string | null>(null);
   const [scope, setScope] = useState("personal");
@@ -106,6 +108,7 @@ export function DashboardContent({
         </h2>
         <MediaGrid
           statsFilter={statsFilter}
+          hasActiveRound={hasActiveRound}
           onVoteChange={handleVoteChange}
           onScopeChange={handleScopeChange}
         />

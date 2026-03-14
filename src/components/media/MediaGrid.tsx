@@ -10,6 +10,7 @@ import type { MediaItemWithVote, VoteValue } from "@/types";
 interface MediaGridProps {
   initialItems?: MediaItemWithVote[];
   statsFilter?: string | null;
+  hasActiveRound?: boolean;
   onVoteChange?: (itemId: number, oldVote: VoteValue | null, newVote: VoteValue | null) => void;
   onScopeChange?: (scope: string) => void;
 }
@@ -17,6 +18,7 @@ interface MediaGridProps {
 export function MediaGrid({
   initialItems,
   statsFilter,
+  hasActiveRound: hasActiveRoundProp,
   onVoteChange,
   onScopeChange,
 }: MediaGridProps) {
@@ -37,15 +39,16 @@ export function MediaGrid({
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [hasActiveRound, setHasActiveRound] = useState<boolean | null>(null);
+  const [hasActiveRound, setHasActiveRound] = useState<boolean | null>(hasActiveRoundProp ?? null);
 
-  // Check for active review round on mount
+  // Check for active review round on mount (skip if server already provided it)
   useEffect(() => {
+    if (hasActiveRoundProp !== undefined) return;
     fetch("/api/media/review-status")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setHasActiveRound(!!data?.activeRound))
       .catch(() => {});
-  }, []);
+  }, [hasActiveRoundProp]);
 
   // Reset page when statsFilter changes
   useEffect(() => {

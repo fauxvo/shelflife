@@ -22,7 +22,7 @@ export interface SonarrSeriesFull {
   sizeOnDisk: number;
   added: string;
   seasonCount: number;
-  statistics: SonarrSeriesStatistics;
+  statistics?: SonarrSeriesStatistics;
   status: string;
 }
 
