@@ -9,7 +9,7 @@ import { createSonarrClient, extractSonarrPoster } from "./sonarr";
 import { createRadarrClient, extractRadarrPoster } from "./radarr";
 import { upsertUser } from "./user-upsert";
 import { debug, log } from "@/lib/debug";
-import { eq, and, ne, count, isNull, isNotNull, notInArray, sql } from "drizzle-orm";
+import { eq, and, ne, count, isNull, isNotNull, inArray, notInArray, sql } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 
 type TautulliClientType = ReturnType<typeof createTautulliClient>;
@@ -44,33 +44,57 @@ export interface SyncProgress {
 
 type ProgressCallback = (progress: SyncProgress) => void;
 
+/** Max IDs per SQL IN clause to stay under SQLite's SQLITE_MAX_VARIABLE_NUMBER (default 999). */
+const SQL_CHUNK_SIZE = 900;
+
+/**
+ * Mark items as "removed" when their *arr/Overseerr ID is no longer present in the
+ * upstream service. Resolves stale IDs in JS (Set lookup) to avoid hitting SQLite's
+ * variable limit on large NOT IN clauses, then updates in batches.
+ */
 async function markStaleItemsRemoved(
-  extraConditions: SQL[],
+  arrIdColumn:
+    | typeof mediaItems.sonarrId
+    | typeof mediaItems.radarrId
+    | typeof mediaItems.overseerrId,
+  seenIds: Set<number>,
   synced: number,
   total: number,
   phase: SyncProgress["phase"],
   onProgress?: ProgressCallback
 ): Promise<number> {
-  const removed = await db
-    .update(mediaItems)
-    .set({
-      status: "removed",
-      updatedAt: new Date().toISOString(),
-    })
-    .where(and(...extraConditions, ne(mediaItems.status, "removed")))
-    .returning({ id: mediaItems.id });
+  // Fetch all non-removed items that have this arr ID set
+  const candidates = await db
+    .select({ id: mediaItems.id, arrId: arrIdColumn })
+    .from(mediaItems)
+    .where(and(isNotNull(arrIdColumn), ne(mediaItems.status, "removed")));
 
-  if (removed.length > 0) {
-    onProgress?.({
-      phase,
-      step: `Marked ${removed.length} stale item(s) as removed`,
-      current: synced,
-      total,
-      detail: `${removed.length} removed`,
-    });
+  // Filter in JS — no SQL variable limit
+  const staleIds = candidates
+    .filter((c) => c.arrId !== null && !seenIds.has(c.arrId))
+    .map((c) => c.id);
+
+  if (staleIds.length === 0) return 0;
+
+  // Update in chunks to stay under SQLite variable limit
+  const now = new Date().toISOString();
+  for (let i = 0; i < staleIds.length; i += SQL_CHUNK_SIZE) {
+    const chunk = staleIds.slice(i, i + SQL_CHUNK_SIZE);
+    await db
+      .update(mediaItems)
+      .set({ status: "removed", updatedAt: now })
+      .where(inArray(mediaItems.id, chunk));
   }
 
-  return removed.length;
+  onProgress?.({
+    phase,
+    step: `Marked ${staleIds.length} stale item(s) as removed`,
+    current: synced,
+    total,
+    detail: `${staleIds.length} removed`,
+  });
+
+  return staleIds.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,13 +286,11 @@ export async function syncSonarr(onProgress?: ProgressCallback): Promise<number>
     }
   }
 
-  // Stale removal: items with sonarrId NOT IN seen AND sonarrId IS NOT NULL.
-  // Note: SQLite's SQLITE_MAX_VARIABLE_NUMBER defaults to 999 (32766 in recent builds).
-  // Typical Sonarr libraries are well under this limit, but very large libraries (1000+
-  // series) may need chunked NOT IN clauses if this becomes an issue.
+  // Stale removal: mark items no longer present in Sonarr as removed
   if (seenSonarrIds.length > 0) {
     await markStaleItemsRemoved(
-      [notInArray(mediaItems.sonarrId, seenSonarrIds), isNotNull(mediaItems.sonarrId)],
+      mediaItems.sonarrId,
+      new Set(seenSonarrIds),
       synced,
       total,
       "sonarr",
@@ -393,11 +415,11 @@ export async function syncRadarr(onProgress?: ProgressCallback): Promise<number>
     }
   }
 
-  // Stale removal: items with radarrId NOT IN seen AND radarrId IS NOT NULL.
-  // Same SQLite parameter limit caveat as Sonarr — see comment above.
+  // Stale removal: mark items no longer present in Radarr as removed
   if (seenRadarrIds.length > 0) {
     await markStaleItemsRemoved(
-      [notInArray(mediaItems.radarrId, seenRadarrIds), isNotNull(mediaItems.radarrId)],
+      mediaItems.radarrId,
+      new Set(seenRadarrIds),
       synced,
       total,
       "radarr",
@@ -805,7 +827,8 @@ export async function syncOverseerr(onProgress?: ProgressCallback): Promise<numb
 
   if (seenOverseerrIds.length > 0) {
     await markStaleItemsRemoved(
-      [notInArray(mediaItems.overseerrId, seenOverseerrIds), isNotNull(mediaItems.overseerrId)],
+      mediaItems.overseerrId,
+      new Set(seenOverseerrIds),
       synced,
       total,
       "overseerr",
